@@ -2,6 +2,9 @@ import { Component, OnInit, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SegmentationLoaderService } from '../../services/segmentation-loader.service';
 import { SkeletonLoaderComponent } from '../skeleton-loader/skeleton-loader.component';
+import { WordChipComponent } from '../word-chip/word-chip.component';
+import { ActionBarComponent } from '../action-bar/action-bar.component';
+import { Word } from '../../models';
 import { environment } from '../../../environments/environment.development';
 
 /**
@@ -20,7 +23,7 @@ import { environment } from '../../../environments/environment.development';
 @Component({
   selector: 'app-main-editor-container',
   standalone: true,
-  imports: [CommonModule, SkeletonLoaderComponent],
+  imports: [CommonModule, SkeletonLoaderComponent, WordChipComponent, ActionBarComponent],
   templateUrl: './main-editor-container.component.html',
   styleUrl: './main-editor-container.component.scss'
 })
@@ -52,7 +55,7 @@ export class MainEditorContainerComponent implements OnInit {
           wordCount: this.words().length
         });
       },
-      error: (err) => {
+      error: (err: Error) => {
         console.error('Failed to load segmentation', err);
       }
     });
@@ -64,5 +67,14 @@ export class MainEditorContainerComponent implements OnInit {
   retryLoad(): void {
     this.segmentationService.reset();
     this.loadSegmentation();
+  }
+
+  /**
+   * Handle word click event
+   * Word selection logic will be implemented in Feature 3
+   */
+  onWordClick(word: Word): void {
+    console.info('Word clicked:', word.word, 'at index', word.index);
+    // TODO: Implement word selection logic in Feature 3
   }
 }

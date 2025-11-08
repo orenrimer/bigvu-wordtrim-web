@@ -2,6 +2,7 @@
     max-width: 1400px;
     margin: 0 auto;
     padding: 2rem;
+    padding-bottom: 120px; // Space for fixed action bar at bottom
 
     .editor-header {
         margin-bottom: 2rem;
@@ -82,47 +83,8 @@
         .words-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.5rem;
+            gap: var(--word-chip-gap);
             line-height: 2.5rem;
-
-            .word-chip {
-                display: inline-flex;
-                align-items: center;
-                padding: 0.25rem 0.75rem;
-                background: #f5f5f5;
-                border: 1px solid #e0e0e0;
-                border-radius: 4px;
-                font-size: 1rem;
-                cursor: pointer;
-                transition: all 0.2s;
-                user-select: none;
-
-                &:hover {
-                    background: #e3f2fd;
-                    border-color: #90caf9;
-                }
-
-                // Word states (will be used in future features)
-                &[data-state="normal"] {
-                    background: #f5f5f5;
-                    border-color: #e0e0e0;
-                }
-
-                &[data-state="deleted"] {
-                    background: #ffebee;
-                    border-color: #ef9a9a;
-                    opacity: 0.6;
-                    text-decoration: line-through;
-                }
-
-                &[data-state="selected-start"],
-                &[data-state="selected-end"],
-                &[data-state="selected-range"] {
-                    background: #e3f2fd;
-                    border-color: #1976d2;
-                    font-weight: 500;
-                }
-            }
         }
     }
 }

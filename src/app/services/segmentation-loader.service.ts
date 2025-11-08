@@ -50,7 +50,7 @@ export class SegmentationLoaderService {
             }),
 
             // Transform and update state on success
-            tap(segments => {
+            tap((segments: Segment[]) => {
                 const flattenedWords = this.flattenSegments(segments);
                 this._words.set(flattenedWords);
                 this._loadingState.set('success');

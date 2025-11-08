@@ -1,0 +1,10 @@
+<div class="word-chip" [attr.data-state]="word.state" [attr.data-index]="word.index"
+    [attr.aria-label]="'Word: ' + word.word + (showTiming ? ', Time: ' + formattedTiming : '')" [attr.role]="'button'"
+    [attr.tabindex]="0" (click)="onClick()" (keydown.enter)="onClick()" (keydown.space)="onClick()">
+
+    <span class="word-text">{{ word.word }}</span>
+
+    <span *ngIf="showTiming" class="word-timing">
+        {{ formattedTiming }}
+    </span>
+</div>

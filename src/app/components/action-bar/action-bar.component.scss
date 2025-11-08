@@ -1,0 +1,125 @@
+/**
+ * Action Bar Styles
+ * Based on DESIGN_GUIDE.md specifications
+ * Uses CSS variables from styles.scss
+ */
+
+.action-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    background-color: var(--color-bg-primary);
+    border-top: 1px solid var(--color-gray-100);
+    border-left: 1px solid var(--color-gray-100);
+    padding: var(--spacing-4) 0 var(--spacing-4) var(--spacing-4);
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+    z-index: var(--z-action-bar);
+}
+
+.action-bar-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    flex-wrap: wrap;
+}
+
+/**
+ * Placeholder text (temporary - will be removed in Feature 6)
+ */
+.action-bar-placeholder {
+    padding: var(--spacing-2) var(--spacing-4);
+
+    p {
+        margin: 0;
+        font-size: var(--font-size-14);
+        color: var(--color-text-secondary);
+        font-style: italic;
+    }
+}
+
+/**
+ * Action bar items styling (for future buttons in Feature 6)
+ * Based on DESIGN_GUIDE.md: Action Bar Item specifications
+ */
+::ng-deep .action-bar-item {
+    width: var(--action-bar-item-size);
+    height: var(--action-bar-item-size);
+    border-radius: var(--radius-xl);
+    padding: var(--action-bar-item-padding);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-gray-100);
+    cursor: pointer;
+    transition: all var(--transition-hover);
+    user-select: none;
+
+    // Active state (opacity 100%)
+    &.active {
+        opacity: var(--opacity-active);
+    }
+
+    // Disabled state (opacity 30%)
+    &.disabled,
+    &:disabled {
+        opacity: var(--opacity-disabled);
+        cursor: not-allowed;
+    }
+
+    // Hover effect (only for active items)
+    &.active:hover:not(.disabled):not(:disabled) {
+        background-color: var(--color-gray-100);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-sm);
+    }
+
+    // Active press effect
+    &:active:not(.disabled):not(:disabled) {
+        transform: translateY(0) scale(0.98);
+    }
+
+    // Icon styling
+    .action-icon {
+        font-size: 24px;
+        line-height: 1;
+    }
+
+    // Label styling
+    .action-label {
+        font-size: var(--font-size-10);
+        font-weight: var(--font-weight-medium);
+        color: var(--color-text-primary);
+        text-align: center;
+        line-height: 1.2;
+    }
+}
+
+/**
+ * Responsive behavior
+ * Mobile: Adjust padding and layout
+ */
+@media (max-width: 768px) {
+    .action-bar {
+        padding: var(--spacing-3) var(--spacing-2);
+    }
+
+    .action-bar-content {
+        justify-content: center;
+    }
+}
+
+/**
+ * RTL Support
+ */
+[dir="rtl"] .action-bar {
+    border-left: none;
+    border-right: 1px solid var(--color-gray-100);
+    padding: var(--spacing-4) var(--spacing-4) var(--spacing-4) 0;
+}
