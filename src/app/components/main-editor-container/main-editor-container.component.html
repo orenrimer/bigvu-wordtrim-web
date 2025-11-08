@@ -1,4 +1,33 @@
 <div class="wordtrim-editor">
-    <h1>Wordtrim Editor</h1>
-    <p>Main editor container initialized. Features will be implemented in upcoming tasks.</p>
+    <header class="editor-header">
+        <h1>Wordtrim Editor</h1>
+        <p class="subtitle">Word-based video editing interface</p>
+    </header>
+
+    <!-- Loading State -->
+    <div *ngIf="isLoading()" class="loading-section">
+        <app-skeleton-loader [wordCount]="50"></app-skeleton-loader>
+    </div>
+
+    <!-- Error State -->
+    <div *ngIf="hasError()" class="error-section">
+        <div class="error-card">
+            <h2>⚠️ Failed to Load Segmentation</h2>
+            <p class="error-message">{{ error() }}</p>
+            <button class="retry-button" (click)="retryLoad()">Retry</button>
+        </div>
+    </div>
+
+    <!-- Success State - Display Words -->
+    <div *ngIf="hasWords() && !isLoading()" class="words-section">
+        <div class="words-info">
+            <p>Loaded <strong>{{ words().length }}</strong> words</p>
+        </div>
+
+        <div class="words-container">
+            <span *ngFor="let word of words()" class="word-chip" [attr.data-state]="word.state">
+                {{ word.word }}
+            </span>
+        </div>
+    </div>
 </div>
