@@ -16,7 +16,7 @@
   cursor: pointer;
   user-select: none;
   transition: all var(--transition-hover);
-  border: 2px solid transparent;
+  border: none;
 
   // Ensure proper focus outline for accessibility
   &:focus-visible {
@@ -44,7 +44,8 @@
     color: var(--color-text-primary);
 
     &:hover {
-      background-color: #e8e9ed; // Slightly darker on hover
+      background-color: var(--color-gray-100);
+      filter: brightness(0.97);
     }
   }
 
@@ -55,11 +56,10 @@
   &[data-state="selected-start"] {
     background-color: var(--color-primary);
     color: var(--color-text-white);
-    font-weight: var(--font-weight-semibold);
-    border-left: 3px solid #2563eb; // Darker blue indicator
 
     &:hover {
-      background-color: #3670e8;
+      background-color: var(--color-primary);
+      filter: brightness(0.95);
     }
   }
 
@@ -70,11 +70,10 @@
   &[data-state="selected-end"] {
     background-color: var(--color-primary);
     color: var(--color-text-white);
-    font-weight: var(--font-weight-semibold);
-    border-right: 3px solid #2563eb; // Darker blue indicator
 
     &:hover {
-      background-color: #3670e8;
+      background-color: var(--color-primary);
+      filter: brightness(0.95);
     }
   }
 
@@ -85,10 +84,10 @@
   &[data-state="selected-range"] {
     background-color: var(--color-secondary);
     color: var(--color-primary);
-    font-weight: var(--font-weight-medium);
 
     &:hover {
-      background-color: #b8d3ff;
+      background-color: var(--color-secondary);
+      filter: brightness(0.97);
     }
   }
 
@@ -97,10 +96,9 @@
    * Word marked for removal
    */
   &[data-state="deleted"] {
-    background-color: transparent;
-    color: var(--color-danger);
+    background-color: var(--color-gray-100);
+    color: var(--color-text-secondary);
     text-decoration: line-through;
-    opacity: 0.6;
     cursor: default;
 
     &:hover {
@@ -153,4 +151,3 @@
     }
   }
 }
-

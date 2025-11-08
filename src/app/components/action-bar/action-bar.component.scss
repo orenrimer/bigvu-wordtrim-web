@@ -11,11 +11,11 @@
     right: 0;
     width: 100%;
     background-color: var(--color-bg-primary);
-    border-top: 1px solid var(--color-gray-100);
-    border-left: 1px solid var(--color-gray-100);
+    border-top: 1px solid var(--color-border-primary);
+    border-left: 1px solid var(--color-border-primary);
     padding: var(--spacing-4) 0 var(--spacing-4) var(--spacing-4);
-    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
     z-index: var(--z-action-bar);
+    gap: var(--spacing-3);
 }
 
 .action-bar-content {

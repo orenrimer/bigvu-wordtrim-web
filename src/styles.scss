@@ -22,8 +22,12 @@
     --color-text-secondary: #8d96a9;
     --color-text-white: #ffffff;
 
+
+    /* Borders */
+    --color-border-primary: #eeeff2;
+
     /* ===== Typography ===== */
-    --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-family: 'Inter';
 
     /* Font Sizes */
     --font-size-10: 10px;
@@ -74,16 +78,25 @@
     --modal-width: 480px;
     --card-padding: 16px;
 
+    /* Editor Content */
+    --editor-content-gap: 17px;
+    --editor-content-padding-x: 60px;
+    --editor-content-padding-y: 40px;
+
     /* Word Chip */
     --word-chip-padding-x: 5px;
     --word-chip-padding-y: 3px;
     --word-chip-gap: 5px;
 
+    /* Timestamp container */
+    --timestamp-container-padding-x: 10px;
+    --timestamp-container-padding-y: 10px;
+    --timestamp-container-width: 56px;
+
     /* Timestamp */
     --timestamp-padding-x: 4px;
     --timestamp-padding-y: 1px;
-    --timestamp-width: 56px;
-    --timestamp-height: 19px;
+    --timestamp-gap: 1px;
 
     /* Timeline Handle */
     --timeline-handle-width: 8px;

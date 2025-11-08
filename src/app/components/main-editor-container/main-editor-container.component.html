@@ -15,9 +15,34 @@
 
     <!-- Success State - Display Words -->
     <div *ngIf="hasWords() && !isLoading()" class="words-section">
-        <div class="words-container">
-            <app-word-chip *ngFor="let word of words()" [word]="word" (wordClicked)="onWordClick($event)">
-            </app-word-chip>
+        <!-- Selection Info Panel (for testing/debugging) -->
+        <div class="selection-info" *ngIf="hasSelection()">
+            <div class="selection-info-content">
+                <strong>Selection:</strong>
+                <span *ngIf="!hasCompleteSelection()">
+                    Start: "{{ selectionStart()?.word }}"
+                </span>
+                <span *ngIf="hasCompleteSelection()">
+                    "{{ selectionStart()?.word }}" → "{{ selectionEnd()?.word }}"
+                    ({{ selectedWords().length }} words)
+                </span>
+                <button class="clear-btn" (click)="clearSelection()">Clear</button>
+            </div>
+        </div>
+
+        <div class="editor-content">
+            <div class="timestamps-container">
+                <span class="timestamp">00:00 s</span>
+                <span class="timestamp">00:10 s</span>
+                <span class="timestamp">00:15 s</span>
+                <span class="timestamp">00:20 s</span>
+                <span class="timestamp">00:25 s</span>
+                <span class="timestamp">00:30 s</span>
+            </div>
+            <div class="words-container">
+                <app-word-chip *ngFor="let word of words()" [word]="word" (wordClicked)="onWordClick($event)">
+                </app-word-chip>
+            </div>
         </div>
     </div>
 
