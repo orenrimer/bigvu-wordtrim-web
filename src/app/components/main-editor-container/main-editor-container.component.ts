@@ -1,4 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, computed } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { SegmentationLoaderService } from '../../services/segmentation-loader.service';
+import { SkeletonLoaderComponent } from '../skeleton-loader/skeleton-loader.component';
+import { environment } from '../../../environments/environment.development';
 
 /**
  * Main Editor Container Component
@@ -16,10 +20,49 @@ import { Component } from '@angular/core';
 @Component({
   selector: 'app-main-editor-container',
   standalone: true,
-  imports: [],
+  imports: [CommonModule, SkeletonLoaderComponent],
   templateUrl: './main-editor-container.component.html',
   styleUrl: './main-editor-container.component.scss'
 })
-export class MainEditorContainerComponent {
-  // Component logic will be implemented in Feature 1 and beyond
+export class MainEditorContainerComponent implements OnInit {
+  // Expose service signals to template
+  loadingState = this.segmentationService.loadingState;
+  words = this.segmentationService.words;
+  error = this.segmentationService.error;
+
+  // Computed signals for template conditionals
+  isLoading = computed(() => this.loadingState() === 'loading');
+  hasError = computed(() => this.loadingState() === 'error');
+  hasWords = computed(() => this.words().length > 0);
+
+  constructor(private segmentationService: SegmentationLoaderService) { }
+
+  ngOnInit(): void {
+    // Load segmentation data from environment URL on component initialization
+    this.loadSegmentation();
+  }
+
+  /**
+   * Load segmentation data from configured URL
+   */
+  loadSegmentation(): void {
+    this.segmentationService.loadSegmentation(environment.segmentationUrl).subscribe({
+      next: () => {
+        console.info('Segmentation loaded successfully', {
+          wordCount: this.words().length
+        });
+      },
+      error: (err) => {
+        console.error('Failed to load segmentation', err);
+      }
+    });
+  }
+
+  /**
+   * Retry loading segmentation after error
+   */
+  retryLoad(): void {
+    this.segmentationService.reset();
+    this.loadSegmentation();
+  }
 }

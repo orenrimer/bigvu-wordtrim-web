@@ -1,22 +1,154 @@
 :root {
-    /* Colors */
+    /* ===== Colors ===== */
+    /* Primary */
     --color-primary: #4481fd;
-    --color-primary-weak: #c7daff;
-    /* Secondary Blue */
+    --color-secondary: #c7daff;
+
+    /* Grayscale */
     --color-gray-100: #f5f6f9;
-    /* Light Gray */
     --color-gray-600: #8d96a9;
-    /* Dark Gray (muted) */
+
+    /* Semantic */
     --color-success: #28a745;
     --color-danger: #ff4d5b;
-    --color-bg: #ffffff;
+    --color-warning: #ffd94d;
+
+    /* Backgrounds */
+    --color-bg-primary: #ffffff;
     --color-bg-secondary: #f5fafe;
-    --color-text: #253658;
-    --color-pro: #ffd94d;
+
+    /* Text */
+    --color-text-primary: #253658;
+    --color-text-secondary: #8d96a9;
+    --color-text-white: #ffffff;
+
+    /* ===== Typography ===== */
+    --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+
+    /* Font Sizes */
+    --font-size-10: 10px;
+    --font-size-12: 12px;
+    --font-size-14: 14px;
+    --font-size-16: 16px;
+    --font-size-18: 18px;
+    --font-size-20: 20px;
+    --font-size-24: 24px;
+
+    /* Font Weights */
+    --font-weight-regular: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+
+    /* ===== Spacing ===== */
+    --spacing-unit: 8px;
+    --spacing-1: 4px;
+    --spacing-2: 8px;
+    --spacing-3: 12px;
+    --spacing-4: 16px;
+    --spacing-5: 20px;
+    --spacing-6: 24px;
+    --spacing-8: 32px;
+
+    /* ===== Border Radius ===== */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 10px;
+    --radius-xl: 12px;
+    --radius-2xl: 15px;
+    --radius-3xl: 20px;
+
+    /* Component Specific */
+    --radius-word-chip: 10px;
+    --radius-button: 8px;
+    --radius-timestamp: 6px;
+    --radius-timeline-handle: 4px;
+
+    /* ===== Shadows ===== */
+    --shadow-sm: 0px 1px 2px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0px 2px 4px rgba(0, 0, 0, 0.1);
+
+    /* ===== Component Dimensions ===== */
+    --button-height: 40px;
+    --timeline-height: 60px;
+    --modal-width: 480px;
+    --card-padding: 16px;
+
+    /* Word Chip */
+    --word-chip-padding-x: 5px;
+    --word-chip-padding-y: 3px;
+    --word-chip-gap: 5px;
+
+    /* Timestamp */
+    --timestamp-padding-x: 4px;
+    --timestamp-padding-y: 1px;
+    --timestamp-width: 56px;
+    --timestamp-height: 19px;
+
+    /* Timeline Handle */
+    --timeline-handle-width: 8px;
+    --timeline-handle-height: 49px;
+
+    /* Action Bar Item */
+    --action-bar-item-size: 70px;
+    --action-bar-item-padding: 6px;
+
+    /* Modals */
+    --tip-modal-width: 326px;
+    --tip-modal-height: 153px;
+    --tutorial-modal-width: 500px;
+    --tutorial-modal-height: 355.49px;
+    --tutorial-video-width: 460px;
+    --tutorial-video-height: 259.49px;
+
+    /* ===== Transitions & Animations ===== */
+    --transition-fast: 0.2s ease-in-out;
+    --transition-normal: 0.3s ease;
+    --transition-hover: 0.2s ease-in-out;
+
+    /* ===== Z-Index ===== */
+    --z-modal-backdrop: 1000;
+    --z-modal: 1001;
+    --z-action-bar: 100;
+
+    /* ===== Opacity ===== */
+    --opacity-disabled: 0.3;
+    --opacity-active: 1;
+}
+
+/* ===== Global Styles ===== */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
 body {
-    font-family: Inter, system-ui, sans-serif;
-    background-color: var(--color-bg);
-    color: var(--color-text);
+    font-family: var(--font-family);
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-14);
+    font-weight: var(--font-weight-regular);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== Utility Classes ===== */
+.text-center {
+    text-align: center;
+}
+
+.text-semibold {
+    font-weight: var(--font-weight-semibold);
+}
+
+.text-bold {
+    font-weight: var(--font-weight-bold);
+}
+
+/* ===== Accessibility ===== */
+*:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
 }

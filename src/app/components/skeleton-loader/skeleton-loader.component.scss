@@ -1,0 +1,48 @@
+.skeleton-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.skeleton-word {
+    height: 2rem;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    border-radius: 4px;
+    animation: shimmer 1.5s ease-in-out infinite;
+
+    // Variable widths to simulate different word lengths
+    &:nth-child(3n + 1) {
+        width: 4rem;
+    }
+
+    &:nth-child(3n + 2) {
+        width: 6rem;
+    }
+
+    &:nth-child(3n) {
+        width: 5rem;
+    }
+
+    // Longer words occasionally
+    &:nth-child(7n) {
+        width: 8rem;
+    }
+
+    &:nth-child(11n) {
+        width: 3rem;
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
