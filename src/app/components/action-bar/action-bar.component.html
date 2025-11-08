@@ -1,11 +1,62 @@
 <div class="action-bar" role="toolbar" aria-label="Segment actions">
     <div class="action-bar-content">
-        <!-- Action buttons will be projected here via ng-content in Feature 6 -->
-        <ng-content></ng-content>
+        <!-- Action Bar Items -->
+        <div class="action-bar-items">
+            <!-- Fix Start/End (Premium Feature) -->
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
+                (clicked)="onFixStartEnd()">
+                <div class="action-bar-item">
+                    <img src="assets/icons/fix_start_end.svg" alt="" class="action-icon" />
+                    <span class="action-label">Fix<br />Start/End</span>
+                </div>
+            </app-button>
 
-        <!-- Placeholder text (will be removed in Feature 6) -->
-        <div class="action-bar-placeholder">
-            <p>Action buttons will appear here after selecting words</p>
+            <!-- Remove Gaps -->
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
+                (clicked)="onRemoveGaps()">
+                <div class="action-bar-item">
+                    <img src="assets/icons/Premium.svg" alt="Premium" class="premium-badge" />
+                    <img src="assets/icons/remove_gaps.svg" alt="" class="action-icon" />
+                    <span class="action-label">Remove<br />Gaps</span>
+                </div>
+            </app-button>
+
+
+            <!-- Remove This -->
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)" [disabled]="false"
+                (clicked)="onRemove()">
+                <div class="action-bar-item">
+                    <img src="assets/icons/remove.svg" alt="" class="action-icon" />
+                    <span class="action-label">Remove<br />This</span>
+                </div>
+            </app-button>
+
+            <!-- Keep Only This -->
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)" [disabled]="false"
+                (clicked)="onKeepOnly()">
+                <div class="action-bar-item">
+                    <img src="assets/icons/keep_only.svg" alt="" class="action-icon" />
+                    <span class="action-label">Keep Only<br />This</span>
+                </div>
+            </app-button>
+
+            <!-- Unselect -->
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)" [disabled]="true"
+                (clicked)="onUnselect()">
+                <div class="action-bar-item">
+                    <img src="assets/icons/unselect.svg" alt="" class="action-icon" />
+                    <span class="action-label">Unselect</span>
+                </div>
+            </app-button>
+
+            <!-- Tutorial -->
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
+                (clicked)="onTutorial()">
+                <div class="action-bar-item">
+                    <img src="assets/icons/tutorial.svg" alt="" class="action-icon" />
+                    <span class="action-label">Tutorial</span>
+                </div>
+            </app-button>
         </div>
     </div>
 </div>

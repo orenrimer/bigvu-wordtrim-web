@@ -1,0 +1,74 @@
+.wt-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: var(--radius-button); // Default, can be overridden via [borderRadius] input
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.1);
+    outline: none;
+
+    &:active:not(.wt-button--disabled) {
+        transform: scale(0.98);
+    }
+
+    &:focus-visible {
+        outline: 2px solid #007BFF;
+        outline-offset: 2px;
+    }
+
+
+    // Variants
+    &--primary {
+        background: var(--color-primary);
+        color: var(--color-text-white);
+
+        &:hover:not(.wt-button--disabled) {
+            background: var(--color-primary);
+            opacity: var(--opacity-hover);
+        }
+    }
+
+    &--secondary {
+        background: var(--color-gray-100);
+        color: var(--color-text-primary);
+
+        &:hover:not(.wt-button--disabled) {
+            background: var(--color-gray-100);
+            opacity: var(--opacity-hover);
+        }
+    }
+
+    &--danger {
+        background: var(--color-danger);
+        color: var(--color-text-white);
+
+        &:hover:not(.wt-button--disabled) {
+            background: var(--color-danger);
+            opacity: var(--opacity-hover);
+        }
+    }
+
+
+    // States
+    &--disabled {
+        background: transparent;
+        color: var(--color-primary);
+        box-shadow: none;
+        border: 1px solid var(--color-gray-200);
+
+        &:hover:not(.wt-button--disabled) {
+            background: var(--color-gray-100);
+            opacity: var(--opacity-hover);
+        }
+
+        opacity: var(--opacity-disabled);
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
+    &--full-width {
+        width: 100%;
+    }
+}

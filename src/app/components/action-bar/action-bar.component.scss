@@ -19,7 +19,7 @@
 }
 
 .action-bar-content {
-    max-width: 1400px;
+    width: 100%;
     margin: 0 auto;
     display: flex;
     align-items: center;
@@ -28,76 +28,64 @@
 }
 
 /**
- * Placeholder text (temporary - will be removed in Feature 6)
+ * Action bar items container
  */
-.action-bar-placeholder {
-    padding: var(--spacing-2) var(--spacing-4);
+.action-bar-items {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-2);
+    flex-wrap: wrap;
+    width: 100%;
 
-    p {
-        margin: 0;
-        font-size: var(--font-size-14);
-        color: var(--color-text-secondary);
-        font-style: italic;
-    }
 }
 
 /**
- * Action bar items styling (for future buttons in Feature 6)
+ * Action bar item (app-button component)
  * Based on DESIGN_GUIDE.md: Action Bar Item specifications
  */
 ::ng-deep .action-bar-item {
+    position: relative;
     width: var(--action-bar-item-size);
     height: var(--action-bar-item-size);
-    border-radius: var(--radius-xl);
+    min-width: var(--action-bar-item-size);
+    min-height: var(--action-bar-item-size);
+    max-width: var(--action-bar-item-size);
+    max-height: var(--action-bar-item-size);
     padding: var(--action-bar-item-padding);
+    border-radius: var(--radius-xl);
+    box-shadow: none;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    background-color: var(--color-bg-secondary);
-    border: 1px solid var(--color-gray-100);
-    cursor: pointer;
-    transition: all var(--transition-hover);
-    user-select: none;
+    // gap: 4px;
 
-    // Active state (opacity 100%)
-    &.active {
-        opacity: var(--opacity-active);
-    }
-
-    // Disabled state (opacity 30%)
-    &.disabled,
-    &:disabled {
-        opacity: var(--opacity-disabled);
-        cursor: not-allowed;
-    }
-
-    // Hover effect (only for active items)
-    &.active:hover:not(.disabled):not(:disabled) {
-        background-color: var(--color-gray-100);
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-sm);
-    }
-
-    // Active press effect
-    &:active:not(.disabled):not(:disabled) {
-        transform: translateY(0) scale(0.98);
+    // Premium badge
+    .premium-badge {
+        position: absolute;
+        top: -3.6px;
+        right: -1.2px;
+        width: 18px;
+        height: auto;
+        z-index: 10;
+        display: block;
     }
 
     // Icon styling
     .action-icon {
-        font-size: 24px;
-        line-height: 1;
+        width: var(--action-bar-item-icon-size);
+        height: var(--action-bar-item-icon-size);
+        display: block;
     }
 
     // Label styling
     .action-label {
         font-size: var(--font-size-10);
-        font-weight: var(--font-weight-medium);
-        color: var(--color-text-primary);
+        font-weight: var(--font-weight-regular);
         text-align: center;
-        line-height: 1.2;
+        line-height: 130%;
+
     }
 }
 

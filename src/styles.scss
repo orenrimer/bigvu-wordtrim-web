@@ -27,7 +27,7 @@
     --color-border-primary: #eeeff2;
 
     /* ===== Typography ===== */
-    --font-family: 'Inter';
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
 
     /* Font Sizes */
     --font-size-10: 10px;
@@ -105,6 +105,8 @@
     /* Action Bar Item */
     --action-bar-item-size: 70px;
     --action-bar-item-padding: 6px;
+    --action-bar-item-icon-size: 32px;
+
 
     /* Modals */
     --tip-modal-width: 326px;
@@ -127,6 +129,7 @@
     /* ===== Opacity ===== */
     --opacity-disabled: 0.3;
     --opacity-active: 1;
+    --opacity-hover: 0.9;
 }
 
 /* ===== Global Styles ===== */
@@ -136,8 +139,17 @@
     padding: 0;
 }
 
+html,
+body,
+button,
+input,
+textarea,
+select,
+* {
+    font-family: var(--font-family) !important;
+}
+
 body {
-    font-family: var(--font-family);
     background-color: var(--color-bg-primary);
     color: var(--color-text-primary);
     font-size: var(--font-size-14);
