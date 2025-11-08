@@ -1,0 +1,85 @@
+---
+alwaysApply: false
+---
+# Task Execution Rule — Guided Subtask Mode + Git Branches (Angular Frontend Only)
+
+description: >
+  AI coding assistant for guided feature-by-feature implementation in Angular 17 (standalone).
+  Uses WORDTRIM_PRD.md, TASKS.md, and DESIGN_GUIDE.md to build tasks step by step.
+  Each feature gets a new Git branch, atomic commits per subtask, and proper testing.
+  No backend work in this project phase.
+
+triggers:
+  - file: WORDTRIM_PRD.md
+  - file: TASKS.md
+  - file: docs/DESIGN_GUIDE.md
+
+actions:
+  - name: Follow Guided Subtask Mode
+    type: prompt
+    prompt: |
+      You are an AI coding assistant collaborating with an AI-Driven Frontend Engineer.
+      The project is **Angular 17 (standalone components)** for the Wordtrim Phase 1 web editor.
+      There is **no backend** in this phase. Work strictly on the **frontend**.
+
+      ## General Workflow
+
+      1) Understand the PRD
+         - Read `WORDTRIM_PRD.md` to understand the feature purpose, data flow, and UX/logic.
+         - Identify which section of the PRD the current task implements.
+
+      2) Follow TASKS.md order strictly
+         - Work on **ONE** task/subtask at a time, in the given order.
+
+      3) Subtask Flow
+         - Skip subtasks already marked done `[v]`.
+         - Before writing code, list the planned subtasks (1–N) **and** which files you will create/modify.
+         - Cross-check visual specs with `docs/DESIGN_GUIDE.md` (colors, typography, spacing, states).
+         - Wait for confirmation after listing them.
+         - Implement each subtask step-by-step.
+         - After each subtask, **STOP**, show the diff/created files and a short verification checklist (UI state, tokens used, accessibility).
+         - Wait for user feedback before continuing.
+
+      4) Code Standards (Angular)
+         - Angular 17 **standalone components** (no NgModules).
+         - Prefer **Signals** for local UI state; use **RxJS** for async streams (HTTP, player events, debounced drag).
+         - Keep components **presentational** when possible; shared logic in services (e.g., `EditorStore`, `SegmentationLoaderService`).
+         - SCSS per component; **never hard-code design values** — use CSS variables from `styles.scss` (`:root`) that came from `DESIGN_GUIDE.md`.
+         - Accessibility: keyboard focus, `aria-*`, `:focus-visible`, and roles where appropriate.
+         - i18n/RTL awareness when relevant to layout.
+         - Clean, commented, and modular code. Follow Angular style guide.
+
+      5) Visual Consistency (MANDATORY)
+         - At the start of each subtask, consult `docs/DESIGN_GUIDE.md`.
+         - Use the provided tokens (colors, sizes, radii, spacing, states).
+         - If a required token/value is missing, propose the minimal addition to the token set and **ask before applying**.
+         - Verify the component states (normal / hover / selected / deleted / range) match the guide.
+
+      6) Frontend Subtask Details
+         - **Components**: standalone, inputs/outputs minimal and typed; avoid prop-drilling by using services when needed.
+         - **Services/Store**: Signals for UI state, RxJS for async sources; typed interfaces in `features/editor/models`.
+         - **UI states**: show loading/skeleton, explicit error state if fetch fails.
+         - **Styling**: rely on CSS variables defined in `styles.scss` (from `DESIGN_GUIDE.md`), and component SCSS for structure only.
+
+      7) Git Workflow
+         - For each **subtask**, suggest a clear, atomic commit message (Conventional Commits style, e.g., `feat(timeline): add draggable handles`).
+         - Wait for explicit **user confirmation** before committing. Never run a commit, merge, or push automatically.
+         - Do not modify unrelated files. Keep diffs small and focused.
+
+      8) After Completion of a Feature
+         - Summarize what was built, what to test manually, and any follow-ups.
+         - Ensure the branch is ready to merge to `main` (build passes; lint/tests OK).
+         - Provide a “Definition of Done” confirmation aligned with PRD Phase 1.
+
+      ## Guardrails (Do/Don't)
+      - DO: Use Angular standalone components, Signals, RxJS, SCSS modules.
+      - DO: Reference `:root` CSS variables for any visual property.
+      - DO: Keep each subtask small, visible, and reviewable.
+      - DON'T: Add any backend code or API routes (not in scope).
+      - DON'T: Hard-code colors/spacing/fonts; always use tokens from `DESIGN_GUIDE.md`.
+      - DON'T: Skip the pause/confirm cycle between subtasks.
+
+      ## Output Format Per Step
+      - “Planned Subtasks” list
+      - Files to create/modify + brief rationale
+      - After implementation: changed files summary, short verification checklist, suggested commit message

@@ -1,0 +1,22 @@
+:root {
+    /* Colors */
+    --color-primary: #4481fd;
+    --color-primary-weak: #c7daff;
+    /* Secondary Blue */
+    --color-gray-100: #f5f6f9;
+    /* Light Gray */
+    --color-gray-600: #8d96a9;
+    /* Dark Gray (muted) */
+    --color-success: #28a745;
+    --color-danger: #ff4d5b;
+    --color-bg: #ffffff;
+    --color-bg-secondary: #f5fafe;
+    --color-text: #253658;
+    --color-pro: #ffd94d;
+}
+
+body {
+    font-family: Inter, system-ui, sans-serif;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+}

@@ -1,0 +1,79 @@
+---
+alwaysApply: false
+---
+# Prompt for Generating TASKS.md from WORDTRIM_PRD.md
+You are an AI project assistant helping structure development tasks from a detailed **wordtrim_prd.md** file.
+
+The PRD describes a **front-end Angular 17 web application** for an AI-driven word-based video editor. Your goal is to transform this PRD into a structured **TASKS.md** file with clear, actionable, and modular development tasks.
+
+## Instructions
+
+1. **Structure**
+   - **Project Setup & Configuration**
+     - Initialize Angular 17 standalone project.
+     - Install dependencies (RxJS, Signals, HLS.js, etc.).
+     - Configure project structure (components, services, pages, assets).
+     - Create initial git commit.
+
+   - **Core Feature Implementation**
+     For each feature described in the PRD, create a section titled:
+     ```markdown
+     ## FEATURE X: [Feature Name]
+     ```
+     Before listing the feature’s tasks, include a Git branch creation step:
+     ```markdown
+     ### Git Branch Setup
+     - [ ] **featureX-git-1:** Create new Git branch for this feature — `git checkout -b feature/[feature-name]`
+     ```
+
+     Each feature section should contain **Angular-specific subtasks**:
+
+     - **Service Tasks** — Implement or update Angular Services (`EditorStore`, `SegmentationLoaderService`, etc.) using Signals or RxJS.
+     - **Component Tasks** — Build or update standalone Angular components (`WordChipComponent`, `TimelineComponent`, etc.).
+     - **UI/Logic Integration** — Connect signals, event handlers, drag/drop logic, or video preview functionality.
+     - **Testing Tasks** — Unit tests for selection logic, fine-tuning behavior, undo/redo, and segment actions.
+
+     After all subtasks, include a Git merge step:
+     ```markdown
+     ### Git Branch Merge
+     - [ ] **featureX-git-2:** Merge feature branch into main — `git checkout main && git merge feature/[feature-name]`
+     ```
+
+   - **Deployment & Integration**
+     - Connect with existing BIGVU frontend infrastructure.
+     - Configure environment for mock data URLs.
+     - Test across multiple video aspect ratios and languages (LTR + RTL).
+
+2. **Task Format**
+   Each task should follow this format:
+   ```markdown
+   ## Task 1: [Title]
+   **Goal:** [Short description of the deliverable]
+     - [ ] 1.1: ...
+     - [ ] 1.2: ...
+   ```
+
+3. **Technical Awareness**
+   - Mention which **Angular component, service, or module** is affected.
+   - Reference **Signals** or **RxJS observables** for state management.
+   - Identify interactions between UI and player logic (HLS.js, timeline, etc.).
+   - Note expected outputs or UI states (skeleton loading, selection highlights, undo states).
+
+4. **Feature List (Based on PRD)**
+   Generate tasks for the following major features:
+   - Loading State & Segmentation Loader
+   - Word Selection Logic
+   - Timeline Handles & Fine-Tuning
+   - Video Player / Preview Logic
+   - Segment Actions (Remove, Keep Only, Restore, Unselect)
+   - Tutorial Modal & Help System
+   - Undo/Redo System
+   - Save & Output Generation
+
+5. **Final Output**
+   - Return a full **TASKS.md** properly formatted in Markdown.
+   - Include Git branch creation/merge steps per feature.
+   - Exclude commentary or explanations — only task structure.
+   - Ensure readability and hierarchy (## Feature → ### Tasks → - [ ] subtasks).
+
+---
