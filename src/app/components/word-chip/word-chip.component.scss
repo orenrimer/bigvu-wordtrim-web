@@ -1,0 +1,156 @@
+/**
+ * Word Chip Styles
+ * Based on DESIGN_GUIDE.md specifications
+ * Uses CSS variables from styles.scss
+ */
+
+.word-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--word-chip-gap);
+  padding: var(--word-chip-padding-y) var(--word-chip-padding-x);
+  border-radius: var(--radius-word-chip);
+  font-size: var(--font-size-24);
+  font-weight: var(--font-weight-regular);
+  font-family: var(--font-family);
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--transition-hover);
+  border: 2px solid transparent;
+
+  // Ensure proper focus outline for accessibility
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  // Hover effect (except for deleted state)
+  &:not([data-state="deleted"]):hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  // Active/press effect
+  &:active {
+    transform: scale(0.98);
+  }
+
+  /**
+   * Word State: NORMAL
+   * Default state - not selected, not deleted
+   */
+  &[data-state="normal"] {
+    background-color: var(--color-gray-100);
+    color: var(--color-text-primary);
+
+    &:hover {
+      background-color: #e8e9ed; // Slightly darker on hover
+    }
+  }
+
+  /**
+   * Word State: SELECTED START
+   * First word in selection
+   */
+  &[data-state="selected-start"] {
+    background-color: var(--color-primary);
+    color: var(--color-text-white);
+    font-weight: var(--font-weight-semibold);
+    border-left: 3px solid #2563eb; // Darker blue indicator
+
+    &:hover {
+      background-color: #3670e8;
+    }
+  }
+
+  /**
+   * Word State: SELECTED END
+   * Last word in selection
+   */
+  &[data-state="selected-end"] {
+    background-color: var(--color-primary);
+    color: var(--color-text-white);
+    font-weight: var(--font-weight-semibold);
+    border-right: 3px solid #2563eb; // Darker blue indicator
+
+    &:hover {
+      background-color: #3670e8;
+    }
+  }
+
+  /**
+   * Word State: SELECTED RANGE
+   * Words between start and end
+   */
+  &[data-state="selected-range"] {
+    background-color: var(--color-secondary);
+    color: var(--color-primary);
+    font-weight: var(--font-weight-medium);
+
+    &:hover {
+      background-color: #b8d3ff;
+    }
+  }
+
+  /**
+   * Word State: DELETED
+   * Word marked for removal
+   */
+  &[data-state="deleted"] {
+    background-color: transparent;
+    color: var(--color-danger);
+    text-decoration: line-through;
+    opacity: 0.6;
+    cursor: default;
+
+    &:hover {
+      opacity: 0.7;
+    }
+  }
+}
+
+/**
+ * Word text content
+ */
+.word-text {
+  white-space: nowrap;
+}
+
+/**
+ * Timing display (optional)
+ * Shows start-end time for the word
+ */
+.word-timing {
+  font-size: var(--font-size-10);
+  font-weight: var(--font-weight-medium);
+  opacity: 0.7;
+  padding: var(--timestamp-padding-y) var(--timestamp-padding-x);
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-timestamp);
+  white-space: nowrap;
+}
+
+/**
+ * RTL Support
+ */
+[dir="rtl"] .word-chip {
+  direction: rtl;
+}
+
+/**
+ * Reduced motion support
+ */
+@media (prefers-reduced-motion: reduce) {
+  .word-chip {
+    transition: none;
+
+    &:hover {
+      transform: none;
+    }
+
+    &:active {
+      transform: none;
+    }
+  }
+}
+
