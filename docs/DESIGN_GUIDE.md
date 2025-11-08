@@ -67,9 +67,7 @@
 ### Timestamp (`wt-timestamp`)
 - Padding: `1px 4px`
 - Border radius: `6px`
-- size: `56px 19px`
 - Gap: `1px`
-- red text with strikethrough
 
 ---
 
@@ -93,8 +91,7 @@
 - Fixed size: `70px`
 - Border radius: `12px`
 - Pading: `6px`
-- Opacity: `100%` if active, else `30%`
-
+- Icon size: `32px`
 ---
 
 ### Video Player (`wt-video-player`)

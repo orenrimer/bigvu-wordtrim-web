@@ -7,45 +7,55 @@
     <!-- Error State -->
     <div *ngIf="hasError()" class="error-section">
         <div class="error-card">
-            <h2> Failed to Load Segmentation</h2>
+            <h2>Failed to Load Segmentation</h2>
             <p class="error-message">{{ error() }}</p>
             <button class="retry-button" (click)="retryLoad()">Retry</button>
         </div>
     </div>
 
-    <!-- Success State - Display Words -->
-    <div *ngIf="hasWords() && !isLoading()" class="words-section">
-        <!-- Selection Info Panel (for testing/debugging) -->
-        <div class="selection-info" *ngIf="hasSelection()">
-            <div class="selection-info-content">
-                <strong>Selection:</strong>
-                <span *ngIf="!hasCompleteSelection()">
-                    Start: "{{ selectionStart()?.word }}"
-                </span>
-                <span *ngIf="hasCompleteSelection()">
-                    "{{ selectionStart()?.word }}" → "{{ selectionEnd()?.word }}"
-                    ({{ selectedWords().length }} words)
-                </span>
-                <button class="clear-btn" (click)="clearSelection()">Clear</button>
-            </div>
+    <!-- Main Content - Two Column Layout -->
+    <div *ngIf="hasWords() && !isLoading()" class="editor-layout">
+        <!-- Left Column: Video Player -->
+        <div class="editor-layout__video">
+            <app-video-player></app-video-player>
         </div>
 
-        <div class="editor-content">
-            <div class="timestamps-container">
-                <span class="timestamp">00:00 s</span>
-                <span class="timestamp">00:10 s</span>
-                <span class="timestamp">00:15 s</span>
-                <span class="timestamp">00:20 s</span>
-                <span class="timestamp">00:25 s</span>
-                <span class="timestamp">00:30 s</span>
+        <!-- Right Column: Transcript/Words Area -->
+        <div class="editor-layout__transcript">
+            <!-- Selection Info Panel (for testing/debugging) -->
+            <div class="selection-info" *ngIf="hasSelection()">
+                <div class="selection-info-content">
+                    <strong>Selection:</strong>
+                    <span *ngIf="!hasCompleteSelection()">
+                        Start: "{{ selectionStart()?.word }}"
+                    </span>
+                    <span *ngIf="hasCompleteSelection()">
+                        "{{ selectionStart()?.word }}" → "{{ selectionEnd()?.word }}"
+                        ({{ selectedWords().length }} words)
+                    </span>
+                    <button class="clear-btn" (click)="clearSelection()">Clear</button>
+                </div>
             </div>
-            <div class="words-container">
-                <app-word-chip *ngFor="let word of words()" [word]="word" (wordClicked)="onWordClick($event)">
-                </app-word-chip>
+
+            <!-- Transcript Content with Timestamps -->
+            <div class="transcript-content">
+                <div class="timestamps-container">
+                    <span class="timestamp">00:00 s</span>
+                    <span class="timestamp">00:10 s</span>
+                    <span class="timestamp">00:15 s</span>
+                    <span class="timestamp">00:20 s</span>
+                    <span class="timestamp">00:25 s</span>
+                    <span class="timestamp">00:30 s</span>
+                </div>
+                <div class="words-container">
+                    <app-word-chip *ngFor="let word of words()" [word]="word" (wordClicked)="onWordClick($event)">
+                    </app-word-chip>
+                </div>
             </div>
+
+            <!-- Action Bar (fixed bottom) -->
+            <app-action-bar></app-action-bar>
         </div>
     </div>
 
-    <!-- Action Bar (fixed bottom) -->
-    <app-action-bar></app-action-bar>
 </div>

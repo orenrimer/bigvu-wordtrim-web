@@ -5,17 +5,15 @@
  */
 
 .action-bar {
-    position: fixed;
+    position: sticky;
     bottom: 0;
-    left: 0;
-    right: 0;
     width: 100%;
     background-color: var(--color-bg-primary);
     border-top: 1px solid var(--color-border-primary);
-    border-left: 1px solid var(--color-border-primary);
-    padding: var(--spacing-4) 0 var(--spacing-4) var(--spacing-4);
+    padding: var(--spacing-4);
     z-index: var(--z-action-bar);
     gap: var(--spacing-3);
+    margin-top: auto; // Push to bottom of flex container
 }
 
 .action-bar-content {
@@ -95,19 +93,10 @@
  */
 @media (max-width: 768px) {
     .action-bar {
-        padding: var(--spacing-3) var(--spacing-2);
+        padding: var(--spacing-3);
     }
 
     .action-bar-content {
         justify-content: center;
     }
-}
-
-/**
- * RTL Support
- */
-[dir="rtl"] .action-bar {
-    border-left: none;
-    border-right: 1px solid var(--color-gray-100);
-    padding: var(--spacing-4) var(--spacing-4) var(--spacing-4) 0;
 }

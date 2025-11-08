@@ -34,6 +34,7 @@
     --font-size-12: 12px;
     --font-size-14: 14px;
     --font-size-16: 16px;
+    --font-size-17: 17px;
     --font-size-18: 18px;
     --font-size-20: 20px;
     --font-size-24: 24px;
@@ -67,16 +68,19 @@
     --radius-button: 8px;
     --radius-timestamp: 6px;
     --radius-timeline-handle: 4px;
+    --radius-play-button: 200px;
 
     /* ===== Shadows ===== */
     --shadow-sm: 0px 1px 2px rgba(0, 0, 0, 0.1);
     --shadow-md: 0px 2px 4px rgba(0, 0, 0, 0.1);
 
     /* ===== Component Dimensions ===== */
-    --button-height: 40px;
-    --timeline-height: 60px;
-    --modal-width: 480px;
+    // --button-height: 40px;
+    // --timeline-height: 60px;
+    // --modal-width: 480px;
     --card-padding: 16px;
+    --play-button-size-big: 80px;
+    --play-button-size-small: 64px;
 
     /* Editor Content */
     --editor-content-gap: 17px;
@@ -124,7 +128,7 @@
     /* ===== Z-Index ===== */
     --z-modal-backdrop: 1000;
     --z-modal: 1001;
-    --z-action-bar: 100;
+    --z-action-bar: 0;
 
     /* ===== Opacity ===== */
     --opacity-disabled: 0.3;

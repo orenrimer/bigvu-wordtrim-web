@@ -1,0 +1,36 @@
+<!-- Matching video_player.png design -->
+<div>
+    <!-- Loading -->
+    <div *ngIf="isLoading()" style="min-height: 400px; display: flex; align-items: center; justify-content: center;">
+        <p>Loading video...</p>
+    </div>
+
+    <!-- Error -->
+    <div *ngIf="error()"
+        style="min-height: 400px; display: flex; align-items: center; justify-content: center; color: red;">
+        <p>Error: {{ error() }}</p>
+    </div>
+
+    <!-- Video Player -->
+    <div [style.display]="isLoading() || error() ? 'none' : 'block'" class="video-player-container">
+
+        <video #videoElement playsinline (click)="onTogglePlayPause()"
+            style="width: 100%; height: auto; display: block; background: #000; cursor: pointer;">
+            Your browser does not support video.
+        </video>
+
+        <!-- Centered Play Button (when paused) -->
+        <div class="center-play-overlay" *ngIf="!isPlaying()" (click)="onTogglePlayPause()">
+            <div class="play-button-circle">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+                    <path d="M8 5v14l11-7z" />
+                </svg>
+            </div>
+        </div>
+
+        <!-- Time Display (bottom right corner) -->
+        <div class="time-badge">
+            {{ formattedCurrentTime() }}
+        </div>
+    </div>
+</div>
