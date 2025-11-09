@@ -15,7 +15,7 @@
     <div [style.display]="isLoading() || error() ? 'none' : 'block'" class="video-player-container">
 
         <video #videoElement playsinline (click)="onTogglePlayPause()"
-            style="width: 100%; height: auto; display: block; background: #000; cursor: pointer;">
+            style="display: block; background: #000; cursor: pointer;">
             Your browser does not support video.
         </video>
 

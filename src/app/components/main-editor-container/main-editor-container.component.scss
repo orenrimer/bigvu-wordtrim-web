@@ -62,12 +62,12 @@
         &__video {
             position: sticky;
             top: 0;
-            width: 100%;
             height: 100vh;
             padding: 40px;
             gap: var(--spacing-3);
             background: var(--color-bg-secondary);
             overflow-y: auto;
+            box-sizing: border-box;
         }
 
         // Right Column: Transcript Area - Container (no scroll)
