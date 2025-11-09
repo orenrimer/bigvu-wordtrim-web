@@ -1,0 +1,338 @@
+// Timeline Component Styles
+// Based on DESIGN_GUIDE.md specifications
+
+.timeline-container {
+    position: relative;
+    width: 100%;
+    padding: var(--spacing-base, 8px) 0;
+    padding-top: 32px; // Space for time indicator above timeline
+    user-select: none;
+    min-height: 100px; // Ensure container has height
+}
+
+.timeline-track {
+    position: relative;
+    width: 100%;
+    height: 80px; // Increased height for better frame visibility
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: default;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+// Video Frames Background
+.timeline-frames {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    background-color: var(--color-light-gray, #f5f6f9);
+    z-index: 1;
+}
+
+// Individual Frame Item (thumbnail from video or gradient placeholder)
+.frame-item {
+    flex: 1;
+    min-width: 60px;
+    height: 100%;
+    position: relative;
+    border-right: 1px solid rgba(255, 255, 255, 0.3);
+
+    // Gradient placeholder (when no thumbnail)
+    background: linear-gradient(135deg,
+            #d6e4f5 0%,
+            #c5d9f2 20%,
+            #b8d1ee 40%,
+            #c5d9f2 60%,
+            #d6e4f5 80%,
+            #e3eef9 100%);
+
+    // Subtle animated shimmer effect
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg,
+                transparent 0%,
+                rgba(255, 255, 255, 0.3) 50%,
+                transparent 100%);
+        animation: shimmer 3s infinite;
+        animation-delay: calc(var(--frame-index, 0) * 0.1s);
+    }
+
+    // When thumbnail is loaded from server
+    &[style*="background-image"] {
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+
+        &::before {
+            display: none; // Hide shimmer when real image is loaded
+        }
+    }
+
+    &:last-child {
+        border-right: none;
+    }
+}
+
+// Shimmer animation
+@keyframes shimmer {
+    0% {
+        left: -100%;
+    }
+
+    50%,
+    100% {
+        left: 100%;
+    }
+}
+
+// Deleted segments (darker overlay to show deleted words)
+.deleted-segment {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background: repeating-linear-gradient(45deg,
+            rgba(255, 77, 91, 0.2),
+            rgba(255, 77, 91, 0.2) 10px,
+            rgba(255, 77, 91, 0.1) 10px,
+            rgba(255, 77, 91, 0.1) 20px);
+    z-index: 2;
+    pointer-events: none;
+    border-left: 2px solid rgba(255, 77, 91, 0.5);
+    border-right: 2px solid rgba(255, 77, 91, 0.5);
+}
+
+// Unselected region overlay (dims the NON-selected segments)
+.unselected-overlay {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background-color: var(--color-text-primary);
+    opacity: 0.3;
+    z-index: 4;
+    pointer-events: none;
+
+    // Subtle shine effect
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(180deg,
+                rgba(255, 255, 255, 0.2) 0%,
+                transparent 50%,
+                rgba(0, 0, 0, 0.1) 100%);
+    }
+}
+
+// Time Indicator (play icon + time display above timeline)
+.timeline-time-indicator {
+    position: absolute;
+    top: 8px;
+    left: 0;
+    z-index: 15;
+    pointer-events: none;
+}
+
+.time-indicator-content {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0;
+    white-space: nowrap;
+}
+
+.play-icon {
+    width: 8px;
+    height: 10px;
+    flex-shrink: 0;
+}
+
+.time-text {
+    font-size: var(--font-size-10);
+    font-weight: var(--font-weight-regular);
+    color: var(--color-text-primary);
+    line-height: 130%;
+}
+
+// Timeline handles
+.timeline-handle {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px; // Slightly wider for better visibility
+    height: 95%; // Full height of timeline
+    background-color: var(--color-bg-primary);
+    border-radius: var(--radius-timeline-handle);
+    cursor: ew-resize;
+    z-index: 10;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    box-shadow: var(--shadow-sm);
+
+
+    // Hover effect
+    &:hover {
+        transform: translate(-50%, -50%) scale(1.05);
+    }
+
+    // Active/dragging state
+    &.dragging {
+        transform: translate(-50%, -50%) scale(1.05);
+        cursor: grabbing;
+    }
+}
+
+// Playback Handle (shows current time when no selection)
+.timeline-handle--playback {
+    cursor: ew-resize;
+    opacity: 0.8;
+
+    &:hover {
+        transform: translate(-50%, -50%) scale(1.05);
+    }
+
+    &.dragging {
+        transform: translate(-50%, -50%) scale(1.05);
+        cursor: grabbing;
+    }
+}
+
+// Debug Info Panel (separate panel below timeline)
+.timeline-debug-panel {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(37, 54, 88, 0.9) 100%);
+    border-radius: 8px;
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    font-family: 'Courier New', monospace;
+}
+
+.debug-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    &--duration {
+        margin-left: auto;
+        padding: 4px 12px;
+        background-color: rgba(255, 107, 53, 0.2);
+        border-radius: 4px;
+        border: 1px solid rgba(255, 107, 53, 0.5);
+    }
+}
+
+.debug-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.debug-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: #00d4ff;
+    min-width: 50px;
+    text-align: center;
+
+    &--duration {
+        color: #ff6b35;
+        font-size: 15px;
+    }
+}
+
+// Handle grip (visual indicator)
+.handle-grip {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px;
+    height: 24px;
+    background-color: rgba(255, 255, 255, 0.95);
+    border-radius: 1px;
+
+    // Add second grip line
+    &::before {
+        content: '';
+        position: absolute;
+        left: -4px;
+        top: 0;
+        width: 2px;
+        height: 24px;
+        background-color: rgba(255, 255, 255, 0.95);
+        border-radius: 1px;
+    }
+
+    &::after {
+        content: '';
+        position: absolute;
+        left: 4px;
+        top: 0;
+        width: 2px;
+        height: 24px;
+        background-color: rgba(255, 255, 255, 0.95);
+        border-radius: 1px;
+    }
+}
+
+// Timeline info (for debugging, optional)
+.timeline-info {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-dark-gray, #8d96a9);
+
+    span {
+        padding: 4px 8px;
+        background-color: var(--color-light-gray, #f5f6f9);
+        border-radius: 4px;
+    }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+    .timeline-track {
+        height: 60px; // Slightly smaller on mobile
+    }
+
+    .timeline-handle {
+        width: 14px; // Slightly wider for easier touch interaction
+        height: 100%;
+    }
+
+    .frame-item {
+        min-width: 40px; // Smaller frames on mobile
+    }
+}
+
+// Accessibility
+.timeline-handle:focus {
+    outline: 2px solid var(--color-primary-blue, #4481fd);
+    outline-offset: 2px;
+}
+
+// Prevent text selection during drag
+.timeline-container * {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}

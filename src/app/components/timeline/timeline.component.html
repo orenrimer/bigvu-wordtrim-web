@@ -1,0 +1,91 @@
+<!-- Timeline Container -->
+<div class="timeline-container">
+    <!-- Time Indicator (play icon + time display above timeline) -->
+    <!-- Show selection start time if available, otherwise show current playback time -->
+    <div class="timeline-time-indicator">
+        <div class="time-indicator-content">
+            <img src="assets/icons/Play.svg" alt="Play" class="play-icon">
+            <span class="time-text">
+                {{ formatTime(timelineService.startHandle() ? timelineService.startHandle()!.time : currentTime()) }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Timeline Track -->
+    <div class="timeline-track" #timelineTrack>
+        <!-- Video Frames Background -->
+        <div class="timeline-frames">
+            <!-- Generate frame thumbnails (gradient placeholders until server thumbnails ready) -->
+            <div class="frame-item" *ngFor="let frame of videoFrames; let i = index"
+                [style.background-image]="frame.thumbnail ? 'url(' + frame.thumbnail + ')' : null"
+                [style.--frame-index]="i" [title]="'Frame ' + (i + 1)">
+            </div>
+        </div>
+
+        <!-- Deleted Segments Overlay -->
+        <div *ngFor="let segment of deletedSegments" class="deleted-segment" [style.left.%]="segment.startPercentage"
+            [style.width.%]="segment.endPercentage - segment.startPercentage">
+        </div>
+
+        <!-- Unselected Region Overlay (covers the NON-selected area based on handles) -->
+        <!-- Left overlay: from start to start handle -->
+        <div *ngIf="timelineService.startHandle()" class="unselected-overlay" [style.left.%]="0"
+            [style.width.%]="timelineService.startHandle()!.percentage">
+        </div>
+
+        <!-- Right overlay: from end handle to end -->
+        <div *ngIf="timelineService.endHandle()" class="unselected-overlay"
+            [style.left.%]="timelineService.endHandle()!.percentage"
+            [style.width.%]="100 - timelineService.endHandle()!.percentage">
+        </div>
+
+        <!-- Single Handle (when only start word is selected) -->
+        <div *ngIf="timelineService.isSingleWordMode() && timelineService.startHandle()"
+            class="timeline-handle timeline-handle--single" [style.left.%]="timelineService.startHandle()!.percentage"
+            #startHandle (mousedown)="onStartHandleMouseDown($event)" [class.dragging]="isDraggingStart">
+            <div class="handle-grip"></div>
+        </div>
+
+        <!-- Start Handle (range selection mode) -->
+        <div *ngIf="!timelineService.isSingleWordMode() && timelineService.startHandle()"
+            class="timeline-handle timeline-handle--start" [style.left.%]="timelineService.startHandle()!.percentage"
+            #startHandle (mousedown)="onStartHandleMouseDown($event)" [class.dragging]="isDraggingStart">
+            <div class="handle-grip"></div>
+        </div>
+
+        <!-- End Handle (range selection mode) -->
+        <div *ngIf="!timelineService.isSingleWordMode() && timelineService.endHandle()"
+            class="timeline-handle timeline-handle--end" [style.left.%]="timelineService.endHandle()!.percentage"
+            #endHandle (mousedown)="onEndHandleMouseDown($event)" [class.dragging]="isDraggingEnd">
+            <div class="handle-grip"></div>
+        </div>
+
+    </div>
+
+    <!-- Debug Info Panel (below timeline) -->
+    <div *ngIf="timelineService.startHandle() || timelineService.endHandle()" class="timeline-debug-panel">
+        <div class="debug-row">
+            <span class="debug-label">Start:</span>
+            <span class="debug-value" *ngIf="timelineService.startHandle()">
+                {{ formatTime(timelineService.startHandle()!.time) }}
+            </span>
+            <span class="debug-value" *ngIf="!timelineService.startHandle()">--:--</span>
+        </div>
+
+        <div class="debug-row" *ngIf="!timelineService.isSingleWordMode()">
+            <span class="debug-label">End:</span>
+            <span class="debug-value" *ngIf="timelineService.endHandle()">
+                {{ formatTime(timelineService.endHandle()!.time) }}
+            </span>
+            <span class="debug-value" *ngIf="!timelineService.endHandle()">--:--</span>
+        </div>
+
+        <div class="debug-row debug-row--duration"
+            *ngIf="!timelineService.isSingleWordMode() && timelineService.startHandle() && timelineService.endHandle()">
+            <span class="debug-label">Duration (Δ):</span>
+            <span class="debug-value debug-value--duration">
+                {{ formatTime(timelineService.endHandle()!.time - timelineService.startHandle()!.time) }}
+            </span>
+        </div>
+    </div>
+</div>
