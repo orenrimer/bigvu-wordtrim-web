@@ -94,32 +94,37 @@ export class MainEditorContainerComponent implements OnInit {
    * Also triggers 3-second video preview based on PRD
    */
   onWordClick(word: Word): void {
-    this.editorState.selectWord(word);
+    const currentStart = this.selectionStart();
+    const currentEnd = this.selectionEnd();
 
-    // Trigger 3-second video preview on word click
-    // Based on PRD: Preview on Word Click
-    const isEndWord = this.selectionEnd() !== null && word.index === this.selectionEnd()!.index;
-    this.videoService.playWordPreview(word.start, isEndWord);
-
-    // Log selection state for debugging
-    if (this.hasCompleteSelection()) {
-      console.info('Selection complete:', {
-        start: this.selectionStart()?.word,
-        end: this.selectionEnd()?.word,
-        selectedCount: this.selectedWords().length
-      });
-
-      // Play selected segment preview
-      const start = this.selectionStart();
-      const end = this.selectionEnd();
-      if (start && end) {
-        this.videoService.playSegment(start.start, end.end);
-      }
-    } else if (this.hasSelection()) {
-      console.info('Selection started:', {
-        start: this.selectionStart()?.word
-      });
+    // Scenario 1: No selection - clicked word becomes start
+    if (!currentStart) {
+      this.editorState.selectWord(word);
+      // Play 3 seconds forward from start
+      this.videoService.playWordPreview(word.start, false);
+      return;
     }
+
+    // Scenario 2: Has start, no end - clicked word becomes end
+    if (currentStart && !currentEnd && word.index > currentStart.index) {
+      this.editorState.selectWord(word);
+      // Play full segment from start to end
+      this.videoService.playSegment(currentStart.start, word.end);
+      return;
+    }
+
+    // Scenario 3: Complete selection AND clicking on the END word
+    if (currentStart && currentEnd && word.index === currentEnd.index) {
+      // Play 3 seconds backward to end word
+      this.videoService.playWordPreview(word.end, true);
+      // Reset selection
+      this.editorState.clearSelection();
+      return;
+    }
+
+    // All other cases: reset and start new selection
+    this.editorState.selectWord(word);
+    this.videoService.playWordPreview(word.start, false);
   }
 
   /**
