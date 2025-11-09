@@ -1,4 +1,4 @@
-import { Component, OnInit, computed } from '@angular/core';
+import { Component, OnInit, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SegmentationLoaderService } from '../../services/segmentation-loader.service';
 import { EditorStateService } from '../../services/editor-state.service';
@@ -7,6 +7,7 @@ import { SkeletonLoaderComponent } from '../skeleton-loader/skeleton-loader.comp
 import { WordChipComponent } from '../word-chip/word-chip.component';
 import { ActionBarComponent } from '../action-bar/action-bar.component';
 import { VideoPlayerComponent } from '../video-player/video-player.component';
+import { TimelineComponent } from '../timeline/timeline.component';
 import { Word } from '../../models';
 import { environment } from '../../../environments/environment.development';
 
@@ -26,7 +27,7 @@ import { environment } from '../../../environments/environment.development';
 @Component({
   selector: 'app-main-editor-container',
   standalone: true,
-  imports: [CommonModule, SkeletonLoaderComponent, WordChipComponent, ActionBarComponent, VideoPlayerComponent],
+  imports: [CommonModule, SkeletonLoaderComponent, WordChipComponent, ActionBarComponent, VideoPlayerComponent, TimelineComponent],
   templateUrl: './main-editor-container.component.html',
   styleUrl: './main-editor-container.component.scss'
 })
@@ -42,6 +43,7 @@ export class MainEditorContainerComponent implements OnInit {
   selectedWords = this.editorState.selectedWords;
   hasSelection = this.editorState.hasSelection;
   hasCompleteSelection = this.editorState.hasCompleteSelection;
+  currentPlaybackWordIndex = this.editorState.currentPlaybackWordIndex;
 
   // Computed signals for template conditionals
   isLoading = computed(() => this.loadingState() === 'loading');
@@ -52,7 +54,22 @@ export class MainEditorContainerComponent implements OnInit {
     private segmentationService: SegmentationLoaderService,
     private editorState: EditorStateService,
     private videoService: VideoPlayerService
-  ) { }
+  ) {
+    // Effect: Sync current playback word with video time
+    // Always highlight current word during playback
+    effect(() => {
+      const currentTime = this.videoService.currentTime();
+      const isPlaying = this.videoService.isPlaying();
+
+      if (isPlaying) {
+        // Always update current playback word during video playback
+        this.editorState.updateCurrentPlaybackWord(currentTime);
+      } else {
+        // Clear current playback word when video is paused/stopped
+        this.editorState.clearCurrentPlaybackWord();
+      }
+    }, { allowSignalWrites: true });
+  }
 
   ngOnInit(): void {
     // Load segmentation data from environment URL on component initialization
@@ -105,20 +122,41 @@ export class MainEditorContainerComponent implements OnInit {
       return;
     }
 
-    // Scenario 2: Has start, no end - clicked word becomes end
-    if (currentStart && !currentEnd && word.index > currentStart.index) {
-      this.editorState.selectWord(word);
-      // Play full segment from start to end
-      this.videoService.playSegment(currentStart.start, word.end);
+    // Scenario 2A: Has start, no end - clicked SAME word (toggle to end)
+    if (currentStart && !currentEnd && word.index === currentStart.index) {
+      this.editorState.selectWord(word); // This will make it both start and end
+      // Play 3 seconds backward from end word
+      this.videoService.playWordPreview(word.end, true);
       return;
     }
 
-    // Scenario 3: Complete selection AND clicking on the END word
-    if (currentStart && currentEnd && word.index === currentEnd.index) {
-      // Play 3 seconds backward to end word
+    // Scenario 2B: Has start, no end - clicked DIFFERENT word (becomes end)
+    if (currentStart && !currentEnd && word.index > currentStart.index) {
+      this.editorState.selectWord(word);
+      // Play 3 seconds backward from end word
       this.videoService.playWordPreview(word.end, true);
-      // Reset selection
+      return;
+    }
+
+    // Scenario 3A: Complete selection with SAME word (start === end), clicking again
+    if (currentStart && currentEnd &&
+      currentStart.index === currentEnd.index &&
+      word.index === currentStart.index) {
+      // Reset to just start (toggle back)
       this.editorState.clearSelection();
+      this.editorState.selectWord(word);
+      // Play 3 seconds forward from start
+      this.videoService.playWordPreview(word.start, false);
+      return;
+    }
+
+    // Scenario 3B: Complete selection with DIFFERENT words, clicking on the END word
+    if (currentStart && currentEnd && word.index === currentEnd.index) {
+      // Reset selection and make end word the new start
+      this.editorState.clearSelection();
+      this.editorState.selectWord(word);
+      // Play 3 seconds forward from new start
+      this.videoService.playWordPreview(word.start, false);
       return;
     }
 

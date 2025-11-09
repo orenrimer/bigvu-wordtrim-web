@@ -1,4 +1,4 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, effect } from '@angular/core';
 import { Word, WordState } from '../models';
 
 /**
@@ -14,11 +14,13 @@ export class EditorStateService {
     private readonly _words = signal<Word[]>([]);
     private readonly _selectionStart = signal<Word | null>(null);
     private readonly _selectionEnd = signal<Word | null>(null);
+    private readonly _currentPlaybackWordIndex = signal<number | null>(null);
 
     // Public read-only signals
     public readonly words = this._words.asReadonly();
     public readonly selectionStart = this._selectionStart.asReadonly();
     public readonly selectionEnd = this._selectionEnd.asReadonly();
+    public readonly currentPlaybackWordIndex = this._currentPlaybackWordIndex.asReadonly();
 
     // Computed signal: selected words array (all words between start and end inclusive)
     public readonly selectedWords = computed(() => {
@@ -93,8 +95,10 @@ export class EditorStateService {
             return;
         }
 
-        // Case 3: Have only start, clicking same word - do nothing (already selected as start)
+        // Case 3: Have only start, clicking same word - set as both start and end
         if (start && !end && word.index === start.index) {
+            this._selectionEnd.set(word);
+            this.updateWordStates();
             return;
         }
 
@@ -119,6 +123,16 @@ export class EditorStateService {
      */
     public clearSelection(): void {
         this._selectionStart.set(null);
+        this._selectionEnd.set(null);
+        this.updateWordStates();
+    }
+
+    /**
+     * Update only the start word (for single-word drag in timeline)
+     * @param word The new start word
+     */
+    public updateStartWord(word: Word): void {
+        this._selectionStart.set(word);
         this._selectionEnd.set(null);
         this.updateWordStates();
     }
@@ -269,6 +283,33 @@ export class EditorStateService {
     }
 
     /**
+     * Update current playback word based on video time
+     * Called during video playback to highlight the current word
+     * @param currentTime Current video time in seconds
+     */
+    public updateCurrentPlaybackWord(currentTime: number): void {
+        const words = this._words();
+
+        // Find word at current time
+        const currentWord = words.find(w =>
+            currentTime >= w.start && currentTime <= w.end
+        );
+
+        if (currentWord) {
+            this._currentPlaybackWordIndex.set(currentWord.index);
+        } else {
+            this._currentPlaybackWordIndex.set(null);
+        }
+    }
+
+    /**
+     * Clear current playback word (when video is paused or stopped)
+     */
+    public clearCurrentPlaybackWord(): void {
+        this._currentPlaybackWordIndex.set(null);
+    }
+
+    /**
      * Reset service state
      * Useful for loading new segmentation
      */
@@ -276,6 +317,7 @@ export class EditorStateService {
         this._words.set([]);
         this._selectionStart.set(null);
         this._selectionEnd.set(null);
+        this._currentPlaybackWordIndex.set(null);
     }
 }
 

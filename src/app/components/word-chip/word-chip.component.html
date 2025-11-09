@@ -1,4 +1,5 @@
 <div class="word-chip" [attr.data-state]="word.state" [attr.data-index]="word.index"
+    [class.current-playback]="isCurrentPlaybackWord"
     [attr.aria-label]="'Word: ' + word.word + (showTiming ? ', Time: ' + formattedTiming : '')" [attr.role]="'button'"
     [attr.tabindex]="0" (click)="onClick()" (keydown.enter)="onClick()" (keydown.space)="onClick()">
 

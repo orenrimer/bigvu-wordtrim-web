@@ -105,6 +105,29 @@
       opacity: 0.7;
     }
   }
+
+  /**
+   * Current Playback Word
+   * Highlighted during video playback - always visible with any state
+   */
+  &.current-playback:not([data-state="deleted"]) {
+    // Add distinctive pulsing border to show current playback
+    animation: pulse-playback 1s ease-in-out infinite;
+
+    // If word is not selected, change background
+    &[data-state="normal"],
+    &[data-state="selected-start"],
+    &[data-state="selected-end"],
+    &[data-state="selected-range"] {
+      background-color: var(--color-running);
+      color: var(--color-text-white);
+
+      &:hover {
+        background-color: var(--color-running);
+        filter: brightness(0.95);
+      }
+    }
+  }
 }
 
 /**

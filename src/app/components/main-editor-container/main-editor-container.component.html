@@ -15,9 +15,14 @@
 
     <!-- Main Content - Two Column Layout -->
     <div *ngIf="hasWords() && !isLoading()" class="editor-layout">
-        <!-- Left Column: Video Player -->
+        <!-- Left Column: Video Player + Timeline -->
         <div class="editor-layout__video">
             <app-video-player></app-video-player>
+
+            <!-- Timeline (Always visible) -->
+            <div class="timeline-section">
+                <app-timeline></app-timeline>
+            </div>
         </div>
 
         <!-- Right Column: Transcript/Words Area -->
@@ -48,7 +53,8 @@
                     <span class="timestamp">00:30 s</span>
                 </div>
                 <div class="words-container">
-                    <app-word-chip *ngFor="let word of words()" [word]="word" (wordClicked)="onWordClick($event)">
+                    <app-word-chip *ngFor="let word of words()" [word]="word"
+                        [currentPlaybackWordIndex]="currentPlaybackWordIndex()" (wordClicked)="onWordClick($event)">
                     </app-word-chip>
                 </div>
             </div>

@@ -1,6 +1,7 @@
-import { Injectable, signal, computed, effect } from '@angular/core';
+import { Injectable, signal, computed, effect, inject } from '@angular/core';
 import Hls from 'hls.js';
 import { Word, WordState } from '../models';
+import { EditorStateService } from './editor-state.service';
 
 /**
  * Video Player State
@@ -35,6 +36,9 @@ export type AspectRatio = '16:9' | '1:1' | '9:16';
     providedIn: 'root'
 })
 export class VideoPlayerService {
+    // Inject EditorStateService
+    private editorStateService = inject(EditorStateService);
+
     // HLS.js instance
     private hls: Hls | null = null;
     private videoElement: HTMLVideoElement | null = null;
@@ -428,12 +432,28 @@ export class VideoPlayerService {
 
     /**
      * Toggle play/pause
+     * If there's a selection and video is paused, jump to selection start before playing
+     * If there's a complete selection (start + end), play only that segment
      */
     public togglePlayPause(): void {
         if (this._isPlaying()) {
             this.pause();
         } else {
-            this.play();
+            // Check if there's a selection
+            const selectionStart = this.editorStateService.selectionStart();
+            const selectionEnd = this.editorStateService.selectionEnd();
+
+            if (selectionStart && selectionEnd) {
+                // Complete selection - play segment from start to end
+                this.playSegment(selectionStart.start, selectionEnd.end);
+            } else if (selectionStart) {
+                // Only start selected - jump to start and play normally
+                this.seek(selectionStart.start);
+                this.play();
+            } else {
+                // No selection - play normally
+                this.play();
+            }
         }
     }
 

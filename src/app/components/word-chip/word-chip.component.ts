@@ -21,8 +21,19 @@ export class WordChipComponent {
     /** Whether to show timing information (start-end) */
     @Input() showTiming: boolean = false;
 
+    /** Index of the currently playing word (for playback highlighting) */
+    @Input() currentPlaybackWordIndex: number | null = null;
+
     /** Emits when the word is clicked */
     @Output() wordClicked = new EventEmitter<Word>();
+
+    /**
+     * Check if this word is currently being played
+     */
+    get isCurrentPlaybackWord(): boolean {
+        return this.currentPlaybackWordIndex !== null && 
+               this.word.index === this.currentPlaybackWordIndex;
+    }
 
     /**
      * Handle word click event

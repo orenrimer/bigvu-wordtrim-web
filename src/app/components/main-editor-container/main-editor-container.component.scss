@@ -58,13 +58,15 @@
         height: 100vh; // Full viewport height
         overflow: hidden;
 
-        // Left Column: Video Player - FIXED/STICKY
+        // Left Column: Video Player + Timeline - FIXED/STICKY
         &__video {
             position: sticky;
             top: 0;
             height: 100vh;
             padding: 40px;
-            gap: var(--spacing-3);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
             background: var(--color-bg-secondary);
             overflow-y: auto;
             box-sizing: border-box;
@@ -173,6 +175,13 @@
         gap: var(--word-chip-gap);
         line-height: 2.5rem;
         flex: 1;
+    }
+
+    // Timeline Section (in video column)
+    .timeline-section {
+        width: 100%;
+        padding: 16px 0;
+        background: transparent;
     }
 }
 
