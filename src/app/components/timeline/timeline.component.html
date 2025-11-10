@@ -1,12 +1,12 @@
 <!-- Timeline Container -->
 <div class="timeline-container">
     <!-- Time Indicator (play icon + time display above timeline) -->
-    <!-- Show selection start time if available, otherwise show current playback time -->
+    <!-- Show current playback time -->
     <div class="timeline-time-indicator">
         <div class="time-indicator-content">
             <img src="assets/icons/Play.svg" alt="Play" class="play-icon">
             <span class="time-text">
-                {{ formatTime(timelineService.startHandle() ? timelineService.startHandle()!.time : currentTime()) }}
+                {{ formatTime(currentTime()) }}
             </span>
         </div>
     </div>

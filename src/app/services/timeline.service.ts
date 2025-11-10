@@ -132,14 +132,58 @@ export class TimelineService {
      * Update start handle position (called during drag)
      * @param time New time position in seconds
      * @returns Updated handle position
+     * 
+     * Start handle cannot be in the same word as end handle
+     * It must stay in a different word with a safety margin
      */
     public updateStartHandle(time: number): HandlePosition {
         const duration = this._totalDuration();
-        const clampedTime = Math.max(0, Math.min(time, duration));
+        const endHandle = this._endHandle();
+        const words = this._words();
+
+        let finalTime = Math.max(0, Math.min(time, duration));
+
+        // If end handle exists, ensure start handle is in a different word
+        if (endHandle) {
+            // Find the word that end handle is currently in
+            const endWord = words.find(w =>
+                endHandle.time >= w.start && endHandle.time <= w.end
+            );
+
+            if (endWord) {
+                // Start handle must be at least 2 words before end handle
+                // This ensures visual spacing between handles
+                const wordsBeforeEnd = words.filter(w => w.index < endWord.index);
+
+                if (wordsBeforeEnd.length >= 2) {
+                    // There are at least 2 words before end word
+                    // Start can be in any word up to (but not including) the word right before end
+                    const wordBeforeEnd = wordsBeforeEnd[wordsBeforeEnd.length - 1];
+                    const absoluteMax = wordBeforeEnd.start - 0.01;
+
+                    if (finalTime >= wordBeforeEnd.start) {
+                        finalTime = absoluteMax;
+                    }
+                } else if (wordsBeforeEnd.length === 1) {
+                    // Only one word before end - start must stay in that word or earlier
+                    const onlyWordBefore = wordsBeforeEnd[0];
+                    const absoluteMax = onlyWordBefore.end;
+
+                    if (finalTime > absoluteMax) {
+                        finalTime = absoluteMax;
+                    }
+                } else {
+                    // No words before end word - start must be at beginning
+                    finalTime = 0;
+                }
+            }
+        }
+
+        // Clamp again after adjustment
+        const clampedTime = Math.max(0, finalTime);
 
         // In single word mode, snap to center of word
         if (this._isSingleWordMode()) {
-            const words = this._words();
             const word = words.find(w => clampedTime >= w.start && clampedTime <= w.end);
 
             if (word) {
@@ -169,11 +213,55 @@ export class TimelineService {
      * Update end handle position (called during drag)
      * @param time New time position in seconds
      * @returns Updated handle position
+     * 
+     * End handle cannot be in the same word as start handle
+     * It must stay in a different word with a safety margin
      */
     public updateEndHandle(time: number): HandlePosition {
         const duration = this._totalDuration();
-        const startTime = this._startHandle()?.time ?? 0;
-        const clampedTime = Math.max(startTime, Math.min(time, duration));
+        const startHandle = this._startHandle();
+        const words = this._words();
+
+        let finalTime = Math.max(0, Math.min(time, duration));
+
+        // If start handle exists, ensure end handle is in a different word
+        if (startHandle) {
+            // Find the word that start handle is currently in
+            const startWord = words.find(w =>
+                startHandle.time >= w.start && startHandle.time <= w.end
+            );
+
+            if (startWord) {
+                // End handle must be at least 2 words after start handle
+                // This ensures visual spacing between handles
+                const wordsAfterStart = words.filter(w => w.index > startWord.index);
+
+                if (wordsAfterStart.length >= 2) {
+                    // There are at least 2 words after start word
+                    // End can be in any word from (but not including) the word right after start
+                    const wordAfterStart = wordsAfterStart[0];
+                    const absoluteMin = wordAfterStart.end + 0.01;
+
+                    if (finalTime <= wordAfterStart.end) {
+                        finalTime = absoluteMin;
+                    }
+                } else if (wordsAfterStart.length === 1) {
+                    // Only one word after start - end must stay in that word or later
+                    const onlyWordAfter = wordsAfterStart[0];
+                    const absoluteMin = onlyWordAfter.start;
+
+                    if (finalTime < absoluteMin) {
+                        finalTime = absoluteMin;
+                    }
+                } else {
+                    // No words after start word - end must be at the very end
+                    finalTime = duration;
+                }
+            }
+        }
+
+        // Clamp again after adjustment
+        const clampedTime = Math.max(0, Math.min(finalTime, duration));
 
         const handle: HandlePosition = {
             time: clampedTime,
