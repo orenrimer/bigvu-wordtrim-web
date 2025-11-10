@@ -1,5 +1,7 @@
 import { Component, OnInit, OnDestroy, ElementRef, ViewChild, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Subject } from 'rxjs';
+import { debounceTime, takeUntil } from 'rxjs/operators';
 import { TimelineService } from '../../services/timeline.service';
 import { EditorStateService } from '../../services/editor-state.service';
 import { VideoPlayerService } from '../../services/video-player.service';
@@ -50,6 +52,10 @@ export class TimelineComponent implements OnInit, OnDestroy {
     private boundMouseMove = this.onMouseMove.bind(this);
     private boundMouseUp = this.onMouseUp.bind(this);
 
+    // RxJS Subjects for debouncing
+    private handleDragSubject = new Subject<void>();
+    private destroy$ = new Subject<void>();
+
     constructor(
         timelineService: TimelineService,
         editorStateService: EditorStateService,
@@ -88,6 +94,15 @@ export class TimelineComponent implements OnInit, OnDestroy {
         // Add global mouse event listeners for dragging
         document.addEventListener('mousemove', this.boundMouseMove);
         document.addEventListener('mouseup', this.boundMouseUp);
+
+        // Set up debounced handle drag updates
+        // Debounce selection updates during drag for smoother UX
+        this.handleDragSubject.pipe(
+            debounceTime(100), // Wait 100ms after last drag event
+            takeUntil(this.destroy$)
+        ).subscribe(() => {
+            this.updateSelectionFromHandles();
+        });
     }
 
     /**
@@ -110,6 +125,11 @@ export class TimelineComponent implements OnInit, OnDestroy {
     }
 
     ngOnDestroy(): void {
+        // Complete RxJS subjects to prevent memory leaks
+        this.destroy$.next();
+        this.destroy$.complete();
+        this.handleDragSubject.complete();
+
         // Remove global mouse event listeners
         document.removeEventListener('mousemove', this.boundMouseMove);
         document.removeEventListener('mouseup', this.boundMouseUp);
@@ -180,10 +200,12 @@ export class TimelineComponent implements OnInit, OnDestroy {
 
             if (this.isDraggingStart) {
                 this.timelineService.updateStartHandle(time);
-                this.updateSelectionFromHandles();
+                // Trigger debounced selection update
+                this.handleDragSubject.next();
             } else if (this.isDraggingEnd) {
                 this.timelineService.updateEndHandle(time);
-                this.updateSelectionFromHandles();
+                // Trigger debounced selection update
+                this.handleDragSubject.next();
             }
         }
     }

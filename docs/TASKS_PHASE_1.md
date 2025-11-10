@@ -178,32 +178,33 @@
 - [ ] 5.5: Create method to update selection based on handle drag
 - [ ] 5.6: Implement logic to exit words from selection when handle drags across them
 - [ ] 5.7: Handle timeline interactions across deleted words
+- [x] 5.8: Implement debounce for smoother user experience handle usage
 
 ### Component Tasks
-- [ ] 5.8: Create `TimelineComponent` as standalone component
-- [ ] 5.9: Implement word timeline visualization
-- [ ] 5.10: Create draggable start handle element
-- [ ] 5.11: Create draggable end handle element
-- [ ] 5.12: Implement visual highlighting for selected segment on timeline
-- [ ] 5.13: Style timeline matching Figma specifications
-- [ ] 5.14: Display deleted word segments with distinct styling
+- [ ] 5.9: Create `TimelineComponent` as standalone component
+- [ ] 5.10: Implement word timeline visualization
+- [ ] 5.11: Create draggable start handle element
+- [ ] 5.12: Create draggable end handle element
+- [ ] 5.13: Implement visual highlighting for selected segment on timeline
+- [ ] 5.14: Style timeline matching Figma specifications
+- [ ] 5.15: Display deleted word segments with distinct styling
 
 ### UI/Logic Integration
-- [ ] 5.15: Connect timeline to `EditorStateService` selection signals
-- [ ] 5.16: Implement drag-and-drop handlers for start and end handles
-- [ ] 5.17: Update video preview only when drag ends (not during drag)
-- [ ] 5.18: Calculate and update word selection based on handle positions
-- [ ] 5.19: Implement sub-word precision (halfway into word = word exits selection)
-- [ ] 5.20: Handle timeline interactions with deleted words
-- [ ] 5.21: Sync timeline handles with word selection changes
+- [ ] 5.16: Connect timeline to `EditorStateService` selection signals
+- [ ] 5.17: Implement drag-and-drop handlers for start and end handles
+- [ ] 5.18: Update video preview only when drag ends (not during drag)
+- [ ] 5.19: Calculate and update word selection based on handle positions
+- [ ] 5.20: Implement sub-word precision (halfway into word = word exits selection)
+- [ ] 5.21: Handle timeline interactions with deleted words
+- [ ] 5.22: Sync timeline handles with word selection changes
 
 ### Testing Tasks
-- [ ] 5.22: Test handle display when selection is made
-- [ ] 5.23: Test handle drag functionality (smooth dragging)
-- [ ] 5.24: Test fine-tuning precision (sub-word level)
-- [ ] 5.25: Test word exit from selection when handle crosses midpoint
-- [ ] 5.26: Test handle drag across deleted words
-- [ ] 5.27: Verify video update only on drag end
+- [ ] 5.23: Test handle display when selection is made
+- [ ] 5.24: Test handle drag functionality (smooth dragging)
+- [ ] 5.25: Test fine-tuning precision (sub-word level)
+- [ ] 5.26: Test word exit from selection when handle crosses midpoint
+- [ ] 5.28: Test handle drag across deleted words
+- [ ] 5.28: Verify video update only on drag end
 
 ### Git Branch Merge
 - [ ] **feature5-git-2:** Merge feature branch into main — `git checkout main && git merge feature/timeline-handles`
