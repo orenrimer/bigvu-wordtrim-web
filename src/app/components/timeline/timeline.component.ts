@@ -222,6 +222,7 @@ export class TimelineComponent implements OnInit, OnDestroy {
         // Handle START drag - update start word based on handle position
         if (this.isDraggingStart) {
             const startHandle = this.timelineService.startHandle();
+            const isSingleWordMode = this.timelineService.isSingleWordMode();
 
             if (startHandle) {
                 // Find word at handle's current position
@@ -230,11 +231,18 @@ export class TimelineComponent implements OnInit, OnDestroy {
                 );
 
                 if (wordAtHandle) {
-                    // Update to new start word, keep existing end word if any
                     const currentEnd = this.editorStateService.selectionEnd();
-                    this.editorStateService.selectWord(wordAtHandle);
-                    if (currentEnd) {
-                        this.editorStateService.selectWord(currentEnd);
+
+                    // In single word mode, clear selection and start fresh
+                    if (isSingleWordMode && !currentEnd) {
+                        this.editorStateService.clearSelection();
+                        this.editorStateService.selectWord(wordAtHandle);
+                    } else {
+                        // In range mode, update start word and keep end word
+                        this.editorStateService.selectWord(wordAtHandle);
+                        if (currentEnd) {
+                            this.editorStateService.selectWord(currentEnd);
+                        }
                     }
                 }
             }
@@ -282,12 +290,16 @@ export class TimelineComponent implements OnInit, OnDestroy {
      * Update word selection based on current handle positions
      * Called during handle drag to update word selection
      * Only updates if handles are already tied to words
+     * Note: In single word mode (no endHandle), this function exits early
+     * and the selection is updated only on mouseUp
      */
     private updateSelectionFromHandles(): void {
         const words = this.timelineService.getWords();
         const startHandle = this.timelineService.startHandle();
         const endHandle = this.timelineService.endHandle();
 
+        // In single word mode, don't update selection during drag
+        // Selection will be updated in onMouseUp instead
         if (!startHandle || !endHandle) return;
 
         // Only update selection if handles are already tied to words (after first touch)
