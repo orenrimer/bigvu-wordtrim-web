@@ -240,15 +240,41 @@ export class EditorStateService {
     }
 
     /**
+     * Check if operation would delete all non-deleted words in the video
+     * @param wordsToDelete Set of word indices that would be deleted
+     * @returns True if operation would delete all remaining words
+     */
+    private wouldDeleteAllWords(wordsToDelete: Set<number>): boolean {
+        const currentWords = this._words();
+
+        // Count non-deleted words
+        const nonDeletedWords = currentWords.filter(word => !this.isWordDeleted(word));
+
+        // Count how many of them we're about to delete
+        const nonDeletedToDelete = nonDeletedWords.filter(word => wordsToDelete.has(word.index));
+
+        // If we're deleting all non-deleted words, return true
+        return nonDeletedWords.length === nonDeletedToDelete.length;
+    }
+
+    /**
      * Mark selected words as deleted
      * Used by segment actions in Feature 6
+     * @returns True if operation succeeded, false if it would delete all words
      */
-    public deleteSelectedWords(): void {
+    public deleteSelectedWords(): boolean {
         const selected = this.selectedWords();
-        if (selected.length === 0) return;
+        if (selected.length === 0) return false;
+
+        const selectedIndices = new Set(selected.map(w => w.index));
+
+        // Check if this would delete all words
+        if (this.wouldDeleteAllWords(selectedIndices)) {
+            alert('You cannot remove the entire video');
+            return false;
+        }
 
         const currentWords = this._words();
-        const selectedIndices = new Set(selected.map(w => w.index));
 
         const updatedWords = currentWords.map(word =>
             selectedIndices.has(word.index)
@@ -258,15 +284,24 @@ export class EditorStateService {
 
         this._words.set(updatedWords);
         this.clearSelection();
+        return true;
     }
 
     /**
      * Mark all non-selected words as deleted (Keep Only action)
      * Used by segment actions in Feature 6
+     * @returns True if operation succeeded, false if selection contains only deleted words
      */
-    public keepOnlySelectedWords(): void {
+    public keepOnlySelectedWords(): boolean {
         const selected = this.selectedWords();
-        if (selected.length === 0) return;
+        if (selected.length === 0) return false;
+
+        // Check if selection has any non-deleted words (would result in empty video if all deleted)
+        const hasNonDeletedWords = selected.some(word => !this.isWordDeleted(word));
+        if (!hasNonDeletedWords) {
+            alert('You cannot remove the entire video');
+            return false;
+        }
 
         const currentWords = this._words();
         const selectedIndices = new Set(selected.map(w => w.index));
@@ -279,6 +314,7 @@ export class EditorStateService {
 
         this._words.set(updatedWords);
         this.clearSelection();
+        return true;
     }
 
     /**
