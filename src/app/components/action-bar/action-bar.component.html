@@ -44,7 +44,8 @@
             </app-button>
             }
 
-            <!-- Keep Only This Segment (Feature 6) -->
+            <!-- Keep Only This Segment (Feature 6 - Conditional Visibility) -->
+            @if (showKeepOnly()) {
             <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
                 [disabled]="!canKeepOnly()" (clicked)="onKeepOnly()" aria-label="Keep only selected segment">
                 <div class="action-bar-item">
@@ -52,7 +53,7 @@
                     <span class="action-label">Keep Only<br />This</span>
                 </div>
             </app-button>
-
+            }
 
             <!-- Unselect (Feature 6) -->
             <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"

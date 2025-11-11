@@ -60,12 +60,19 @@ export class ActionBarComponent {
      */
     protected readonly canRemove = computed(() => {
         if (!this.hasCompleteSelection()) return false;
-        
+
         const selected = this.selectedWords();
         const deletedCount = this.deletedWordsInSelection();
-        
+
         // Disable if ALL selected words are already deleted
         return deletedCount < selected.length;
+    });
+
+    /**
+     * Show Keep Only Button - visible only when there's at least a start word selected
+     */
+    protected readonly showKeepOnly = computed(() => {
+        return this.hasSelection();
     });
 
     /**
@@ -100,7 +107,6 @@ export class ActionBarComponent {
         if (!this.canRemove()) return;
 
         this.editorState.deleteSelectedWords();
-        console.log('✓ Segment removed');
     }
 
     /**
@@ -113,7 +119,6 @@ export class ActionBarComponent {
         if (!this.canKeepOnly()) return;
 
         this.editorState.keepOnlySelectedWords();
-        console.log('✓ Kept only selected segment');
     }
 
     /**
@@ -125,7 +130,6 @@ export class ActionBarComponent {
         if (!this.canRestore()) return;
 
         this.editorState.restoreSelectedWords();
-        console.log('✓ Segment restored');
     }
 
     /**
@@ -137,7 +141,6 @@ export class ActionBarComponent {
         if (!this.canUnselect()) return;
 
         this.editorState.clearSelection();
-        console.log('✓ Selection cleared');
     }
 
     // ========== Placeholder handlers for future features ==========
@@ -146,21 +149,18 @@ export class ActionBarComponent {
      * Fix Start/End (Phase 2 - not implemented yet)
      */
     onFixStartEnd(): void {
-        console.log('Fix Start/End clicked (Phase 2 feature)');
     }
 
     /**
      * Remove Gaps (Phase 2 - not implemented yet)
      */
     onRemoveGaps(): void {
-        console.log('Remove Gaps clicked (Phase 2 feature)');
     }
 
     /**
      * Tutorial (Feature 7 - not implemented yet)
      */
     onTutorial(): void {
-        console.log('Tutorial clicked (Feature 7)');
     }
 }
 

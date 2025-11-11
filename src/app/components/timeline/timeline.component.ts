@@ -42,6 +42,7 @@ export class TimelineComponent implements OnInit, OnDestroy {
     public isDraggingPlayback = false;
     private dragStartX = 0;
     private dragStartTime = 0;
+    private isHandleDragging = false; // Flag to prevent handle snap during drag
 
     // Video frames for timeline display (gradient placeholders)
     // Can be replaced with server-side thumbnails in the future
@@ -67,9 +68,13 @@ export class TimelineComponent implements OnInit, OnDestroy {
         this.videoPlayerService = videoPlayerService;
 
         // Effect: Update handles when selection changes
+        // Skip during drag to prevent handle snap
         effect(() => {
             const selectionStart = this.editorStateService.selectionStart();
             const selectionEnd = this.editorStateService.selectionEnd();
+
+            // Don't update handles during drag - allow free positioning
+            if (this.isHandleDragging) return;
 
             if (selectionStart) {
                 this.timelineService.setHandlesFromSelection(selectionStart, selectionEnd);
@@ -143,6 +148,7 @@ export class TimelineComponent implements OnInit, OnDestroy {
         event.stopPropagation();
 
         this.isDraggingStart = true;
+        this.isHandleDragging = true; // Prevent handle snap during drag
         this.dragStartX = event.clientX;
 
         const startHandle = this.timelineService.startHandle();
@@ -157,6 +163,7 @@ export class TimelineComponent implements OnInit, OnDestroy {
         event.stopPropagation();
 
         this.isDraggingEnd = true;
+        this.isHandleDragging = true; // Prevent handle snap during drag
         this.dragStartX = event.clientX;
 
         const endHandle = this.timelineService.endHandle();
@@ -300,9 +307,9 @@ export class TimelineComponent implements OnInit, OnDestroy {
 
             if (currentEnd && currentStart) {
                 // If we have end word, play segment from start word to end word
-                // Always use 50% margin from end word to prevent spillover
+                // Always use 33% margin from end word to prevent spillover (play 2/3 of word)
                 const endWordDuration = currentEnd.end - currentEnd.start;
-                const margin = endWordDuration * 0.5;
+                const margin = endWordDuration * (1.0 / 3.0);
 
                 const playStart = currentStart.start;
                 const playEnd = currentEnd.end - margin;
@@ -347,14 +354,17 @@ export class TimelineComponent implements OnInit, OnDestroy {
                     previewStart = Math.max(0, wordAtHandle.end - 3);
                 }
 
-                // Always use 50% margin from end word to prevent spillover
+                // Always use 33% margin from end word to prevent spillover (play 2/3 of word)
                 const endWordDuration = wordAtHandle.end - wordAtHandle.start;
-                const margin = endWordDuration * 0.5;
+                const margin = endWordDuration * (1.0 / 3.0);
                 const previewEnd = wordAtHandle.end - margin;
 
                 this.videoPlayerService.playSegment(previewStart, previewEnd);
             }
         }
+
+        // Re-enable handle updates - this will trigger the effect to snap handle to final position
+        this.isHandleDragging = false;
 
         this.isDraggingStart = false;
         this.isDraggingEnd = false;
@@ -363,21 +373,32 @@ export class TimelineComponent implements OnInit, OnDestroy {
 
     /**
      * Update word selection based on current handle positions
-     * Called during handle drag to update word selection
-     * Only updates if handles are already tied to words
-     * Note: In single word mode (no endHandle), this function exits early
-     * and the selection is updated only on mouseUp
+     * Called during handle drag to update word selection in real-time
+     * Updates word highlighting while handle positioning is prevented by isHandleDragging flag
      */
     private updateSelectionFromHandles(): void {
         const words = this.timelineService.getWords();
         const startHandle = this.timelineService.startHandle();
         const endHandle = this.timelineService.endHandle();
 
-        // In single word mode, don't update selection during drag
-        // Selection will be updated in onMouseUp instead
-        if (!startHandle || !endHandle) return;
+        if (!startHandle) return;
 
-        // Only update selection if handles are already tied to words (after first touch)
+        // Single word mode - update selection to show highlighted word during drag
+        if (!endHandle) {
+            // Find the word at the current handle position
+            const wordAtHandle = words.find(w =>
+                startHandle.time >= w.start && startHandle.time <= w.end
+            );
+
+            if (wordAtHandle) {
+                // Update selection - the isHandleDragging flag prevents handle snap
+                this.editorStateService.clearSelection();
+                this.editorStateService.selectWord(wordAtHandle);
+            }
+            return;
+        }
+
+        // Range selection mode - only update if handles are tied to words
         if (startHandle.wordIndex === null || endHandle.wordIndex === null) {
             return; // Wait until first touch to select words
         }
@@ -397,7 +418,7 @@ export class TimelineComponent implements OnInit, OnDestroy {
         const endWord = words.find(w => w.index === endIndex);
 
         if (startWord && endWord) {
-            // Update selection with both start and end
+            // Update selection - the isHandleDragging flag prevents handle snap
             this.editorStateService.selectWord(startWord);
             if (startWord !== endWord) {
                 this.editorStateService.selectWord(endWord);

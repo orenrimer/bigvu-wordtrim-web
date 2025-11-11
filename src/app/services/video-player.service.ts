@@ -277,8 +277,8 @@ export class VideoPlayerService {
             // For end words: play 3 seconds before with smart ending to prevent spillover
             previewStart = Math.max(0, startTime - PREVIEW_DURATION);
 
-            // Always use 50% margin from word end to prevent spillover
-            const margin = wordDuration * 0.5;
+            // Always use 33% margin from word end to prevent spillover (play 2/3 of word)
+            const margin = wordDuration * (1.0 / 3.0);
             previewEnd = startTime + wordDuration - margin;
 
         } else {
@@ -383,12 +383,15 @@ export class VideoPlayerService {
 
     /**
      * Calculate deleted segments from words array
+     * Includes margin before deleted segment (33% of previous word) to prevent audio spillover
+     * Plays 2/3 of the previous word before skipping
      * @param words Array of words with states
-     * @returns Array of deleted time segments
+     * @returns Array of deleted time segments with pre-skip margin
      */
     private calculateDeletedSegments(words: Word[]): Array<{ start: number; end: number }> {
         const segments: Array<{ start: number; end: number }> = [];
         let currentDeletedStart: number | null = null;
+        let deleteSegmentStartIndex: number | null = null;
 
         for (let i = 0; i < words.length; i++) {
             const word = words[i];
@@ -402,7 +405,18 @@ export class VideoPlayerService {
             if (isDeleted) {
                 // Start of deleted segment
                 if (currentDeletedStart === null) {
-                    currentDeletedStart = word.start;
+                    deleteSegmentStartIndex = i;
+
+                    // Start skipping from 2/3 of the previous word (play 2/3, skip last 1/3)
+                    if (i > 0) {
+                        const prevWord = words[i - 1];
+                        const prevWordDuration = prevWord.end - prevWord.start;
+                        const prevWordSkipPoint = prevWord.start + (prevWordDuration * (2.0 / 3.0));
+                        currentDeletedStart = prevWordSkipPoint;
+                    } else {
+                        // First word is deleted - start from beginning
+                        currentDeletedStart = word.start;
+                    }
                 }
             } else {
                 // End of deleted segment
@@ -412,6 +426,7 @@ export class VideoPlayerService {
                         end: words[i - 1].end
                     });
                     currentDeletedStart = null;
+                    deleteSegmentStartIndex = null;
                 }
             }
         }
@@ -429,6 +444,7 @@ export class VideoPlayerService {
 
     /**
      * Skip deleted segments during edited playback
+     * Deleted segments already include 33% pre-margin from previous word (play 2/3 of previous word)
      * If in preview mode with end time, ensure we don't skip past it
      */
     private skipDeletedSegments(): void {
@@ -439,7 +455,7 @@ export class VideoPlayerService {
         // Check if current time is within a deleted segment
         for (const segment of this.deletedSegments) {
             if (currentTime >= segment.start && currentTime < segment.end) {
-                // Calculate skip target
+                // Skip target is end of segment (no additional margin needed)
                 let skipTarget = segment.end;
 
                 // If in preview mode, don't skip past the preview end time
@@ -455,6 +471,9 @@ export class VideoPlayerService {
                         return;
                     }
                 }
+
+                // Clamp to video duration
+                skipTarget = Math.min(skipTarget, this._duration());
 
                 // Skip to end of deleted segment (or preview end, whichever is earlier)
                 this.seek(skipTarget);
@@ -571,9 +590,9 @@ export class VideoPlayerService {
                 }
 
                 // Complete selection - play from start word beginning to end word end (skipping deleted words)
-                // Always use 50% margin from end word to prevent spillover
+                // Always use 33% margin from end word to prevent spillover (play 2/3 of word)
                 const endWordDuration = selectionEnd.end - selectionEnd.start;
-                const margin = endWordDuration * 0.5;
+                const margin = endWordDuration * (1.0 / 3.0);
 
                 // Play from start of first word to end of last word (with margin)
                 const playStart = selectionStart.start;
