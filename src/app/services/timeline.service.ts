@@ -95,34 +95,34 @@ export class TimelineService {
         const duration = this._totalDuration();
 
         if (!endWord) {
-            // Single word mode - place handle at center of the word
+            // Single word mode - place handle at start of the word
             this._isSingleWordMode.set(true);
-            const midpoint = (startWord.start + startWord.end) / 2;
+            const time = startWord.start;
             const handle: HandlePosition = {
-                time: midpoint,
-                percentage: (midpoint / duration) * 100,
+                time: time,
+                percentage: (time / duration) * 100,
                 wordIndex: startWord.index
             };
             this._startHandle.set(handle);
             this._endHandle.set(null);
         } else {
-            // Range selection mode - show both handles at center of words
+            // Range selection mode - start handle at word start, end handle at word end
             this._isSingleWordMode.set(false);
 
-            // Set start handle at center of start word
-            const startMidpoint = (startWord.start + startWord.end) / 2;
+            // Set start handle at beginning of start word
+            const startTime = startWord.start;
             const startHandle: HandlePosition = {
-                time: startMidpoint,
-                percentage: (startMidpoint / duration) * 100,
+                time: startTime,
+                percentage: (startTime / duration) * 100,
                 wordIndex: startWord.index
             };
             this._startHandle.set(startHandle);
 
-            // Set end handle at center of end word
-            const endMidpoint = (endWord.start + endWord.end) / 2;
+            // Set end handle at end of end word
+            const endTime = endWord.end;
             const endHandle: HandlePosition = {
-                time: endMidpoint,
-                percentage: (endMidpoint / duration) * 100,
+                time: endTime,
+                percentage: (endTime / duration) * 100,
                 wordIndex: endWord.index
             };
             this._endHandle.set(endHandle);
@@ -295,40 +295,6 @@ export class TimelineService {
         }
 
         return selectedIndices;
-    }
-
-    /**
-     * Get selection bounds (start and end times) from handle positions
-     * Used for video preview and output generation
-     * @returns Object with start and end times, or null
-     */
-    public getSelectionBounds(): { start: number; end: number } | null {
-        const startHandle = this._startHandle();
-        const endHandle = this._endHandle();
-
-        if (!startHandle) return null;
-
-        // Single word mode - return handle position (not word bounds)
-        if (this._isSingleWordMode() && !endHandle) {
-            const words = this._words();
-            const word = words.find(w => startHandle.wordIndex === w.index);
-            if (word) {
-                // Return handle time as both start and end for single word mode
-                return {
-                    start: startHandle.time,
-                    end: word.end
-                };
-            }
-            return null;
-        }
-
-        // Range mode - return handle positions
-        if (!endHandle) return null;
-
-        return {
-            start: startHandle.time,
-            end: endHandle.time
-        };
     }
 
     /**

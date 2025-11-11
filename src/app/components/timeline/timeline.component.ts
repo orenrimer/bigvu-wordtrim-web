@@ -36,9 +36,6 @@ export class TimelineComponent implements OnInit, OnDestroy {
     private editorStateService: EditorStateService;
     private videoPlayerService: VideoPlayerService;
 
-    // Safety margin to prevent spillover to next word (in seconds)
-    private readonly PLAYBACK_SAFETY_MARGIN = 0.15; // 150ms before end
-
     // Drag state (public for template access)
     public isDraggingStart = false;
     public isDraggingEnd = false;
@@ -298,30 +295,32 @@ export class TimelineComponent implements OnInit, OnDestroy {
             }
 
             // Play from new start position
-            const bounds = this.timelineService.getSelectionBounds();
-            if (bounds) {
-                // After dragging start handle, check if we have an end word
-                const currentEnd = this.editorStateService.selectionEnd();
+            const currentEnd = this.editorStateService.selectionEnd();
+            const currentStart = this.editorStateService.selectionStart();
 
-                if (currentEnd) {
-                    // If we have end word, play segment from start to end with safety margin
-                    const endTimeWithMargin = Math.max(bounds.start, bounds.end - this.PLAYBACK_SAFETY_MARGIN);
-                    this.videoPlayerService.playSegment(bounds.start, endTimeWithMargin);
-                } else {
-                    // If no end word, play from start to end of video
-                    this.videoPlayerService.seek(bounds.start);
-                    this.videoPlayerService.play();
-                }
+            if (currentEnd && currentStart) {
+                // If we have end word, play segment from start word to end word
+                // Always use 50% margin from end word to prevent spillover
+                const endWordDuration = currentEnd.end - currentEnd.start;
+                const margin = endWordDuration * 0.5;
+
+                const playStart = currentStart.start;
+                const playEnd = currentEnd.end - margin;
+                this.videoPlayerService.playSegment(playStart, playEnd);
+            } else if (currentStart) {
+                // If no end word, play from start word beginning with deleted skipping
+                this.videoPlayerService.playEditedVideo(words, currentStart.start);
             }
         }
 
         // Handle END drag - update end word based on handle position
         if (this.isDraggingEnd) {
             const endHandle = this.timelineService.endHandle();
+            let wordAtHandle = null;
 
             if (endHandle) {
                 // Find word using midpoint logic
-                const wordAtHandle = this.findWordForEndHandle(endHandle.time, words);
+                wordAtHandle = this.findWordForEndHandle(endHandle.time, words);
 
                 if (wordAtHandle) {
                     // Keep existing start word and update end word
@@ -333,22 +332,26 @@ export class TimelineComponent implements OnInit, OnDestroy {
                 }
             }
 
-            // Play preview leading up to the new end position
-            const bounds = this.timelineService.getSelectionBounds();
-            if (bounds) {
+            // Play preview leading up to the new end word with smart margin
+            const currentStart = this.editorStateService.selectionStart();
+            if (currentStart && wordAtHandle) {
                 // After dragging end handle, check distance from start
-                const timeDifference = bounds.end - bounds.start;
+                const timeDifference = wordAtHandle.end - currentStart.start;
                 let previewStart: number;
 
                 if (timeDifference < 3) {
-                    // If start word is less than 3 seconds before end, play from start
-                    previewStart = bounds.start;
+                    // If start word is less than 3 seconds before end, play from start word
+                    previewStart = currentStart.start;
                 } else {
-                    // If start word is 3+ seconds before end, play last 3 seconds
-                    previewStart = Math.max(0, bounds.end - 3);
+                    // If start word is 3+ seconds before end, play last 3 seconds before end word
+                    previewStart = Math.max(0, wordAtHandle.end - 3);
                 }
 
-                const previewEnd = Math.max(previewStart, bounds.end - this.PLAYBACK_SAFETY_MARGIN);
+                // Always use 50% margin from end word to prevent spillover
+                const endWordDuration = wordAtHandle.end - wordAtHandle.start;
+                const margin = endWordDuration * 0.5;
+                const previewEnd = wordAtHandle.end - margin;
+
                 this.videoPlayerService.playSegment(previewStart, previewEnd);
             }
         }

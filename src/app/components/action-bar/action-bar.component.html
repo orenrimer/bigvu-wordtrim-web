@@ -2,6 +2,18 @@
     <div class="action-bar-content">
         <!-- Action Bar Items -->
         <div class="action-bar-items">
+
+            <!-- Restore Segment (Feature 6 - Conditional Visibility) -->
+            @if (canRestore()) {
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
+                (clicked)="onRestore()" aria-label="Restore deleted words in selection">
+                <div class="action-bar-item">
+                    <img src="assets/icons/Restore.svg" alt="" class="action-icon" />
+                    <span class="action-label">Restore</span>
+                </div>
+            </app-button>
+            }
+
             <!-- Fix Start/End (Phase 2 - Placeholder) -->
             <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)" [disabled]="true"
                 (clicked)="onFixStartEnd()" aria-label="Fix Start/End (Coming in Phase 2)">
@@ -41,16 +53,6 @@
                 </div>
             </app-button>
 
-            <!-- Restore Segment (Feature 6 - Conditional Visibility) -->
-            @if (canRestore()) {
-            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
-                (clicked)="onRestore()" aria-label="Restore deleted words in selection">
-                <div class="action-bar-item">
-                    <img src="assets/icons/Undo.svg" alt="" class="action-icon" />
-                    <span class="action-label">Restore</span>
-                </div>
-            </app-button>
-            }
 
             <!-- Unselect (Feature 6) -->
             <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"

@@ -127,16 +127,20 @@ export class MainEditorContainerComponent implements OnInit {
     // Scenario 2A: Has start, no end - clicked SAME word (toggle to end)
     if (currentStart && !currentEnd && word.index === currentStart.index) {
       this.editorState.selectWord(word); // This will make it both start and end
-      // Play 3 seconds backward from end word
-      this.videoService.playWordPreview(word.end, true);
+
+      // Play 3 seconds backward ending at word end with smart margin
+      const wordDuration = word.end - word.start;
+      this.videoService.playWordPreview(word.start, true, wordDuration);
       return;
     }
 
     // Scenario 2B: Has start, no end - clicked DIFFERENT word (becomes end)
     if (currentStart && !currentEnd && word.index > currentStart.index) {
       this.editorState.selectWord(word);
-      // Play 3 seconds backward from end word
-      this.videoService.playWordPreview(word.end, true);
+
+      // Play 3 seconds backward ending at word end with smart margin
+      const wordDuration = word.end - word.start;
+      this.videoService.playWordPreview(word.start, true, wordDuration);
       return;
     }
 

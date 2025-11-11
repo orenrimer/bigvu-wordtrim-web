@@ -45,9 +45,6 @@ export class VideoPlayerService {
     private hls: Hls | null = null;
     private videoElement: HTMLVideoElement | null = null;
 
-    // Safety margin to prevent spillover to next word (in seconds)
-    private readonly PLAYBACK_SAFETY_MARGIN = 0.15; // 150ms before end
-
     // Private writable signals
     private readonly _isPlaying = signal<boolean>(false);
     private readonly _currentTime = signal<number>(0);
@@ -74,6 +71,10 @@ export class VideoPlayerService {
     private previewEndTime: number | null = null;
     private isEditedPlaybackMode = false;
     private deletedSegments: Array<{ start: number; end: number }> = [];
+
+    // Smooth playback checks
+    private playbackCheckInterval: number | null = null;
+    private readonly PLAYBACK_CHECK_INTERVAL_MS = 50; // Check every 50ms for accurate preview/skip
 
     /**
      * Initialize video player with HTML video element and video URL
@@ -190,31 +191,19 @@ export class VideoPlayerService {
         // Play event
         this.videoElement.addEventListener('play', () => {
             this._isPlaying.set(true);
+            this.startPlaybackCheck();
         });
 
         // Pause event
         this.videoElement.addEventListener('pause', () => {
             this._isPlaying.set(false);
+            this.stopPlaybackCheck();
         });
 
-        // Time update event
+        // Time update event - just update current time signal
         this.videoElement.addEventListener('timeupdate', () => {
             if (!this.videoElement) return;
             this._currentTime.set(this.videoElement.currentTime);
-
-            // Handle preview mode - auto pause at end time
-            if (this.isPreviewMode && this.previewEndTime !== null) {
-                if (this.videoElement.currentTime >= this.previewEndTime) {
-                    this.pause();
-                    this.isPreviewMode = false;
-                    this.previewEndTime = null;
-                }
-            }
-
-            // Handle edited playback mode - skip deleted segments
-            if (this.isEditedPlaybackMode && this.deletedSegments.length > 0) {
-                this.skipDeletedSegments();
-            }
         });
 
         // Duration change event
@@ -231,6 +220,7 @@ export class VideoPlayerService {
             this._isPlaying.set(false);
             this.isPreviewMode = false;
             this.isEditedPlaybackMode = false;
+            this.stopPlaybackCheck();
         });
 
         // Error event
@@ -271,10 +261,11 @@ export class VideoPlayerService {
 
     /**
      * Play 3-second preview from word start time
-     * @param startTime Word start time in seconds
-     * @param isEndWord Whether this is an end word (play 3 seconds before)
+     * @param startTime Word start time
+     * @param isEndWord Whether this is an end word (play 3 seconds before word with smart ending)
+     * @param wordDuration Duration of the word (for smart margin calculation)
      */
-    public playWordPreview(startTime: number, isEndWord: boolean = false): void {
+    public playWordPreview(startTime: number, isEndWord: boolean = false, wordDuration?: number): void {
         if (!this.videoElement) return;
 
         // Calculate preview times
@@ -282,12 +273,16 @@ export class VideoPlayerService {
         let previewStart: number;
         let previewEnd: number;
 
-        if (isEndWord) {
-            // For end words, play 3 seconds before
+        if (isEndWord && wordDuration !== undefined) {
+            // For end words: play 3 seconds before with smart ending to prevent spillover
             previewStart = Math.max(0, startTime - PREVIEW_DURATION);
-            previewEnd = startTime;
+
+            // Always use 50% margin from word end to prevent spillover
+            const margin = wordDuration * 0.5;
+            previewEnd = startTime + wordDuration - margin;
+
         } else {
-            // For normal words, play 3 seconds from start
+            // For start words: play 3 seconds from start
             previewStart = startTime;
             previewEnd = Math.min(this._duration(), startTime + PREVIEW_DURATION);
         }
@@ -337,8 +332,9 @@ export class VideoPlayerService {
     /**
      * Play edited video (skip deleted segments seamlessly)
      * @param words Array of all words with their states
+     * @param startTime Optional start time (defaults to current time or 0)
      */
-    public playEditedVideo(words: Word[]): void {
+    public playEditedVideo(words: Word[], startTime?: number): void {
         if (!this.videoElement) return;
 
         // Calculate deleted segments
@@ -349,8 +345,39 @@ export class VideoPlayerService {
         this.isPreviewMode = false;
         this.previewEndTime = null;
 
-        // Start from beginning
-        this.seek(0);
+        // Seek to start time if provided, otherwise stay at current position or go to beginning
+        if (startTime !== undefined) {
+            this.seek(startTime);
+        } else if (this._currentTime() === 0 || this._currentTime() >= this._duration()) {
+            // Only seek to 0 if we're at the beginning or at the end
+            this.seek(0);
+        }
+        // Otherwise keep current position and start playing from there
+
+        this.play();
+    }
+
+    /**
+     * Play selected segment with deleted word skipping
+     * Combines segment playback with deleted segment skipping
+     * @param words Array of all words with their states
+     * @param startTime Start time of selection
+     * @param endTime End time of selection
+     */
+    public playSelectedSegment(words: Word[], startTime: number, endTime: number): void {
+        if (!this.videoElement) return;
+
+        // Calculate deleted segments
+        this.deletedSegments = this.calculateDeletedSegments(words);
+
+        // Set both modes: edited playback (skip deleted) + preview mode (stop at end)
+        this.isEditedPlaybackMode = true;
+        this.isPreviewMode = true;
+        this.previewEndTime = endTime;
+
+
+        // Jump to selection start and play
+        this.seek(startTime);
         this.play();
     }
 
@@ -402,6 +429,7 @@ export class VideoPlayerService {
 
     /**
      * Skip deleted segments during edited playback
+     * If in preview mode with end time, ensure we don't skip past it
      */
     private skipDeletedSegments(): void {
         if (!this.videoElement) return;
@@ -411,62 +439,138 @@ export class VideoPlayerService {
         // Check if current time is within a deleted segment
         for (const segment of this.deletedSegments) {
             if (currentTime >= segment.start && currentTime < segment.end) {
-                // Skip to end of deleted segment
-                this.seek(segment.end);
+                // Calculate skip target
+                let skipTarget = segment.end;
+
+                // If in preview mode, don't skip past the preview end time
+                if (this.isPreviewMode && this.previewEndTime !== null) {
+                    skipTarget = Math.min(skipTarget, this.previewEndTime);
+
+                    // If the skip target equals or exceeds preview end, just pause
+                    if (skipTarget >= this.previewEndTime) {
+                        this.pause();
+                        this.isPreviewMode = false;
+                        this.previewEndTime = null;
+                        this.isEditedPlaybackMode = false;
+                        return;
+                    }
+                }
+
+                // Skip to end of deleted segment (or preview end, whichever is earlier)
+                this.seek(skipTarget);
                 break;
             }
         }
     }
 
     /**
+     * Start interval to check playback state every 50ms
+     * Handles both preview mode ending and deleted segment skipping
+     * Provides much more accurate timing than relying on timeupdate alone (which fires every ~250ms)
+     */
+    private startPlaybackCheck(): void {
+        // Clear any existing interval
+        this.stopPlaybackCheck();
+
+        this.playbackCheckInterval = window.setInterval(() => {
+            if (!this.videoElement) return;
+
+            const currentTime = this.videoElement.currentTime;
+
+            // Check preview mode - stop at precise end time
+            if (this.isPreviewMode && this.previewEndTime !== null) {
+                if (currentTime >= this.previewEndTime) {
+                    this.pause();
+                    this.isPreviewMode = false;
+                    this.previewEndTime = null;
+                    return;
+                }
+            }
+
+            // Check deleted segments - skip smoothly
+            if (this.isEditedPlaybackMode && this.deletedSegments.length > 0) {
+                this.skipDeletedSegments();
+            }
+        }, this.PLAYBACK_CHECK_INTERVAL_MS);
+    }
+
+    /**
+     * Stop the playback check interval
+     */
+    private stopPlaybackCheck(): void {
+        if (this.playbackCheckInterval !== null) {
+            clearInterval(this.playbackCheckInterval);
+            this.playbackCheckInterval = null;
+        }
+    }
+
+    /**
      * Play video
+     * Immediately updates isPlaying state for instant UI feedback
      */
     public play(): void {
         if (!this.videoElement) return;
 
         const playPromise = this.videoElement.play();
         if (playPromise !== undefined) {
-            playPromise.catch((error) => {
-                console.error('Play error:', error);
-                this._error.set('Failed to play video');
-            });
+            playPromise
+                .then(() => {
+                    // Immediately update state on successful play
+                    this._isPlaying.set(true);
+                })
+                .catch((error) => {
+                    console.error('Play error:', error);
+                    this._error.set('Failed to play video');
+                    this._isPlaying.set(false);
+                });
         }
     }
 
     /**
      * Pause video
+     * Immediately updates isPlaying state for instant UI feedback
      */
     public pause(): void {
         if (!this.videoElement) return;
         this.videoElement.pause();
+        // Immediately update state (don't wait for 'pause' event)
+        this._isPlaying.set(false);
     }
 
     /**
      * Toggle play/pause
+     * ALWAYS skips deleted segments during playback (PRD: Video Playback)
      * If there's a selection and video is paused, jump to selection start before playing
-     * If there's a complete selection (start + end), play only that segment
+     * If there's a complete selection (start + end), play only that segment (skipping deleted words within)
      */
     public togglePlayPause(): void {
         if (this._isPlaying()) {
             this.pause();
         } else {
+            // Get all words from editor state for deleted segment skipping
+            const words = this.editorStateService.words();
+
             // Check if there's a selection
             const selectionStart = this.editorStateService.selectionStart();
             const selectionEnd = this.editorStateService.selectionEnd();
-            const bounds = this.timelineService.getSelectionBounds();
 
-            if (selectionStart && selectionEnd && bounds) {
-                // Complete selection - play segment from start to end with safety margin
-                const endTimeWithMargin = Math.max(bounds.start, bounds.end - this.PLAYBACK_SAFETY_MARGIN);
-                this.playSegment(bounds.start, endTimeWithMargin);
-            } else if (selectionStart && bounds) {
-                // Only start selected - jump to start and play normally
-                this.seek(bounds.start);
-                this.play();
+            if (selectionStart && selectionEnd) {
+                // Complete selection - play from start word beginning to end word end (skipping deleted words)
+                // Always use 50% margin from end word to prevent spillover
+                const endWordDuration = selectionEnd.end - selectionEnd.start;
+                const margin = endWordDuration * 0.5;
+
+                // Play from start of first word to end of last word (with margin)
+                const playStart = selectionStart.start;
+                const playEnd = selectionEnd.end - margin;
+
+                this.playSelectedSegment(words, playStart, playEnd);
+            } else if (selectionStart) {
+                // Only start selected - jump to start word beginning and play with deleted skipping
+                this.playEditedVideo(words, selectionStart.start);
             } else {
-                // No selection - play normally
-                console.log('🎬 PLAY - From beginning (no selection)');
-                this.play();
+                // No selection - play from beginning, ALWAYS skip deleted segments
+                this.playEditedVideo(words, 0);
             }
         }
     }

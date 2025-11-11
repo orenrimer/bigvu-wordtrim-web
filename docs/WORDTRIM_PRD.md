@@ -142,11 +142,10 @@ Auto-detect and adapt:
 #### Preview of Selected Segment
 - Plays from fine-tuned start to end (handle positions).
 
-#### Full Video Playback
-- Plays entire video (ignoring deleted words).
-
-#### Edited Video Playback
-- Skips deleted segments for seamless playback.
+#### Video Playback
+- **Always skips deleted segments for seamless playback.**
+- No distinction between "full" and "edited" modes.
+- Single Play button that automatically jumps over deleted words.
 
 ### 6. Segment Actions
 #### Remove This Segment
@@ -250,7 +249,7 @@ Phase 1 is complete when:
 - All four segment actions function.
 - Video preview adapts to aspect ratios.
 - 3s preview on word click.
-- Full playback skips deleted segments.
+- Playback always skips deleted segments seamlessly.
 - Tutorial modal functions properly.
 - Undo/Redo works on all actions.
 - Save outputs correct array.
