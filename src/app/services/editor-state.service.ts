@@ -289,19 +289,17 @@ export class EditorStateService {
 
     /**
      * Mark all non-selected words as deleted (Keep Only action)
+     * Restores selected words to NORMAL state (even if deleted)
      * Used by segment actions in Feature 6
-     * @returns True if operation succeeded, false if selection contains only deleted words
+     * @returns True if operation succeeded, false if no selection
      */
     public keepOnlySelectedWords(): boolean {
         const selected = this.selectedWords();
         if (selected.length === 0) return false;
 
-        // Check if selection has any non-deleted words (would result in empty video if all deleted)
-        const hasNonDeletedWords = selected.some(word => !this.isWordDeleted(word));
-        if (!hasNonDeletedWords) {
-            alert('You cannot remove the entire video');
-            return false;
-        }
+        // Note: No validation needed here because:
+        // - Selected words are restored to NORMAL (even if deleted)
+        // - This ensures at least the selected words remain in the video
 
         const currentWords = this._words();
         const selectedIndices = new Set(selected.map(w => w.index));
