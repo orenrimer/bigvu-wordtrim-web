@@ -14,13 +14,19 @@
     <!-- Video Player -->
     <div [style.display]="isLoading() || error() ? 'none' : 'block'" class="video-player-container">
 
-        <video #videoElement playsinline (click)="onTogglePlayPause()"
-            style="display: block; background: #000; cursor: pointer;">
+        <video #videoElement playsinline 
+            (click)="isEntireSegmentDeleted() ? null : onTogglePlayPause()"
+            [style.cursor]="isEntireSegmentDeleted() ? 'not-allowed' : 'pointer'"
+            style="display: block; background: #000;">
             Your browser does not support video.
         </video>
 
         <!-- Centered Play Button (when paused) -->
-        <div class="center-play-overlay" *ngIf="!isPlaying()" (click)="onTogglePlayPause()">
+        <div class="center-play-overlay" *ngIf="!isPlaying()" 
+             [class.disabled]="isEntireSegmentDeleted()"
+             (click)="isEntireSegmentDeleted() ? null : onTogglePlayPause()"
+             [attr.aria-disabled]="isEntireSegmentDeleted()"
+             [title]="isEntireSegmentDeleted() ? 'Cannot play: entire selected segment is deleted' : 'Play'">
             <div class="play-button-circle">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
                     <path d="M8 5v14l11-7z" />

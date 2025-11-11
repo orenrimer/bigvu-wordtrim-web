@@ -56,6 +56,29 @@
             height: 40px;
         }
     }
+
+    // Disabled state (when entire segment is deleted)
+    &.disabled {
+        cursor: not-allowed;
+
+        .play-button-circle {
+            opacity: 0.4;
+            background: #00000066;
+
+            &:hover {
+                background: #00000066;
+                transform: none;
+            }
+
+            &:active {
+                transform: none;
+            }
+
+            svg {
+                opacity: 0.5;
+            }
+        }
+    }
 }
 
 // Time Badge (bottom right corner)

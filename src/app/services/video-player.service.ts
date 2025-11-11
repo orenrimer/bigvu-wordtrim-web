@@ -555,6 +555,21 @@ export class VideoPlayerService {
             const selectionEnd = this.editorStateService.selectionEnd();
 
             if (selectionStart && selectionEnd) {
+                // Check if the entire selected segment is deleted
+                const selectedWords = this.editorStateService.selectedWords();
+                const allDeleted = selectedWords.every(word =>
+                    word.state === WordState.DELETED ||
+                    word.state === WordState.DELETED_SELECTED_START ||
+                    word.state === WordState.DELETED_SELECTED_END ||
+                    word.state === WordState.DELETED_SELECTED_RANGE
+                );
+
+                // If entire segment is deleted, don't play anything
+                if (allDeleted) {
+                    console.warn('⚠️ Cannot play: entire selected segment is deleted');
+                    return;
+                }
+
                 // Complete selection - play from start word beginning to end word end (skipping deleted words)
                 // Always use 50% margin from end word to prevent spillover
                 const endWordDuration = selectionEnd.end - selectionEnd.start;

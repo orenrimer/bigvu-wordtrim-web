@@ -1,6 +1,8 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, ViewEncapsulation } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, ViewEncapsulation, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { VideoPlayerService } from '../../services/video-player.service';
+import { EditorStateService } from '../../services/editor-state.service';
+import { WordState } from '../../models';
 import { environment } from '../../../environments/environment.development';
 
 /**
@@ -25,6 +27,8 @@ import { environment } from '../../../environments/environment.development';
 export class VideoPlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     @ViewChild('videoElement', { static: false }) videoElementRef!: ElementRef<HTMLVideoElement>;
 
+    private editorState = inject(EditorStateService);
+
     // Expose service signals to template
     isPlaying = this.videoService.isPlaying;
     currentTime = this.videoService.currentTime;
@@ -34,6 +38,26 @@ export class VideoPlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     aspectRatio = this.videoService.aspectRatio;
     formattedCurrentTime = this.videoService.formattedCurrentTime;
     formattedDuration = this.videoService.formattedDuration;
+
+    /**
+     * Check if entire selected segment is deleted
+     * If true, play button should be disabled
+     */
+    protected readonly isEntireSegmentDeleted = computed(() => {
+        const hasComplete = this.editorState.hasCompleteSelection();
+        if (!hasComplete) return false;
+
+        const selectedWords = this.editorState.selectedWords();
+        if (selectedWords.length === 0) return false;
+
+        // Check if ALL selected words are deleted
+        return selectedWords.every(word =>
+            word.state === WordState.DELETED ||
+            word.state === WordState.DELETED_SELECTED_START ||
+            word.state === WordState.DELETED_SELECTED_END ||
+            word.state === WordState.DELETED_SELECTED_RANGE
+        );
+    });
 
     constructor(public videoService: VideoPlayerService) { }
 
