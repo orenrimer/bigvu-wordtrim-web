@@ -95,7 +95,7 @@ export class TimelineService {
         const duration = this._totalDuration();
 
         if (!endWord) {
-            // Single word mode - only show one handle in the middle of the word
+            // Single word mode - place handle at center of the word
             this._isSingleWordMode.set(true);
             const midpoint = (startWord.start + startWord.end) / 2;
             const handle: HandlePosition = {
@@ -106,10 +106,10 @@ export class TimelineService {
             this._startHandle.set(handle);
             this._endHandle.set(null);
         } else {
-            // Range selection mode - show both handles
+            // Range selection mode - show both handles at center of words
             this._isSingleWordMode.set(false);
 
-            // Set start handle at middle of start word
+            // Set start handle at center of start word
             const startMidpoint = (startWord.start + startWord.end) / 2;
             const startHandle: HandlePosition = {
                 time: startMidpoint,
@@ -118,10 +118,11 @@ export class TimelineService {
             };
             this._startHandle.set(startHandle);
 
-            // Set end handle at end of end word
+            // Set end handle at center of end word
+            const endMidpoint = (endWord.start + endWord.end) / 2;
             const endHandle: HandlePosition = {
-                time: endWord.end,
-                percentage: (endWord.end / duration) * 100,
+                time: endMidpoint,
+                percentage: (endMidpoint / duration) * 100,
                 wordIndex: endWord.index
             };
             this._endHandle.set(endHandle);
@@ -182,23 +183,7 @@ export class TimelineService {
         // Clamp again after adjustment
         const clampedTime = Math.max(0, finalTime);
 
-        // In single word mode, snap to center of word
-        if (this._isSingleWordMode()) {
-            const word = words.find(w => clampedTime >= w.start && clampedTime <= w.end);
-
-            if (word) {
-                const midpoint = (word.start + word.end) / 2;
-                const handle: HandlePosition = {
-                    time: midpoint,
-                    percentage: (midpoint / duration) * 100,
-                    wordIndex: word.index
-                };
-                this._startHandle.set(handle);
-                return handle;
-            }
-        }
-
-        // Range mode - free positioning
+        // Free positioning - no snapping
         const handle: HandlePosition = {
             time: clampedTime,
             percentage: (clampedTime / duration) * 100,
@@ -323,13 +308,14 @@ export class TimelineService {
 
         if (!startHandle) return null;
 
-        // Single word mode - return bounds of the word under the handle
+        // Single word mode - return handle position (not word bounds)
         if (this._isSingleWordMode() && !endHandle) {
             const words = this._words();
             const word = words.find(w => startHandle.wordIndex === w.index);
             if (word) {
+                // Return handle time as both start and end for single word mode
                 return {
-                    start: word.start,
+                    start: startHandle.time,
                     end: word.end
                 };
             }

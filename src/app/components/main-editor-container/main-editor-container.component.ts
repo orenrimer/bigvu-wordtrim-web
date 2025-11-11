@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { SegmentationLoaderService } from '../../services/segmentation-loader.service';
 import { EditorStateService } from '../../services/editor-state.service';
 import { VideoPlayerService } from '../../services/video-player.service';
+import { TimelineService } from '../../services/timeline.service';
 import { SkeletonLoaderComponent } from '../skeleton-loader/skeleton-loader.component';
 import { WordChipComponent } from '../word-chip/word-chip.component';
 import { ActionBarComponent } from '../action-bar/action-bar.component';
@@ -53,7 +54,8 @@ export class MainEditorContainerComponent implements OnInit {
   constructor(
     private segmentationService: SegmentationLoaderService,
     private editorState: EditorStateService,
-    private videoService: VideoPlayerService
+    private videoService: VideoPlayerService,
+    public timelineService: TimelineService
   ) {
     // Effect: Sync current playback word with video time
     // Always highlight current word during playback

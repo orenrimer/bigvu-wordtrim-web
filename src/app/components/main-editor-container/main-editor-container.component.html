@@ -33,10 +33,25 @@
                     <strong>Selection:</strong>
                     <span *ngIf="!hasCompleteSelection()">
                         Start: "{{ selectionStart()?.word }}"
+                        (Word: {{ selectionStart()?.start }}s | {{ (selectionStart()!.start + selectionStart()!.end) / 2
+                        }}s | {{ selectionStart()?.end }}s)
+                        <span *ngIf="timelineService.startHandle()">
+                            | Handle: {{ timelineService.startHandle()!.time.toFixed(3) }}s
+                        </span>
                     </span>
                     <span *ngIf="hasCompleteSelection()">
-                        "{{ selectionStart()?.word }}" → "{{ selectionEnd()?.word }}"
-                        ({{ selectedWords().length }} words)
+                        "{{ selectionStart()?.word }}" (Word: {{ selectionStart()?.start }}s | {{
+                        (selectionStart()!.start + selectionStart()!.end) / 2 }}s | {{ selectionStart()?.end }}s)
+                        <span *ngIf="timelineService.startHandle()">
+                            | Handle: {{ timelineService.startHandle()!.time.toFixed(3) }}s
+                        </span>
+                        →
+                        "{{ selectionEnd()?.word }}" (Word: {{ selectionEnd()?.start }}s | {{ (selectionEnd()!.start +
+                        selectionEnd()!.end) / 2 }}s | {{ selectionEnd()?.end }}s)
+                        <span *ngIf="timelineService.endHandle()">
+                            | Handle: {{ timelineService.endHandle()!.time.toFixed(3) }}s
+                        </span>
+                        | {{ selectedWords().length }} words
                     </span>
                     <button class="clear-btn" (click)="clearSelection()">Clear</button>
                 </div>

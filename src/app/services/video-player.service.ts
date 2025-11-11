@@ -2,6 +2,7 @@ import { Injectable, signal, computed, effect, inject } from '@angular/core';
 import Hls from 'hls.js';
 import { Word, WordState } from '../models';
 import { EditorStateService } from './editor-state.service';
+import { TimelineService } from './timeline.service';
 
 /**
  * Video Player State
@@ -36,12 +37,16 @@ export type AspectRatio = '16:9' | '1:1' | '9:16';
     providedIn: 'root'
 })
 export class VideoPlayerService {
-    // Inject EditorStateService
+    // Inject services
     private editorStateService = inject(EditorStateService);
+    private timelineService = inject(TimelineService);
 
     // HLS.js instance
     private hls: Hls | null = null;
     private videoElement: HTMLVideoElement | null = null;
+
+    // Safety margin to prevent spillover to next word (in seconds)
+    private readonly PLAYBACK_SAFETY_MARGIN = 0.15; // 150ms before end
 
     // Private writable signals
     private readonly _isPlaying = signal<boolean>(false);
@@ -442,16 +447,19 @@ export class VideoPlayerService {
             // Check if there's a selection
             const selectionStart = this.editorStateService.selectionStart();
             const selectionEnd = this.editorStateService.selectionEnd();
+            const bounds = this.timelineService.getSelectionBounds();
 
-            if (selectionStart && selectionEnd) {
-                // Complete selection - play segment from start to end
-                this.playSegment(selectionStart.start, selectionEnd.end);
-            } else if (selectionStart) {
+            if (selectionStart && selectionEnd && bounds) {
+                // Complete selection - play segment from start to end with safety margin
+                const endTimeWithMargin = Math.max(bounds.start, bounds.end - this.PLAYBACK_SAFETY_MARGIN);
+                this.playSegment(bounds.start, endTimeWithMargin);
+            } else if (selectionStart && bounds) {
                 // Only start selected - jump to start and play normally
-                this.seek(selectionStart.start);
+                this.seek(bounds.start);
                 this.play();
             } else {
                 // No selection - play normally
+                console.log('🎬 PLAY - From beginning (no selection)');
                 this.play();
             }
         }

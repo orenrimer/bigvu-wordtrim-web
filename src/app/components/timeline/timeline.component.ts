@@ -36,6 +36,9 @@ export class TimelineComponent implements OnInit, OnDestroy {
     private editorStateService: EditorStateService;
     private videoPlayerService: VideoPlayerService;
 
+    // Safety margin to prevent spillover to next word (in seconds)
+    private readonly PLAYBACK_SAFETY_MARGIN = 0.15; // 150ms before end
+
     // Drag state (public for template access)
     public isDraggingStart = false;
     public isDraggingEnd = false;
@@ -211,6 +214,55 @@ export class TimelineComponent implements OnInit, OnDestroy {
     }
 
     /**
+     * Find word for start handle based on handle position
+     * If handle passed the midpoint of a word, select the next word
+     */
+    private findWordForStartHandle(handleTime: number, words: any[]): any | null {
+        // Find the word that contains the handle time
+        const currentWord = words.find(w => handleTime >= w.start && handleTime <= w.end);
+
+        if (!currentWord) {
+            // Handle is not on any word, find closest word
+            return words.find(w => handleTime < w.start) || words[words.length - 1];
+        }
+
+        const midpoint = (currentWord.start + currentWord.end) / 2;
+
+        // If handle passed the midpoint, select the next word
+        if (handleTime > midpoint) {
+            const nextWord = words.find(w => w.index === currentWord.index + 1);
+            return nextWord || currentWord; // If no next word, stay on current
+        }
+
+        return currentWord;
+    }
+
+    /**
+     * Find word for end handle based on handle position
+     * If handle passed the midpoint of a word (going backwards), select the previous word
+     */
+    private findWordForEndHandle(handleTime: number, words: any[]): any | null {
+        // Find the word that contains the handle time
+        const currentWord = words.find(w => handleTime >= w.start && handleTime <= w.end);
+
+        if (!currentWord) {
+            // Handle is not on any word, find closest word
+            const reversedWords = [...words].reverse();
+            return reversedWords.find(w => handleTime > w.end) || words[0];
+        }
+
+        const midpoint = (currentWord.start + currentWord.end) / 2;
+
+        // If handle is before the midpoint, select the previous word
+        if (handleTime < midpoint) {
+            const prevWord = words.find(w => w.index === currentWord.index - 1);
+            return prevWord || currentWord; // If no previous word, stay on current
+        }
+
+        return currentWord;
+    }
+
+    /**
      * Handle mouse up - end drag
      * When handle is dragged for the first time (not tied to word), select the word at handle position
      */
@@ -225,10 +277,8 @@ export class TimelineComponent implements OnInit, OnDestroy {
             const isSingleWordMode = this.timelineService.isSingleWordMode();
 
             if (startHandle) {
-                // Find word at handle's current position
-                const wordAtHandle = words.find(w =>
-                    startHandle.time >= w.start && startHandle.time <= w.end
-                );
+                // Find word using midpoint logic
+                const wordAtHandle = this.findWordForStartHandle(startHandle.time, words);
 
                 if (wordAtHandle) {
                     const currentEnd = this.editorStateService.selectionEnd();
@@ -247,10 +297,21 @@ export class TimelineComponent implements OnInit, OnDestroy {
                 }
             }
 
-            // Play preview of selected segment
+            // Play from new start position
             const bounds = this.timelineService.getSelectionBounds();
             if (bounds) {
-                this.videoPlayerService.playSegment(bounds.start, bounds.end);
+                // After dragging start handle, check if we have an end word
+                const currentEnd = this.editorStateService.selectionEnd();
+
+                if (currentEnd) {
+                    // If we have end word, play segment from start to end with safety margin
+                    const endTimeWithMargin = Math.max(bounds.start, bounds.end - this.PLAYBACK_SAFETY_MARGIN);
+                    this.videoPlayerService.playSegment(bounds.start, endTimeWithMargin);
+                } else {
+                    // If no end word, play from start to end of video
+                    this.videoPlayerService.seek(bounds.start);
+                    this.videoPlayerService.play();
+                }
             }
         }
 
@@ -259,10 +320,8 @@ export class TimelineComponent implements OnInit, OnDestroy {
             const endHandle = this.timelineService.endHandle();
 
             if (endHandle) {
-                // Find word at handle's current position
-                const wordAtHandle = words.find(w =>
-                    endHandle.time >= w.start && endHandle.time <= w.end
-                );
+                // Find word using midpoint logic
+                const wordAtHandle = this.findWordForEndHandle(endHandle.time, words);
 
                 if (wordAtHandle) {
                     // Keep existing start word and update end word
@@ -274,10 +333,23 @@ export class TimelineComponent implements OnInit, OnDestroy {
                 }
             }
 
-            // Play preview of selected segment
+            // Play preview leading up to the new end position
             const bounds = this.timelineService.getSelectionBounds();
             if (bounds) {
-                this.videoPlayerService.playSegment(bounds.start, bounds.end);
+                // After dragging end handle, check distance from start
+                const timeDifference = bounds.end - bounds.start;
+                let previewStart: number;
+
+                if (timeDifference < 3) {
+                    // If start word is less than 3 seconds before end, play from start
+                    previewStart = bounds.start;
+                } else {
+                    // If start word is 3+ seconds before end, play last 3 seconds
+                    previewStart = Math.max(0, bounds.end - 3);
+                }
+
+                const previewEnd = Math.max(previewStart, bounds.end - this.PLAYBACK_SAFETY_MARGIN);
+                this.videoPlayerService.playSegment(previewStart, previewEnd);
             }
         }
 
@@ -417,6 +489,18 @@ export class TimelineComponent implements OnInit, OnDestroy {
         const minutes = Math.floor(timeInSeconds / 60);
         const seconds = Math.floor(timeInSeconds % 60);
         return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    /**
+     * Format time in seconds to MM:SS.mmm format (with milliseconds)
+     * @param timeInSeconds Time in seconds
+     * @returns Formatted time string with milliseconds (e.g., "00:03.250")
+     */
+    formatTimeWithMs(timeInSeconds: number): string {
+        const minutes = Math.floor(timeInSeconds / 60);
+        const seconds = Math.floor(timeInSeconds % 60);
+        const milliseconds = Math.floor((timeInSeconds % 1) * 1000);
+        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
     }
 }
 
