@@ -4,11 +4,13 @@ import { SegmentationLoaderService } from '../../services/segmentation-loader.se
 import { EditorStateService } from '../../services/editor-state.service';
 import { VideoPlayerService } from '../../services/video-player.service';
 import { TimelineService } from '../../services/timeline.service';
+import { TutorialService } from '../../services/tutorial.service';
 import { SkeletonLoaderComponent } from '../skeleton-loader/skeleton-loader.component';
 import { WordChipComponent } from '../word-chip/word-chip.component';
 import { ActionBarComponent } from '../action-bar/action-bar.component';
 import { VideoPlayerComponent } from '../video-player/video-player.component';
 import { TimelineComponent } from '../timeline/timeline.component';
+import { TutorialModalComponent } from '../tutorial-modal/tutorial-modal.component';
 import { Word } from '../../models';
 import { environment } from '../../../environments/environment.development';
 
@@ -28,7 +30,7 @@ import { environment } from '../../../environments/environment.development';
 @Component({
   selector: 'app-main-editor-container',
   standalone: true,
-  imports: [CommonModule, SkeletonLoaderComponent, WordChipComponent, ActionBarComponent, VideoPlayerComponent, TimelineComponent],
+  imports: [CommonModule, SkeletonLoaderComponent, WordChipComponent, ActionBarComponent, VideoPlayerComponent, TimelineComponent, TutorialModalComponent],
   templateUrl: './main-editor-container.component.html',
   styleUrl: './main-editor-container.component.scss'
 })
@@ -55,7 +57,8 @@ export class MainEditorContainerComponent implements OnInit {
     private segmentationService: SegmentationLoaderService,
     private editorState: EditorStateService,
     private videoService: VideoPlayerService,
-    public timelineService: TimelineService
+    public timelineService: TimelineService,
+    private tutorialService: TutorialService
   ) {
     // Effect: Sync current playback word with video time
     // Always highlight current word during playback
@@ -76,6 +79,9 @@ export class MainEditorContainerComponent implements OnInit {
   ngOnInit(): void {
     // Load segmentation data from environment URL on component initialization
     this.loadSegmentation();
+
+    // Auto-show tutorial tip on initial load (Feature 7)
+    this.tutorialService.autoShowOnInit();
   }
 
   /**
@@ -111,8 +117,12 @@ export class MainEditorContainerComponent implements OnInit {
    * Handle word click event
    * Delegates to EditorStateService for selection logic
    * Also triggers 3-second video preview based on PRD
+   * Also dismisses tutorial tip on first word click (Feature 7)
    */
   onWordClick(word: Word): void {
+    // Notify tutorial service of word click (dismisses tip on first click)
+    this.tutorialService.onWordClick();
+
     const currentStart = this.selectionStart();
     const currentEnd = this.selectionEnd();
 

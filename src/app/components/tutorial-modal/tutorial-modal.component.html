@@ -1,0 +1,87 @@
+<!-- Tutorial Modal Container -->
+@if (tutorialService.modalState() !== 'hidden') {
+<div class="modal-container">
+    <!-- Backdrop only for video mode (blocks interaction) -->
+    @if (tutorialService.modalState() === 'video') {
+    <div 
+        class="modal-backdrop" 
+        (click)="onBackdropClick($event)">
+    </div>
+    }
+    
+    <!-- TIP MODE -->
+    @if (tutorialService.modalState() === 'tip') {
+    <div 
+        class="modal-content modal-tip" 
+        dir="auto"
+        role="dialog"
+        aria-modal="false"
+        aria-label="Editing tip">
+        <!-- Close Button -->
+        <button 
+            class="close-button" 
+            (click)="close()"
+            aria-label="Close"
+            type="button">
+            <img src="assets/icons/Close.svg" alt="Close" />
+        </button>
+
+        <!-- Header with Info Icon -->
+        <div class="modal-header">
+            <svg class="info-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                <path d="M12 16V12M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <h2 class="modal-title">Editing tip</h2>
+        </div>
+
+        <!-- Content -->
+        <p class="modal-text">
+            Click once to select one word. Click start and end words to edit segment
+        </p>
+
+        <!-- Show Me How Button -->
+        <button 
+            class="show-me-button" 
+            (click)="showVideo()"
+            type="button">
+            Show Me How
+        </button>
+    </div>
+    }
+
+    <!-- VIDEO MODE -->
+    @if (tutorialService.modalState() === 'video') {
+    <div 
+        class="modal-content modal-video" 
+        dir="auto"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Tutorial video">
+        <!-- Close Button -->
+        <button 
+            class="close-button close-button-dark" 
+            (click)="close()"
+            aria-label="Close"
+            type="button">
+            <img src="assets/icons/Close.svg" alt="Close" />
+        </button>
+
+        <!-- Header -->
+        <h2 class="modal-title modal-title-dark">Trim your video by selecting words</h2>
+
+        <!-- Video Container -->
+        <div class="video-container">
+            <iframe
+                [src]="tutorialVideoUrl | safe: 'resourceUrl'"
+                frameborder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen
+                title="Tutorial Video">
+            </iframe>
+        </div>
+    </div>
+    }
+</div>
+}
+
