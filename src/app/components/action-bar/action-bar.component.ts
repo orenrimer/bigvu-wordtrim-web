@@ -2,6 +2,7 @@ import { Component, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ButtonComponent } from '../button/button.component';
 import { EditorStateService } from '../../services/editor-state.service';
+import { TutorialService } from '../../services/tutorial.service';
 import { WordState } from '../../models';
 
 /**
@@ -23,8 +24,9 @@ import { WordState } from '../../models';
     styleUrl: './action-bar.component.scss'
 })
 export class ActionBarComponent {
-    // Inject EditorStateService for state management
+    // Inject services
     private readonly editorState = inject(EditorStateService);
+    private readonly tutorialService = inject(TutorialService);
 
     // Computed signals for button states based on selection
 
@@ -158,9 +160,11 @@ export class ActionBarComponent {
     }
 
     /**
-     * Tutorial (Feature 7 - not implemented yet)
+     * Tutorial (Feature 7)
+     * Opens tutorial video modal in bottom-left corner
      */
     onTutorial(): void {
+        this.tutorialService.showVideo();
     }
 }
 
