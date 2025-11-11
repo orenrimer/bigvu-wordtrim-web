@@ -99,7 +99,7 @@
     background-color: var(--color-gray-100);
     color: var(--color-text-secondary);
     text-decoration: line-through;
-    cursor: default;
+    cursor: pointer;
 
     &:hover {
       opacity: 0.7;
@@ -107,18 +107,70 @@
   }
 
   /**
-   * Current Playback Word
-   * Highlighted during video playback - always visible with any state
+   * Word State: DELETED + SELECTED START
+   * Deleted word that is the start of selection (for restoration)
    */
-  &.current-playback:not([data-state="deleted"]) {
+  &[data-state="deleted-selected-start"] {
+    background-color: var(--color-primary);
+    color: var(--color-text-white);
+    text-decoration: line-through;
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--color-primary);
+      filter: brightness(0.95);
+    }
+  }
+
+  /**
+   * Word State: DELETED + SELECTED END
+   * Deleted word that is the end of selection (for restoration)
+   */
+  &[data-state="deleted-selected-end"] {
+    background-color: var(--color-primary);
+    color: var(--color-text-white);
+    text-decoration: line-through;
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--color-primary);
+      filter: brightness(0.95);
+    }
+  }
+
+  /**
+   * Word State: DELETED + SELECTED RANGE
+   * Deleted word in selected range (for restoration)
+   */
+  &[data-state="deleted-selected-range"] {
+    background-color: var(--color-secondary);
+    color: var(--color-primary);
+    text-decoration: line-through;
+    cursor: pointer;
+
+    &:hover {
+      background-color: var(--color-secondary);
+      filter: brightness(0.97);
+    }
+  }
+
+  /**
+   * Current Playback Word
+   * Highlighted during video playback - ALWAYS visible with ANY state including deleted
+   */
+  &.current-playback {
     // Add distinctive pulsing border to show current playback
     animation: pulse-playback 1s ease-in-out infinite;
 
-    // If word is not selected, change background
+    // Apply running color to ALL states (including deleted)
     &[data-state="normal"],
     &[data-state="selected-start"],
     &[data-state="selected-end"],
-    &[data-state="selected-range"] {
+    &[data-state="selected-range"],
+    &[data-state="deleted"],
+    &[data-state="deleted-selected-start"],
+    &[data-state="deleted-selected-end"],
+    &[data-state="deleted-selected-range"] {
       background-color: var(--color-running);
       color: var(--color-text-white);
 
@@ -126,6 +178,14 @@
         background-color: var(--color-running);
         filter: brightness(0.95);
       }
+    }
+
+    // Keep strikethrough for deleted states during playback
+    &[data-state="deleted"],
+    &[data-state="deleted-selected-start"],
+    &[data-state="deleted-selected-end"],
+    &[data-state="deleted-selected-range"] {
+      text-decoration: line-through;
     }
   }
 }

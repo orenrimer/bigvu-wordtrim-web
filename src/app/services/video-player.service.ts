@@ -366,7 +366,13 @@ export class VideoPlayerService {
         for (let i = 0; i < words.length; i++) {
             const word = words[i];
 
-            if (word.state === WordState.DELETED) {
+            // Check all deleted states (including deleted+selected)
+            const isDeleted = word.state === WordState.DELETED ||
+                word.state === WordState.DELETED_SELECTED_START ||
+                word.state === WordState.DELETED_SELECTED_END ||
+                word.state === WordState.DELETED_SELECTED_RANGE;
+
+            if (isDeleted) {
                 // Start of deleted segment
                 if (currentDeletedStart === null) {
                     currentDeletedStart = word.start;

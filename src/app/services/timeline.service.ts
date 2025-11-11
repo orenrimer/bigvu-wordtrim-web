@@ -348,7 +348,13 @@ export class TimelineService {
     public isTimeInDeletedSegment(time: number): boolean {
         const words = this._words();
         const word = words.find(w => time >= w.start && time <= w.end);
-        return word ? word.state === WordState.DELETED : false;
+        if (!word) return false;
+
+        // Check all deleted states (including deleted+selected)
+        return word.state === WordState.DELETED ||
+            word.state === WordState.DELETED_SELECTED_START ||
+            word.state === WordState.DELETED_SELECTED_END ||
+            word.state === WordState.DELETED_SELECTED_RANGE;
     }
 
     /**

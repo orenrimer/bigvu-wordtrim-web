@@ -2,18 +2,18 @@
     <div class="action-bar-content">
         <!-- Action Bar Items -->
         <div class="action-bar-items">
-            <!-- Fix Start/End (Premium Feature) -->
-            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
-                (clicked)="onFixStartEnd()">
+            <!-- Fix Start/End (Phase 2 - Placeholder) -->
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)" [disabled]="true"
+                (clicked)="onFixStartEnd()" aria-label="Fix Start/End (Coming in Phase 2)">
                 <div class="action-bar-item">
                     <img src="assets/icons/fix_start_end.svg" alt="" class="action-icon" />
                     <span class="action-label">Fix<br />Start/End</span>
                 </div>
             </app-button>
 
-            <!-- Remove Gaps -->
-            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
-                (clicked)="onRemoveGaps()">
+            <!-- Remove Gaps (Phase 2 - Placeholder) -->
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)" [disabled]="true"
+                (clicked)="onRemoveGaps()" aria-label="Remove Gaps (Coming in Phase 2)">
                 <div class="action-bar-item">
                     <img src="assets/icons/Premium.svg" alt="Premium" class="premium-badge" />
                     <img src="assets/icons/remove_gaps.svg" alt="" class="action-icon" />
@@ -21,37 +21,49 @@
                 </div>
             </app-button>
 
-
-            <!-- Remove This -->
-            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)" [disabled]="false"
-                (clicked)="onRemove()">
+            <!-- Remove This Segment (Feature 6 - Conditional Visibility) -->
+            @if (showRemove()) {
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
+                [disabled]="!canRemove()" (clicked)="onRemove()" aria-label="Remove selected segment">
                 <div class="action-bar-item">
                     <img src="assets/icons/remove.svg" alt="" class="action-icon" />
                     <span class="action-label">Remove<br />This</span>
                 </div>
             </app-button>
+            }
 
-            <!-- Keep Only This -->
-            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)" [disabled]="false"
-                (clicked)="onKeepOnly()">
+            <!-- Keep Only This Segment (Feature 6) -->
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
+                [disabled]="!canKeepOnly()" (clicked)="onKeepOnly()" aria-label="Keep only selected segment">
                 <div class="action-bar-item">
                     <img src="assets/icons/keep_only.svg" alt="" class="action-icon" />
                     <span class="action-label">Keep Only<br />This</span>
                 </div>
             </app-button>
 
-            <!-- Unselect -->
-            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)" [disabled]="true"
-                (clicked)="onUnselect()">
+            <!-- Restore Segment (Feature 6 - Conditional Visibility) -->
+            @if (canRestore()) {
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
+                (clicked)="onRestore()" aria-label="Restore deleted words in selection">
+                <div class="action-bar-item">
+                    <img src="assets/icons/Undo.svg" alt="" class="action-icon" />
+                    <span class="action-label">Restore</span>
+                </div>
+            </app-button>
+            }
+
+            <!-- Unselect (Feature 6) -->
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
+                [disabled]="!canUnselect()" (clicked)="onUnselect()" aria-label="Clear selection">
                 <div class="action-bar-item">
                     <img src="assets/icons/unselect.svg" alt="" class="action-icon" />
                     <span class="action-label">Unselect</span>
                 </div>
             </app-button>
 
-            <!-- Tutorial -->
+            <!-- Tutorial (Feature 7 - Placeholder) -->
             <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
-                (clicked)="onTutorial()">
+                (clicked)="onTutorial()" aria-label="Open tutorial">
                 <div class="action-bar-item">
                     <img src="assets/icons/tutorial.svg" alt="" class="action-icon" />
                     <span class="action-label">Tutorial</span>

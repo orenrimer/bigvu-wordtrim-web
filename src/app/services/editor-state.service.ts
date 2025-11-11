@@ -52,7 +52,12 @@ export class EditorStateService {
 
     // Computed signal: count of deleted words in selection
     public readonly deletedWordsInSelection = computed(() =>
-        this.selectedWords().filter(word => word.state === WordState.DELETED).length
+        this.selectedWords().filter(word =>
+            word.state === WordState.DELETED ||
+            word.state === WordState.DELETED_SELECTED_START ||
+            word.state === WordState.DELETED_SELECTED_END ||
+            word.state === WordState.DELETED_SELECTED_RANGE
+        ).length
     );
 
     /**
@@ -140,6 +145,9 @@ export class EditorStateService {
     /**
      * Update word states based on current selection
      * Updates the state property of each word in the words array
+     * 
+     * Important: Deleted words can be selected (for restoration).
+     * When selected, they get a combined state (e.g., DELETED_SELECTED_START)
      */
     private updateWordStates(): void {
         const start = this._selectionStart();
@@ -147,52 +155,73 @@ export class EditorStateService {
         const currentWords = this._words();
 
         const updatedWords = currentWords.map(word => {
-            // Preserve deleted state if word is deleted
-            if (word.state === WordState.DELETED && !this.isWordInSelection(word)) {
-                return word;
-            }
+            // Check if word was originally deleted (before any selection changes)
+            const wasDeleted = this.isWordDeleted(word);
 
-            // Determine new state based on selection
+            // No selection - return to normal or keep deleted
             if (!start) {
-                // No selection - return to normal or keep deleted
                 return {
                     ...word,
-                    state: word.state === WordState.DELETED ? WordState.DELETED : WordState.NORMAL
+                    state: wasDeleted ? WordState.DELETED : WordState.NORMAL
                 };
             }
 
+            // Only start selected
             if (!end) {
-                // Only start selected
                 if (word.index === start.index) {
-                    return { ...word, state: WordState.SELECTED_START };
+                    return {
+                        ...word,
+                        state: wasDeleted ? WordState.DELETED_SELECTED_START : WordState.SELECTED_START
+                    };
                 }
                 return {
                     ...word,
-                    state: word.state === WordState.DELETED ? WordState.DELETED : WordState.NORMAL
+                    state: wasDeleted ? WordState.DELETED : WordState.NORMAL
                 };
             }
 
             // Complete selection (start + end)
             if (word.index === start.index) {
-                return { ...word, state: WordState.SELECTED_START };
+                return {
+                    ...word,
+                    state: wasDeleted ? WordState.DELETED_SELECTED_START : WordState.SELECTED_START
+                };
             }
 
             if (word.index === end.index) {
-                return { ...word, state: WordState.SELECTED_END };
+                return {
+                    ...word,
+                    state: wasDeleted ? WordState.DELETED_SELECTED_END : WordState.SELECTED_END
+                };
             }
 
             if (word.index > start.index && word.index < end.index) {
-                return { ...word, state: WordState.SELECTED_RANGE };
+                return {
+                    ...word,
+                    state: wasDeleted ? WordState.DELETED_SELECTED_RANGE : WordState.SELECTED_RANGE
+                };
             }
 
             // Not in selection
             return {
                 ...word,
-                state: word.state === WordState.DELETED ? WordState.DELETED : WordState.NORMAL
+                state: wasDeleted ? WordState.DELETED : WordState.NORMAL
             };
         });
 
         this._words.set(updatedWords);
+    }
+
+    /**
+     * Check if a word is in a deleted state (including combined deleted+selected states)
+     * @param word Word to check
+     * @returns True if word is deleted
+     */
+    private isWordDeleted(word: Word): boolean {
+        return word.state === WordState.DELETED ||
+            word.state === WordState.DELETED_SELECTED_START ||
+            word.state === WordState.DELETED_SELECTED_END ||
+            word.state === WordState.DELETED_SELECTED_RANGE;
     }
 
     /**
@@ -263,11 +292,12 @@ export class EditorStateService {
         const currentWords = this._words();
         const selectedIndices = new Set(selected.map(w => w.index));
 
-        const updatedWords = currentWords.map(word =>
-            selectedIndices.has(word.index) && word.state === WordState.DELETED
-                ? { ...word, state: WordState.NORMAL }
-                : word
-        );
+        const updatedWords = currentWords.map(word => {
+            if (selectedIndices.has(word.index) && this.isWordDeleted(word)) {
+                return { ...word, state: WordState.NORMAL };
+            }
+            return word;
+        });
 
         this._words.set(updatedWords);
         this.clearSelection();
@@ -279,7 +309,7 @@ export class EditorStateService {
      * @returns Array of non-deleted words
      */
     public getNonDeletedWords(): Word[] {
-        return this._words().filter(word => word.state !== WordState.DELETED);
+        return this._words().filter(word => !this.isWordDeleted(word));
     }
 
     /**
