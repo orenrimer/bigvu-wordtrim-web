@@ -264,36 +264,35 @@
 
 ### Service Tasks
 - [ ] 7.1: Create `TutorialService` for tutorial state management
-- [ ] 7.2: Implement Signal for tutorial modal visibility
-- [ ] 7.3: Implement Signal for tutorial video modal visibility
-- [ ] 7.4: Create methods to show/hide modals
-- [ ] 7.5: Implement logic to auto-show editing tip on initial load
-- [ ] 7.6: Create method to dismiss tip on first word click
+- [ ] 7.2: Implement Signal for tutorial modal state (hidden | tip | video)
+- [ ] 7.3: Create methods to show/hide modal and switch between modes
+- [ ] 7.4: Implement logic to auto-show editing tip on initial load
+- [ ] 7.5: Create method to dismiss modal on first word click
 
 ### Component Tasks
-- [ ] 7.7: Create `TutorialModalComponent` for editing tip modal
-- [ ] 7.8: Implement modal content with tip text
-- [ ] 7.9: Add close button (X) to tip modal
-- [ ] 7.10: Add "Show Me How" button to tip modal
-- [ ] 7.11: Create `TutorialVideoModalComponent` for video tutorial
-- [ ] 7.12: Implement video embed in tutorial video modal
-- [ ] 7.13: Style modals matching Figma specifications
-- [ ] 7.14: Implement modal backdrop and overlay
+- [ ] 7.6: Create `TutorialModalComponent` with two display modes (tip and video)
+- [ ] 7.7: Implement tip mode with instructional text content
+- [ ] 7.8: Implement video mode with embedded tutorial video
+- [ ] 7.9: Add close button (X) for both modes
+- [ ] 7.10: Add "Show Me How" button in tip mode to switch to video mode
+- [ ] 7.11: Implement conditional rendering based on modal state
+- [ ] 7.12: Style modal matching Figma specifications for both modes
+- [ ] 7.13: Implement modal backdrop and overlay
 
 ### UI/Logic Integration
-- [ ] 7.15: Show editing tip modal on initial page load
-- [ ] 7.16: Dismiss tip modal on X button click
-- [ ] 7.17: Open tutorial video modal on "Show Me How" click
-- [ ] 7.18: Dismiss tip modal on first word click
-- [ ] 7.19: Connect tutorial video URL (to be provided)
-- [ ] 7.20: Implement proper modal z-index and layering
+- [ ] 7.14: Show editing tip modal on initial page load
+- [ ] 7.15: Dismiss modal on X button click
+- [ ] 7.16: Switch from tip mode to video mode on "Show Me How" click
+- [ ] 7.17: Dismiss modal on first word click
+- [ ] 7.18: Connect tutorial video URL (to be provided)
+- [ ] 7.19: Implement proper modal z-index and layering
 
 ### Testing Tasks
-- [ ] 7.21: Test tip modal appears on initial load
-- [ ] 7.22: Test tip modal closes on X button
-- [ ] 7.23: Test tutorial video modal opens on "Show Me How"
-- [ ] 7.24: Test tip modal dismisses on first word click
-- [ ] 7.25: Verify modal persistence logic (doesn't reappear)
+- [ ] 7.20: Test tip modal appears on initial load
+- [ ] 7.21: Test modal closes on X button in both modes
+- [ ] 7.22: Test modal switches from tip to video mode on "Show Me How"
+- [ ] 7.23: Test modal dismisses on first word click
+- [ ] 7.24: Verify modal persistence logic (doesn't reappear after dismissal)
 
 ### Git Branch Merge
 - [ ] **feature7-git-2:** Merge feature branch into main — `git checkout main && git merge feature/tutorial-system`
