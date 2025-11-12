@@ -3,34 +3,24 @@
 <div class="modal-container">
     <!-- Backdrop only for video mode (blocks interaction) -->
     @if (tutorialService.modalState() === 'video') {
-    <div 
-        class="modal-backdrop" 
-        (click)="onBackdropClick($event)">
+    <div class="modal-backdrop" (click)="onBackdropClick($event)">
     </div>
     }
-    
+
     <!-- TIP MODE -->
     @if (tutorialService.modalState() === 'tip') {
-    <div 
-        class="modal-content modal-tip" 
-        dir="auto"
-        role="dialog"
-        aria-modal="false"
-        aria-label="Editing tip">
+    <div class="modal-content modal-tip" dir="auto" role="dialog" aria-modal="false" aria-label="Editing tip">
         <!-- Close Button -->
-        <button 
-            class="close-button" 
-            (click)="close()"
-            aria-label="Close"
-            type="button">
+        <button class="close-button" (click)="close()" aria-label="Close" type="button">
             <img src="assets/icons/Close.svg" alt="Close" />
         </button>
 
         <!-- Header with Info Icon -->
         <div class="modal-header">
-            <svg class="info-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-                <path d="M12 16V12M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <svg class="info-icon" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
+                <path d="M12 16V12M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
             </svg>
             <h2 class="modal-title">Editing tip</h2>
         </div>
@@ -41,10 +31,7 @@
         </p>
 
         <!-- Show Me How Button -->
-        <button 
-            class="show-me-button" 
-            (click)="showVideo()"
-            type="button">
+        <button class="show-me-button" (click)="showVideo()" type="button">
             Show Me How
         </button>
     </div>
@@ -52,36 +39,34 @@
 
     <!-- VIDEO MODE -->
     @if (tutorialService.modalState() === 'video') {
-    <div 
-        class="modal-content modal-video" 
-        dir="auto"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Tutorial video">
-        <!-- Close Button -->
-        <button 
-            class="close-button close-button-dark" 
-            (click)="close()"
-            aria-label="Close"
-            type="button">
-            <img src="assets/icons/Close.svg" alt="Close" />
-        </button>
+    <div class="modal-content modal-video" dir="auto" role="dialog" aria-modal="true" aria-label="Tutorial video">
+        <div class="modal-video-header">
+            <!-- Close Button -->
+            <button class="close-button close-button-dark" (click)="close()" aria-label="Close" type="button">
+                <img src="assets/icons/Close.svg" alt="Close" />
+            </button>
 
-        <!-- Header -->
-        <h2 class="modal-title modal-title-dark">Trim your video by selecting words</h2>
-
+            <!-- Header -->
+            <h2 class="modal-title modal-title-dark">Trim your video by selecting words</h2>
+        </div>
         <!-- Video Container -->
         <div class="video-container">
-            <iframe
-                [src]="tutorialVideoUrl | safe: 'resourceUrl'"
-                frameborder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowfullscreen
+            <video #tutorialVideo id="tutorialVideo" playsinline autoplay loop (click)="onTogglePlayPause()"
+                style="width: 100%; height: 100%; display: block; background: #000; cursor: pointer;"
                 title="Tutorial Video">
-            </iframe>
+                Your browser does not support the video tag.
+            </video>
+
+            <!-- Centered Play Button (when paused) -->
+            <div class="center-play-overlay" *ngIf="!isPlaying()" (click)="onTogglePlayPause()" title="Play">
+                <div class="play-button-circle">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+                        <path d="M8 5v14l11-7z" />
+                    </svg>
+                </div>
+            </div>
         </div>
     </div>
     }
 </div>
 }
-

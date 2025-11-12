@@ -34,10 +34,10 @@
 // ===== TIP MODE =====
 .modal-tip {
     // Center on screen
-    top: 50%;
+    top: 25%;
     left: 50%;
     transform: translate(-50%, -50%);
-    
+
     width: var(--tip-modal-width);
     height: auto;
     min-height: var(--tip-modal-height);
@@ -45,7 +45,9 @@
     color: var(--color-text-white);
     padding: var(--spacing-4);
     border: 1px solid var(--color-primary);
+    border-radius: var(--radius-lg);
     animation: slideInFromCenter var(--transition-normal);
+    gap: var(--spacing-4);
 
     .close-button {
         position: absolute;
@@ -103,7 +105,7 @@
         font-size: var(--font-size-14);
         font-weight: var(--font-weight-regular);
         color: var(--color-text-white);
-        line-height: 1.5;
+        line-height: 140%;
         margin: 0 0 var(--spacing-5) 0;
     }
 
@@ -140,13 +142,21 @@
     // Position in bottom-left corner
     bottom: var(--spacing-5);
     inset-inline-start: var(--spacing-5);
-    
+    gap: var(--spacing-5);
+    padding: var(--spacing-5);
     width: var(--tutorial-modal-width);
     height: auto;
     background-color: var(--color-bg-primary);
     color: var(--color-text-primary);
-    padding: var(--spacing-5);
     animation: slideInFromBottom var(--transition-normal);
+    border-radius: var(--radius-2xl);
+
+    .modal-video-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: var(--spacing-5);
+    }
 
     .close-button-dark {
         position: absolute;
@@ -184,6 +194,7 @@
         color: var(--color-text-primary);
         margin: 0 0 var(--spacing-4) 0;
         padding-inline-end: var(--spacing-8); // Space for close button
+        line-height: 100%;
     }
 
     .video-container {
@@ -193,6 +204,55 @@
         overflow: hidden;
         background-color: var(--color-gray-100);
         position: relative;
+
+        video {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background: #000;
+            object-fit: contain;
+        }
+
+        // Centered Play Button Overlay (when paused) - same as video-player
+        .center-play-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+
+            .play-button-circle {
+                width: 64px;
+                height: 64px;
+                background: #00000099;
+                border-radius: 50%;
+                padding: 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s ease-in-out;
+                backdrop-filter: blur(8px);
+
+                &:hover {
+                    background: rgba(0, 0, 0, 0.75);
+                    transform: scale(1.1);
+                }
+
+                &:active {
+                    transform: scale(0.95);
+                }
+
+                svg {
+                    width: 32px;
+                    height: 32px;
+                }
+            }
+        }
 
         iframe {
             width: 100%;
@@ -219,6 +279,7 @@
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }
@@ -229,6 +290,7 @@
         opacity: 0;
         transform: translateY(20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -240,6 +302,7 @@
         opacity: 0;
         transform: translate(-50%, -45%);
     }
+
     to {
         opacity: 1;
         transform: translate(-50%, -50%);
@@ -273,13 +336,5 @@
 }
 
 // ===== RTL SUPPORT =====
-[dir="rtl"] {
-    .modal-header {
-        /* In RTL, flex direction is automatically reversed */
-    }
-
-    .modal-title-dark {
-        /* Padding will automatically adjust due to logical properties */
-    }
-}
-
+// RTL support is handled automatically via logical properties (inset-inline-start, etc.)
+// No additional RTL-specific styles needed

@@ -3,6 +3,7 @@ import Hls from 'hls.js';
 import { Word, WordState } from '../models';
 import { EditorStateService } from './editor-state.service';
 import { TimelineService } from './timeline.service';
+import { HlsLoaderService } from './hls-loader.service';
 
 /**
  * Video Player State
@@ -40,6 +41,7 @@ export class VideoPlayerService {
     // Inject services
     private editorStateService = inject(EditorStateService);
     private timelineService = inject(TimelineService);
+    private hlsLoaderService = inject(HlsLoaderService);
 
     // HLS.js instance
     private hls: Hls | null = null;
@@ -92,94 +94,33 @@ export class VideoPlayerService {
         this._isLoading.set(true);
         this._error.set(null);
 
-        // Check if HLS is supported
-        if (Hls.isSupported()) {
-            this.initializeHls(videoUrl);
-        } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
-            // Native HLS support (Safari)
-            this.initializeNativeHls(videoUrl);
-        } else {
+        // Initialize HLS using HlsLoaderService
+        this.hls = this.hlsLoaderService.initialize(
+            videoElement,
+            videoUrl,
+            {
+                onManifestParsed: () => {
+                    this._isLoading.set(false);
+                    console.info('Current aspect ratio:', this._aspectRatio());
+                },
+                onError: (event, data) => {
+                    if (data?.fatal || event === 'unsupported') {
+                        const errorMessage = data?.message ||
+                            (data?.type ? `Video Error: ${data.type}` : 'Unknown video error');
+                        this._error.set(errorMessage);
+                        this._isLoading.set(false);
+                    }
+                }
+            }
+        );
+
+        if (!this.hls && !this.hlsLoaderService.isNativeHlsSupported(videoElement)) {
             this._error.set('HLS is not supported in this browser');
             this._isLoading.set(false);
         }
 
         // Attach event listeners
         this.attachVideoEventListeners();
-    }
-
-    /**
-     * Initialize HLS.js player
-     */
-    private initializeHls(videoUrl: string): void {
-        if (!this.videoElement) return;
-
-        // Resolve URL (convert relative paths to absolute)
-        const resolvedUrl = this.resolveUrl(videoUrl);
-        console.info('🎬 Loading HLS video from:', resolvedUrl);
-
-        // Create HLS instance
-        this.hls = new Hls({
-            enableWorker: true,
-            lowLatencyMode: false,
-        });
-
-        // Bind HLS to video element
-        this.hls.loadSource(resolvedUrl);
-        this.hls.attachMedia(this.videoElement);
-
-        // HLS event handlers
-        this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            this._isLoading.set(false);
-            console.info('✅ Video loaded successfully');
-            console.info('📐 Current aspect ratio:', this._aspectRatio());
-        });
-
-        this.hls.on(Hls.Events.ERROR, (event, data) => {
-            if (data.fatal) {
-                this._error.set(`Video Error: ${data.type}`);
-                this._isLoading.set(false);
-                console.error('❌ HLS fatal error:', data);
-            } else {
-                console.warn('⚠️ HLS non-fatal error:', data);
-            }
-        });
-    }
-
-    /**
-     * Initialize native HLS support (Safari)
-     */
-    private initializeNativeHls(videoUrl: string): void {
-        if (!this.videoElement) return;
-
-        // Resolve URL (convert relative paths to absolute)
-        const resolvedUrl = this.resolveUrl(videoUrl);
-        console.info('🎬 Loading native HLS video from:', resolvedUrl);
-
-        this.videoElement.src = resolvedUrl;
-
-        // Ensure video loads
-        this.videoElement.load();
-
-        this.videoElement.addEventListener('loadedmetadata', () => {
-            this._isLoading.set(false);
-            console.info('✅ Native HLS loaded successfully');
-        });
-    }
-
-    /**
-     * Resolve video URL (handles both absolute and relative paths)
-     * @param url Video URL
-     * @returns Resolved absolute URL
-     */
-    private resolveUrl(url: string): string {
-        // If already absolute (http/https), return as-is
-        if (url.startsWith('http://') || url.startsWith('https://')) {
-            return url;
-        }
-
-        // For relative paths, prepend origin
-        const path = url.startsWith('/') ? url : `/${url}`;
-        return `${window.location.origin}${path}`;
     }
 
     /**
@@ -638,10 +579,8 @@ export class VideoPlayerService {
      * Cleanup and destroy player
      */
     public destroy(): void {
-        if (this.hls) {
-            this.hls.destroy();
-            this.hls = null;
-        }
+        this.hlsLoaderService.destroy(this.hls);
+        this.hls = null;
 
         if (this.videoElement) {
             this.videoElement.pause();
