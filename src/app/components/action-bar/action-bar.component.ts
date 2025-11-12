@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ButtonComponent } from '../button/button.component';
 import { EditorStateService } from '../../services/editor-state.service';
 import { TutorialService } from '../../services/tutorial.service';
+import { HistoryService } from '../../services/history.service';
+import { TimelineService } from '../../services/timeline.service';
 import { WordState } from '../../models';
 
 /**
@@ -27,6 +29,8 @@ export class ActionBarComponent {
     // Inject services
     private readonly editorState = inject(EditorStateService);
     private readonly tutorialService = inject(TutorialService);
+    private readonly historyService = inject(HistoryService);
+    private readonly timelineService = inject(TimelineService);
 
     // Computed signals for button states based on selection
 
@@ -98,17 +102,31 @@ export class ActionBarComponent {
         return this.hasSelection();
     });
 
+    // ========== Feature 8: Undo/Redo Button States ==========
+
+    /**
+     * Can Undo - enabled when history stack has states
+     */
+    protected readonly canUndo = this.historyService.canUndo;
+
+    /**
+     * Can Redo - enabled when redo stack has states
+     */
+    protected readonly canRedo = this.historyService.canRedo;
+
     // ========== Feature 6 Action Handlers ==========
 
     /**
      * Remove This Segment
      * Marks selected words as deleted
      * Based on PRD: Segment Actions
+     * Captures state for undo/redo (Feature 8)
      */
     onRemove(): void {
         if (!this.canRemove()) return;
 
         this.editorState.deleteSelectedWords();
+        this.captureState();
     }
 
     /**
@@ -116,22 +134,26 @@ export class ActionBarComponent {
      * Marks all non-selected words as deleted
      * Restores selected deleted words if any
      * Based on PRD: Segment Actions
+     * Captures state for undo/redo (Feature 8)
      */
     onKeepOnly(): void {
         if (!this.canKeepOnly()) return;
 
         this.editorState.keepOnlySelectedWords();
+        this.captureState();
     }
 
     /**
      * Restore Segment
      * Restores deleted words within current selection
      * Based on PRD: Segment Actions
+     * Captures state for undo/redo (Feature 8)
      */
     onRestore(): void {
         if (!this.canRestore()) return;
 
         this.editorState.restoreSelectedWords();
+        this.captureState();
     }
 
     /**
@@ -165,6 +187,92 @@ export class ActionBarComponent {
      */
     onTutorial(): void {
         this.tutorialService.showVideo();
+    }
+
+    // ========== Feature 8: Undo/Redo Functionality ==========
+
+    /**
+     * Capture current editor state snapshot
+     * Called after segment actions
+     */
+    private captureState(): void {
+        const snapshot = this.editorState.captureState(
+            this.timelineService.startHandle(),
+            this.timelineService.endHandle()
+        );
+        this.historyService.pushState(snapshot);
+    }
+
+    /**
+     * Perform undo operation
+     * Restores previous editor state
+     */
+    onUndo(): void {
+        console.log('[ActionBar] onUndo called');
+        
+        const currentSnapshot = this.editorState.captureState(
+            this.timelineService.startHandle(),
+            this.timelineService.endHandle()
+        );
+        
+        console.log('[ActionBar] Current state before undo:', {
+            selectionStart: currentSnapshot.selectionStart?.word || 'null',
+            selectionEnd: currentSnapshot.selectionEnd?.word || 'null'
+        });
+
+        const previousState = this.historyService.undo(currentSnapshot);
+
+        if (previousState) {
+            console.log('[ActionBar] Calling restoreState with:', {
+                selectionStart: previousState.selectionStart?.word || 'null',
+                selectionEnd: previousState.selectionEnd?.word || 'null'
+            });
+            this.restoreState(previousState);
+        } else {
+            console.log('[ActionBar] No previous state to restore');
+        }
+    }
+
+    /**
+     * Perform redo operation
+     * Reapplies undone state
+     */
+    onRedo(): void {
+        const currentSnapshot = this.editorState.captureState(
+            this.timelineService.startHandle(),
+            this.timelineService.endHandle()
+        );
+        const nextState = this.historyService.redo(currentSnapshot);
+
+        if (nextState) {
+            this.restoreState(nextState);
+        }
+    }
+
+    /**
+     * Restore editor state from snapshot
+     * Updates both EditorStateService and TimelineService
+     */
+    private restoreState(snapshot: any): void {
+        console.log('[ActionBar] restoreState called');
+        
+        // Restore editor state (words and selection)
+        // This will trigger timeline effect to update handles automatically
+        this.editorState.restoreState(snapshot);
+
+        // DEBUG: Verify restoration
+        setTimeout(() => {
+            console.log('[ActionBar] restoreState: After restore, current state:', {
+                selectionStart: this.editorState.selectionStart()?.word || 'null',
+                selectionEnd: this.editorState.selectionEnd()?.word || 'null',
+                hasSelection: this.editorState.hasSelection(),
+                hasCompleteSelection: this.editorState.hasCompleteSelection()
+            });
+        }, 0);
+
+        // Note: Timeline handles are updated automatically by the timeline effect
+        // when selection signals change. We don't need to manually restore handles
+        // because the effect will set them correctly based on the restored selection.
     }
 }
 

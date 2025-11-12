@@ -361,5 +361,18 @@ export class TimelineService {
         this._totalDuration.set(0);
         this._words.set([]);
     }
+
+    // ========== Feature 8: Undo/Redo Handle Management ==========
+
+    /**
+     * Restore handle positions from snapshot
+     * Used by HistoryService for undo/redo
+     * @param startHandle Start handle position (or null)
+     * @param endHandle End handle position (or null)
+     */
+    public restoreHandles(startHandle: HandlePosition | null, endHandle: HandlePosition | null): void {
+        this._startHandle.set(startHandle ? { ...startHandle } : null);
+        this._endHandle.set(endHandle ? { ...endHandle } : null);
+    }
 }
 

@@ -5,6 +5,7 @@ import { debounceTime, takeUntil } from 'rxjs/operators';
 import { TimelineService } from '../../services/timeline.service';
 import { EditorStateService } from '../../services/editor-state.service';
 import { VideoPlayerService } from '../../services/video-player.service';
+import { HistoryService } from '../../services/history.service';
 import { WordState } from '../../models';
 
 /**
@@ -35,6 +36,7 @@ export class TimelineComponent implements OnInit, OnDestroy {
     public timelineService: TimelineService;
     private editorStateService: EditorStateService;
     private videoPlayerService: VideoPlayerService;
+    private historyService: HistoryService;
 
     // Drag state (public for template access)
     public isDraggingStart = false;
@@ -60,12 +62,14 @@ export class TimelineComponent implements OnInit, OnDestroy {
     constructor(
         timelineService: TimelineService,
         editorStateService: EditorStateService,
-        videoPlayerService: VideoPlayerService
+        videoPlayerService: VideoPlayerService,
+        historyService: HistoryService
     ) {
         // Assign injected services
         this.timelineService = timelineService;
         this.editorStateService = editorStateService;
         this.videoPlayerService = videoPlayerService;
+        this.historyService = historyService;
 
         // Effect: Update handles when selection changes
         // Skip during drag to prevent handle snap
@@ -365,6 +369,15 @@ export class TimelineComponent implements OnInit, OnDestroy {
 
         // Re-enable handle updates - this will trigger the effect to snap handle to final position
         this.isHandleDragging = false;
+
+        // Capture state after handle drag ends (Feature 8: Undo/Redo)
+        if (this.isDraggingStart || this.isDraggingEnd) {
+            const snapshot = this.editorStateService.captureState(
+                this.timelineService.startHandle(),
+                this.timelineService.endHandle()
+            );
+            this.historyService.pushState(snapshot);
+        }
 
         this.isDraggingStart = false;
         this.isDraggingEnd = false;

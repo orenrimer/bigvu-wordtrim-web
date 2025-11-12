@@ -5,6 +5,7 @@ import { EditorStateService } from '../../services/editor-state.service';
 import { VideoPlayerService } from '../../services/video-player.service';
 import { TimelineService } from '../../services/timeline.service';
 import { TutorialService } from '../../services/tutorial.service';
+import { HistoryService } from '../../services/history.service';
 import { SkeletonLoaderComponent } from '../skeleton-loader/skeleton-loader.component';
 import { WordChipComponent } from '../word-chip/word-chip.component';
 import { ActionBarComponent } from '../action-bar/action-bar.component';
@@ -58,7 +59,8 @@ export class MainEditorContainerComponent implements OnInit {
     private editorState: EditorStateService,
     private videoService: VideoPlayerService,
     public timelineService: TimelineService,
-    private tutorialService: TutorialService
+    private tutorialService: TutorialService,
+    private historyService: HistoryService
   ) {
     // Effect: Sync current playback word with video time
     // Always highlight current word during playback
@@ -118,6 +120,7 @@ export class MainEditorContainerComponent implements OnInit {
    * Delegates to EditorStateService for selection logic
    * Also triggers 3-second video preview based on PRD
    * Also dismisses tutorial tip on first word click (Feature 7)
+   * Also captures state for undo/redo when complete selection is made (Feature 8)
    */
   onWordClick(word: Word): void {
     // Notify tutorial service of word click (dismisses tip on first click)
@@ -125,10 +128,21 @@ export class MainEditorContainerComponent implements OnInit {
 
     const currentStart = this.selectionStart();
     const currentEnd = this.selectionEnd();
+    const hadCompleteSelection = currentStart && currentEnd;
 
     // Scenario 1: No selection - clicked word becomes start
     if (!currentStart) {
+      // Capture state BEFORE selecting (empty selection state) for undo (Feature 8)
+      this.captureState();
+
       this.editorState.selectWord(word);
+
+      // Capture state AFTER selecting start word (start-only state) for incremental undo (Feature 8)
+      // This allows undo to go: complete → start-only → empty
+      // The timeline effect will set handles automatically when selection changes
+      // We capture state here - handles will be captured as they are set by the effect
+      this.captureState();
+
       // Play 3 seconds forward from start
       this.videoService.playWordPreview(word.start, false);
       return;
@@ -137,6 +151,9 @@ export class MainEditorContainerComponent implements OnInit {
     // Scenario 2A: Has start, no end - clicked SAME word (toggle to end)
     if (currentStart && !currentEnd && word.index === currentStart.index) {
       this.editorState.selectWord(word); // This will make it both start and end
+
+      // Capture state after complete selection (Feature 8)
+      this.captureState();
 
       // Play 3 seconds backward ending at word end with smart margin
       const wordDuration = word.end - word.start;
@@ -148,6 +165,9 @@ export class MainEditorContainerComponent implements OnInit {
     if (currentStart && !currentEnd && word.index > currentStart.index) {
       this.editorState.selectWord(word);
 
+      // Capture state after complete selection (Feature 8)
+      this.captureState();
+
       // Play 3 seconds backward ending at word end with smart margin
       const wordDuration = word.end - word.start;
       this.videoService.playWordPreview(word.start, true, wordDuration);
@@ -158,6 +178,9 @@ export class MainEditorContainerComponent implements OnInit {
     if (currentStart && currentEnd &&
       currentStart.index === currentEnd.index &&
       word.index === currentStart.index) {
+      // Capture full selection state BEFORE resetting (Feature 8)
+      this.captureState();
+
       // Reset to just start (toggle back)
       this.editorState.clearSelection();
       this.editorState.selectWord(word);
@@ -168,6 +191,9 @@ export class MainEditorContainerComponent implements OnInit {
 
     // Scenario 3B: Complete selection with DIFFERENT words, clicking on the END word
     if (currentStart && currentEnd && word.index === currentEnd.index) {
+      // Capture full selection state BEFORE resetting (Feature 8)
+      this.captureState();
+
       // Reset selection and make end word the new start
       this.editorState.clearSelection();
       this.editorState.selectWord(word);
@@ -176,8 +202,23 @@ export class MainEditorContainerComponent implements OnInit {
       return;
     }
 
-    // All other cases: reset and start new selection
+    // All other cases: Complete selection, clicking on different word → reset and start new selection
+    // This includes clicking on a word outside the selection
+    const hadCompleteSelectionBefore = currentStart && currentEnd;
+
+    if (hadCompleteSelectionBefore) {
+      // Capture full selection state BEFORE resetting (Feature 8)
+      this.captureState();
+    }
+
     this.editorState.selectWord(word);
+
+    // Capture new start-only state after resetting (for incremental undo)
+    // Only if we had a complete selection before (so undo can go: new_start → full_selection)
+    if (hadCompleteSelectionBefore) {
+      this.captureState();
+    }
+
     this.videoService.playWordPreview(word.start, false);
   }
 
@@ -187,5 +228,68 @@ export class MainEditorContainerComponent implements OnInit {
    */
   clearSelection(): void {
     this.editorState.clearSelection();
+  }
+
+  // ========== Feature 8: Undo/Redo Functionality ==========
+
+  /**
+   * Capture current editor state snapshot
+   * Called after trackable actions (selection changes, handle adjustments, segment actions)
+   */
+  captureState(): void {
+    const snapshot = this.editorState.captureState(
+      this.timelineService.startHandle(),
+      this.timelineService.endHandle()
+    );
+    this.historyService.pushState(snapshot);
+  }
+
+  /**
+   * Perform undo operation
+   * Restores previous editor state
+   */
+  undo(): void {
+    const currentSnapshot = this.editorState.captureState(
+      this.timelineService.startHandle(),
+      this.timelineService.endHandle()
+    );
+    const previousState = this.historyService.undo(currentSnapshot);
+
+    if (previousState) {
+      this.restoreState(previousState);
+    }
+  }
+
+  /**
+   * Perform redo operation
+   * Reapplies undone state
+   */
+  redo(): void {
+    const currentSnapshot = this.editorState.captureState(
+      this.timelineService.startHandle(),
+      this.timelineService.endHandle()
+    );
+    const nextState = this.historyService.redo(currentSnapshot);
+
+    if (nextState) {
+      this.restoreState(nextState);
+    }
+  }
+
+  /**
+   * Restore editor state from snapshot
+   * Updates both EditorStateService and TimelineService
+   */
+  private restoreState(snapshot: any): void {
+    // Restore editor state (words and selection)
+    // This will trigger the timeline effect to update handles automatically
+    this.editorState.restoreState(snapshot);
+
+    // Note: Timeline handles are updated automatically by the timeline effect
+    // when selection signals change. We don't need to manually restore handles
+    // because the effect will set them correctly based on the restored selection.
+    // For start-only state: selectionStart exists, selectionEnd is null → effect sets start handle only
+    // For complete state: both exist → effect sets both handles
+    // For empty state: both null → effect clears handles
   }
 }

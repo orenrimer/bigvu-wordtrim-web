@@ -3,6 +3,24 @@
         <!-- Action Bar Items -->
         <div class="action-bar-items">
 
+            <!-- Undo Button (Feature 8) -->
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
+                [disabled]="!canUndo()" (clicked)="onUndo()" aria-label="Undo last action">
+                <div class="action-bar-item">
+                    <img src="assets/icons/Undo.svg" alt="" class="action-icon" />
+                    <span class="action-label">Undo</span>
+                </div>
+            </app-button>
+
+            <!-- Redo Button (Feature 8) -->
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
+                [disabled]="!canRedo()" (clicked)="onRedo()" aria-label="Redo last undone action">
+                <div class="action-bar-item">
+                    <img src="assets/icons/Redo.svg" alt="" class="action-icon" />
+                    <span class="action-label">Redo</span>
+                </div>
+            </app-button>
+
             <!-- Restore Segment (Feature 6 - Conditional Visibility) -->
             @if (canRestore()) {
             <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"

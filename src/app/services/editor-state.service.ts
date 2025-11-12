@@ -1,5 +1,7 @@
-import { Injectable, signal, computed, effect } from '@angular/core';
+import { Injectable, signal, computed, effect, inject } from '@angular/core';
 import { Word, WordState } from '../models';
+import { EditorStateSnapshot } from './history.service';
+import { HandlePosition } from './timeline.service';
 
 /**
  * Editor State Service
@@ -382,6 +384,95 @@ export class EditorStateService {
         this._selectionStart.set(null);
         this._selectionEnd.set(null);
         this._currentPlaybackWordIndex.set(null);
+    }
+
+    // ========== Feature 8: Undo/Redo State Management ==========
+
+    /**
+     * Capture current editor state snapshot
+     * Used by HistoryService for undo/redo
+     * @param startHandle Timeline start handle position (or null)
+     * @param endHandle Timeline end handle position (or null)
+     * @returns Editor state snapshot
+     */
+    public captureState(startHandle: HandlePosition | null, endHandle: HandlePosition | null): EditorStateSnapshot {
+        const snapshot = {
+            words: [...this._words()],
+            selectionStart: this._selectionStart() ? { ...this._selectionStart()! } : null,
+            selectionEnd: this._selectionEnd() ? { ...this._selectionEnd()! } : null,
+            startHandle: startHandle ? { ...startHandle } : null,
+            endHandle: endHandle ? { ...endHandle } : null
+        };
+
+        // DEBUG: Log what we're capturing
+        console.log('[EditorStateService] captureState:', {
+            selectionStart: snapshot.selectionStart?.word || 'null',
+            selectionEnd: snapshot.selectionEnd?.word || 'null',
+            selectionStartIndex: snapshot.selectionStart?.index ?? 'null',
+            selectionEndIndex: snapshot.selectionEnd?.index ?? 'null',
+            startHandle: snapshot.startHandle?.time || 'null',
+            endHandle: snapshot.endHandle?.time || 'null',
+            wordsCount: snapshot.words.length
+        });
+
+        return snapshot;
+    }
+
+    /**
+     * Restore editor state from snapshot
+     * Used by HistoryService for undo/redo
+     * @param snapshot State snapshot to restore
+     */
+    public restoreState(snapshot: EditorStateSnapshot): void {
+        // DEBUG: Log what we're restoring
+        console.log('[EditorStateService] restoreState called:', {
+            snapshotSelectionStart: snapshot.selectionStart?.word || 'null',
+            snapshotSelectionEnd: snapshot.selectionEnd?.word || 'null',
+            snapshotSelectionStartIndex: snapshot.selectionStart?.index ?? 'null',
+            snapshotSelectionEndIndex: snapshot.selectionEnd?.index ?? 'null',
+            currentSelectionStart: this._selectionStart()?.word || 'null',
+            currentSelectionEnd: this._selectionEnd()?.word || 'null',
+            wordsCount: snapshot.words.length
+        });
+
+        // Step 1: Restore words array (states are already set in snapshot)
+        // IMPORTANT: Word states in snapshot are already correct, so we restore them as-is
+        const restoredWords = snapshot.words.map(word => ({ ...word }));
+        this._words.set(restoredWords);
+
+        // Step 2: Restore selection AFTER words array is set
+        // Find the actual word objects from the restored words array to maintain references
+        const restoredStart = snapshot.selectionStart 
+            ? restoredWords.find(w => w.index === snapshot.selectionStart!.index) || null
+            : null;
+        const restoredEnd = snapshot.selectionEnd 
+            ? restoredWords.find(w => w.index === snapshot.selectionEnd!.index) || null
+            : null;
+
+        // DEBUG: Log what we found
+        console.log('[EditorStateService] restoreState: Found words:', {
+            restoredStart: restoredStart?.word || 'null',
+            restoredEnd: restoredEnd?.word || 'null',
+            restoredStartIndex: restoredStart?.index ?? 'null',
+            restoredEndIndex: restoredEnd?.index ?? 'null'
+        });
+
+        // Step 3: Set selection signals - this will trigger timeline effect to update handles
+        // Set both signals in the same change detection cycle to avoid intermediate states
+        this._selectionStart.set(restoredStart);
+        this._selectionEnd.set(restoredEnd);
+
+        // DEBUG: Log what we set
+        console.log('[EditorStateService] restoreState: After setting signals:', {
+            selectionStart: this._selectionStart()?.word || 'null',
+            selectionEnd: this._selectionEnd()?.word || 'null'
+        });
+
+        // Note: We DON'T call updateWordStates() here because:
+        // 1. Word states in snapshot are already correct (they were captured with correct states)
+        // 2. Calling updateWordStates() would recalculate states, potentially overwriting restored states
+        // 3. The selection signals are set, so UI will update reactively
+        // 4. Timeline effect will update handles based on selection automatically
     }
 }
 
