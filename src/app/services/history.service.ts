@@ -18,6 +18,8 @@ export interface EditorStateSnapshot {
     startHandle: HandlePosition | null;
     /** Timeline end handle position (or null) */
     endHandle: HandlePosition | null;
+    /** Flag indicating if this is the initial baseline state (first frame) */
+    isInitialState?: boolean;
 }
 
 /**
@@ -40,12 +42,22 @@ export class HistoryService {
     private readonly _historyStack = signal<EditorStateSnapshot[]>([]);
     private readonly _redoStack = signal<EditorStateSnapshot[]>([]);
 
+    // Flag to track if we're currently at the initial baseline state
+    // When true, undo button should be disabled
+    private _isAtInitialState = true;
+
     // Public read-only signals
     public readonly historyStack = this._historyStack.asReadonly();
     public readonly redoStack = this._redoStack.asReadonly();
 
     // Computed signals for button states
-    public readonly canUndo = computed(() => this._historyStack().length > 0);
+    // Can't undo if we're at the initial baseline state (page load)
+    public readonly canUndo = computed(() => {
+        const isAtInitial = this._isAtInitialState;
+        const historyLength = this._historyStack().length;
+        const canUndoResult = !isAtInitial && historyLength > 0;
+        return canUndoResult;
+    });
     public readonly canRedo = computed(() => this._redoStack().length > 0);
 
     /**
@@ -57,20 +69,23 @@ export class HistoryService {
         // Create deep copy of snapshot to avoid reference issues
         const stateCopy = this.deepCopySnapshot(snapshot);
 
+        // STEP 1: Check if this is the first frame (history is empty)
+        // If yes, mark this snapshot with the isInitialState flag
+        const isFirstFrame = this._historyStack().length === 0;
+        if (isFirstFrame) {
+            stateCopy.isInitialState = true;
+            console.log('[HistoryService] pushState: First frame detected, marking as initial state');
+        }
+
         // Add to history stack
         this._historyStack.update(stack => [...stack, stateCopy]);
 
         // Clear redo stack on new action (per PRD requirement)
         this._redoStack.set([]);
 
-        // DEBUG: Log state capture
-        console.log('[HistoryService] pushState:', {
-            selectionStart: snapshot.selectionStart?.word || 'null',
-            selectionEnd: snapshot.selectionEnd?.word || 'null',
-            startHandle: snapshot.startHandle?.time || 'null',
-            endHandle: snapshot.endHandle?.time || 'null',
-            historyStackLength: this._historyStack().length
-        });
+        // STEP 2: Once we push any state, we're no longer at initial state
+        // This ensures that after the first action, undo button becomes enabled
+        this._isAtInitialState = false;
     }
 
     /**
@@ -81,35 +96,15 @@ export class HistoryService {
      */
     public undo(currentSnapshot: EditorStateSnapshot): EditorStateSnapshot | null {
         const history = this._historyStack();
-        
-        // DEBUG: Log undo attempt
-        console.log('[HistoryService] undo called:', {
-            currentState: {
-                selectionStart: currentSnapshot.selectionStart?.word || 'null',
-                selectionEnd: currentSnapshot.selectionEnd?.word || 'null'
-            },
-            historyStackLength: history.length,
-            historyStack: history.map((s, i) => ({
-                index: i,
-                selectionStart: s.selectionStart?.word || 'null',
-                selectionEnd: s.selectionEnd?.word || 'null',
-                isLast: i === history.length - 1
-            })),
-            lastItemInHistory: history.length > 0 ? {
-                selectionStart: history[history.length - 1].selectionStart?.word || 'null',
-                selectionEnd: history[history.length - 1].selectionEnd?.word || 'null'
-            } : 'empty'
-        });
 
         if (history.length === 0) {
-            console.log('[HistoryService] undo: No history, returning null');
             return null;
         }
 
         // Check if the last item in history matches current state
         // If it does, we need to get the second-to-last item instead
         const lastItem = history[history.length - 1];
-        const lastMatchesCurrent = 
+        const lastMatchesCurrent =
             (lastItem.selectionStart?.index === currentSnapshot.selectionStart?.index) &&
             (lastItem.selectionEnd?.index === currentSnapshot.selectionEnd?.index);
 
@@ -118,7 +113,6 @@ export class HistoryService {
 
         if (lastMatchesCurrent && history.length > 1) {
             // Last item matches current state, get second-to-last item
-            console.log('[HistoryService] undo: Last item matches current, using second-to-last');
             previousState = history[history.length - 2];
             // Remove both last and second-to-last, then add back the second-to-last
             // Actually, we just remove the last item (current state)
@@ -136,15 +130,39 @@ export class HistoryService {
         const currentCopy = this.deepCopySnapshot(currentSnapshot);
         this._redoStack.update(stack => [...stack, currentCopy]);
 
-        // DEBUG: Log what we're restoring to
-        console.log('[HistoryService] undo: Restoring to:', {
-            selectionStart: previousState.selectionStart?.word || 'null',
-            selectionEnd: previousState.selectionEnd?.word || 'null',
-            startHandle: previousState.startHandle?.time || 'null',
-            endHandle: previousState.endHandle?.time || 'null',
-            newHistoryStackLength: this._historyStack().length,
-            wasLastItemCurrent: lastMatchesCurrent
-        });
+        // STEP 3: Check if we're restoring to a frame marked with isInitialState flag
+        // If yes, it means we've undone back to the initial baseline state
+        // In this case, we need to:
+        // 1. Set _isAtInitialState = true to disable undo button
+        // 2. Return an empty state (no selection) instead of the start-only state
+        if (previousState.isInitialState) {
+            // Create empty state snapshot (initial baseline - no selection)
+            const emptyState: EditorStateSnapshot = {
+                words: previousState.words.map(w => ({ ...w })),
+                selectionStart: null,
+                selectionEnd: null,
+                startHandle: null,
+                endHandle: null,
+                isInitialState: true
+            };
+
+            // Mark that we're at initial state - this will disable undo button
+            this._isAtInitialState = true;
+            return emptyState;
+        }
+
+        // STEP 3B: Check if current frame is empty AND next frame in history is also empty
+        // If both are empty, disable undo button (we're at a baseline state)
+        const currentFrameIsEmpty = !previousState.selectionStart && !previousState.selectionEnd;
+        const nextFrameInHistory = newHistoryStack.length > 0 ? newHistoryStack[newHistoryStack.length - 1] : null;
+        const nextFrameIsEmpty = nextFrameInHistory
+            ? (!nextFrameInHistory.selectionStart && !nextFrameInHistory.selectionEnd)
+            : true; // If no next frame, consider it empty
+
+        if (currentFrameIsEmpty && nextFrameIsEmpty) {
+            // Both current and next frames are empty - disable undo button
+            this._isAtInitialState = true;
+        }
 
         return previousState;
     }
@@ -157,9 +175,12 @@ export class HistoryService {
      */
     public redo(currentSnapshot: EditorStateSnapshot): EditorStateSnapshot | null {
         const redo = this._redoStack();
+
         if (redo.length === 0) return null;
 
-        // Get next state (last item in redo stack)
+        // Get next state (last item in redo stack - LIFO)
+        // The redo stack contains states in reverse order: [oldest_undone, ..., newest_undone]
+        // So we take the last item (most recently undone state)
         const nextState = redo[redo.length - 1];
 
         // Remove from redo stack
@@ -168,6 +189,9 @@ export class HistoryService {
         // Push current state to history stack
         const currentCopy = this.deepCopySnapshot(currentSnapshot);
         this._historyStack.update(stack => [...stack, currentCopy]);
+
+        // STEP 4: After redo, we're no longer at initial state (we've moved forward)
+        this._isAtInitialState = false;
 
         return nextState;
     }
@@ -178,6 +202,8 @@ export class HistoryService {
     public clear(): void {
         this._historyStack.set([]);
         this._redoStack.set([]);
+        // STEP 5: Reset to initial state when clearing history
+        this._isAtInitialState = true;
     }
 
     /**
@@ -191,7 +217,9 @@ export class HistoryService {
             selectionStart: snapshot.selectionStart ? { ...snapshot.selectionStart } : null,
             selectionEnd: snapshot.selectionEnd ? { ...snapshot.selectionEnd } : null,
             startHandle: snapshot.startHandle ? { ...snapshot.startHandle } : null,
-            endHandle: snapshot.endHandle ? { ...snapshot.endHandle } : null
+            endHandle: snapshot.endHandle ? { ...snapshot.endHandle } : null,
+            // STEP 6: Preserve the isInitialState flag when copying
+            isInitialState: snapshot.isInitialState
         };
     }
 }

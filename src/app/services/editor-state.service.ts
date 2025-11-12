@@ -442,10 +442,10 @@ export class EditorStateService {
 
         // Step 2: Restore selection AFTER words array is set
         // Find the actual word objects from the restored words array to maintain references
-        const restoredStart = snapshot.selectionStart 
+        const restoredStart = snapshot.selectionStart
             ? restoredWords.find(w => w.index === snapshot.selectionStart!.index) || null
             : null;
-        const restoredEnd = snapshot.selectionEnd 
+        const restoredEnd = snapshot.selectionEnd
             ? restoredWords.find(w => w.index === snapshot.selectionEnd!.index) || null
             : null;
 

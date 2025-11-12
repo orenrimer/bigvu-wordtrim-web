@@ -96,9 +96,6 @@ export class MainEditorContainerComponent implements OnInit {
         const loadedWords = this.segmentationService.words();
         this.editorState.initializeWords(loadedWords);
 
-        console.info('Segmentation loaded successfully', {
-          wordCount: this.words().length
-        });
       },
       error: (err: Error) => {
         console.error('Failed to load segmentation', err);
@@ -163,6 +160,10 @@ export class MainEditorContainerComponent implements OnInit {
 
     // Scenario 2B: Has start, no end - clicked DIFFERENT word (becomes end)
     if (currentStart && !currentEnd && word.index > currentStart.index) {
+      // Capture start-only state BEFORE selecting end (for incremental undo)
+      // This allows undo to go: complete → start-only → previous state
+      this.captureState();
+
       this.editorState.selectWord(word);
 
       // Capture state after complete selection (Feature 8)
@@ -282,14 +283,12 @@ export class MainEditorContainerComponent implements OnInit {
    */
   private restoreState(snapshot: any): void {
     // Restore editor state (words and selection)
-    // This will trigger the timeline effect to update handles automatically
     this.editorState.restoreState(snapshot);
 
-    // Note: Timeline handles are updated automatically by the timeline effect
-    // when selection signals change. We don't need to manually restore handles
-    // because the effect will set them correctly based on the restored selection.
-    // For start-only state: selectionStart exists, selectionEnd is null → effect sets start handle only
-    // For complete state: both exist → effect sets both handles
-    // For empty state: both null → effect clears handles
+    // IMPORTANT: Restore handles from snapshot to preserve fine-tuning positions
+    // The snapshot contains the exact handle positions (with sub-word precision)
+    // that were set when the state was captured. We need to restore these exact positions,
+    // not just rely on the timeline effect which would snap handles to word boundaries.
+    this.timelineService.restoreHandles(snapshot.startHandle, snapshot.endHandle);
   }
 }

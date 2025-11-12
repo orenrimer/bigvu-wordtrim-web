@@ -208,28 +208,15 @@ export class ActionBarComponent {
      * Restores previous editor state
      */
     onUndo(): void {
-        console.log('[ActionBar] onUndo called');
-        
         const currentSnapshot = this.editorState.captureState(
             this.timelineService.startHandle(),
             this.timelineService.endHandle()
         );
-        
-        console.log('[ActionBar] Current state before undo:', {
-            selectionStart: currentSnapshot.selectionStart?.word || 'null',
-            selectionEnd: currentSnapshot.selectionEnd?.word || 'null'
-        });
 
         const previousState = this.historyService.undo(currentSnapshot);
 
         if (previousState) {
-            console.log('[ActionBar] Calling restoreState with:', {
-                selectionStart: previousState.selectionStart?.word || 'null',
-                selectionEnd: previousState.selectionEnd?.word || 'null'
-            });
             this.restoreState(previousState);
-        } else {
-            console.log('[ActionBar] No previous state to restore');
         }
     }
 
@@ -254,25 +241,14 @@ export class ActionBarComponent {
      * Updates both EditorStateService and TimelineService
      */
     private restoreState(snapshot: any): void {
-        console.log('[ActionBar] restoreState called');
-        
         // Restore editor state (words and selection)
-        // This will trigger timeline effect to update handles automatically
         this.editorState.restoreState(snapshot);
 
-        // DEBUG: Verify restoration
-        setTimeout(() => {
-            console.log('[ActionBar] restoreState: After restore, current state:', {
-                selectionStart: this.editorState.selectionStart()?.word || 'null',
-                selectionEnd: this.editorState.selectionEnd()?.word || 'null',
-                hasSelection: this.editorState.hasSelection(),
-                hasCompleteSelection: this.editorState.hasCompleteSelection()
-            });
-        }, 0);
-
-        // Note: Timeline handles are updated automatically by the timeline effect
-        // when selection signals change. We don't need to manually restore handles
-        // because the effect will set them correctly based on the restored selection.
+        // IMPORTANT: Restore handles from snapshot to preserve fine-tuning positions
+        // The snapshot contains the exact handle positions (with sub-word precision)
+        // that were set when the state was captured. We need to restore these exact positions,
+        // not just rely on the timeline effect which would snap handles to word boundaries.
+        this.timelineService.restoreHandles(snapshot.startHandle, snapshot.endHandle);
     }
 }
 

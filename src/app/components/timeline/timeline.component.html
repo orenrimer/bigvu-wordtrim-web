@@ -79,13 +79,5 @@
             </span>
             <span class="debug-value" *ngIf="!timelineService.endHandle()">--:--.---</span>
         </div>
-
-        <div class="debug-row debug-row--duration"
-            *ngIf="!timelineService.isSingleWordMode() && timelineService.startHandle() && timelineService.endHandle()">
-            <span class="debug-label">Duration (Δ):</span>
-            <span class="debug-value debug-value--duration">
-                {{ formatTimeWithMs(timelineService.endHandle()!.time - timelineService.startHandle()!.time) }}
-            </span>
-        </div>
     </div>
 </div>
