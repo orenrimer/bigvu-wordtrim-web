@@ -125,7 +125,12 @@ export class ActionBarComponent {
     onRemove(): void {
         if (!this.canRemove()) return;
 
+        // Capture state BEFORE action (for undo to restore to this state)
+        this.captureState();
+
         this.editorState.deleteSelectedWords();
+
+        // Capture state AFTER action (for incremental undo)
         this.captureState();
     }
 
@@ -139,7 +144,12 @@ export class ActionBarComponent {
     onKeepOnly(): void {
         if (!this.canKeepOnly()) return;
 
+        // Capture state BEFORE action (for undo to restore to this state)
+        this.captureState();
+
         this.editorState.keepOnlySelectedWords();
+
+        // Capture state AFTER action (for incremental undo)
         this.captureState();
     }
 
@@ -152,7 +162,12 @@ export class ActionBarComponent {
     onRestore(): void {
         if (!this.canRestore()) return;
 
+        // Capture state BEFORE action (for undo to restore to this state)
+        this.captureState();
+
         this.editorState.restoreSelectedWords();
+
+        // Capture state AFTER action (for incremental undo)
         this.captureState();
     }
 
@@ -160,11 +175,18 @@ export class ActionBarComponent {
      * Unselect
      * Clears current selection without affecting deleted state
      * Based on PRD: Segment Actions
+     * Captures state for undo/redo (Feature 8)
      */
     onUnselect(): void {
         if (!this.canUnselect()) return;
 
+        // Capture state BEFORE action (for undo to restore to this state)
+        this.captureState();
+
         this.editorState.clearSelection();
+
+        // Capture state AFTER action (for incremental undo)
+        this.captureState();
     }
 
     // ========== Placeholder handlers for future features ==========
@@ -194,13 +216,15 @@ export class ActionBarComponent {
     /**
      * Capture current editor state snapshot
      * Called after segment actions
+     * Marks the snapshot as an action bar action
      */
     private captureState(): void {
         const snapshot = this.editorState.captureState(
             this.timelineService.startHandle(),
             this.timelineService.endHandle()
         );
-        this.historyService.pushState(snapshot);
+        // Mark as action bar action - this will be checked in undo to clear redo stack
+        this.historyService.pushState(snapshot, true);
     }
 
     /**
