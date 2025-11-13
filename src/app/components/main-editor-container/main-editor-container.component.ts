@@ -96,6 +96,13 @@ export class MainEditorContainerComponent implements OnInit {
         const loadedWords = this.segmentationService.words();
         this.editorState.initializeWords(loadedWords);
 
+        // STEP 1: Save initial empty state (after words are loaded)
+        // This state is stored separately and will be pushed to undo stack when first action occurs
+        const initialSnapshot = this.editorState.captureState(
+          this.timelineService.startHandle(),
+          this.timelineService.endHandle()
+        );
+        this.historyService.setInitialState(initialSnapshot);
       },
       error: (err: Error) => {
         console.error('Failed to load segmentation', err);
@@ -129,16 +136,16 @@ export class MainEditorContainerComponent implements OnInit {
 
     // Scenario 1: No selection - clicked word becomes start
     if (!currentStart) {
-      // Capture state BEFORE selecting (empty selection state) for undo (Feature 8)
-      this.captureState();
+      // STEP 2: Save previous state (initial empty state) BEFORE selecting first word
+      // The pushState method will automatically push the initial state to undo stack if needed
+      const previousSnapshot = this.editorState.captureState(
+        this.timelineService.startHandle(),
+        this.timelineService.endHandle()
+      );
+      this.historyService.pushState(previousSnapshot);
 
       this.editorState.selectWord(word);
-
-      // Capture state AFTER selecting start word (start-only state) for incremental undo (Feature 8)
-      // This allows undo to go: complete → start-only → empty
-      // The timeline effect will set handles automatically when selection changes
-      // We capture state here - handles will be captured as they are set by the effect
-      this.captureState();
+      // Current state (w_1, null) is NOT saved - it's the current viewing state
 
       // Play 3 seconds forward from start
       this.videoService.playWordPreview(word.start, false);
@@ -147,10 +154,15 @@ export class MainEditorContainerComponent implements OnInit {
 
     // Scenario 2A: Has start, no end - clicked SAME word (toggle to end)
     if (currentStart && !currentEnd && word.index === currentStart.index) {
-      this.editorState.selectWord(word); // This will make it both start and end
+      // Save previous state (w_1, null) BEFORE selecting end
+      const previousSnapshot = this.editorState.captureState(
+        this.timelineService.startHandle(),
+        this.timelineService.endHandle()
+      );
+      this.historyService.pushState(previousSnapshot);
 
-      // Capture state after complete selection (Feature 8)
-      this.captureState();
+      this.editorState.selectWord(word); // This will make it both start and end
+      // Current state (w_1, w_1) is NOT saved - it's the current viewing state
 
       // Play 3 seconds backward ending at word end with smart margin
       const wordDuration = word.end - word.start;
@@ -160,14 +172,15 @@ export class MainEditorContainerComponent implements OnInit {
 
     // Scenario 2B: Has start, no end - clicked DIFFERENT word (becomes end)
     if (currentStart && !currentEnd && word.index > currentStart.index) {
-      // Capture start-only state BEFORE selecting end (for incremental undo)
-      // This allows undo to go: complete → start-only → previous state
-      this.captureState();
+      // STEP 3: Save previous state (w_1, null) BEFORE selecting end word
+      const previousSnapshot = this.editorState.captureState(
+        this.timelineService.startHandle(),
+        this.timelineService.endHandle()
+      );
+      this.historyService.pushState(previousSnapshot);
 
       this.editorState.selectWord(word);
-
-      // Capture state after complete selection (Feature 8)
-      this.captureState();
+      // Current state (w_1, w_2) is NOT saved - it's the current viewing state
 
       // Play 3 seconds backward ending at word end with smart margin
       const wordDuration = word.end - word.start;
@@ -179,12 +192,17 @@ export class MainEditorContainerComponent implements OnInit {
     if (currentStart && currentEnd &&
       currentStart.index === currentEnd.index &&
       word.index === currentStart.index) {
-      // Capture full selection state BEFORE resetting (Feature 8)
-      this.captureState();
+      // Save previous state (w_1, w_1) BEFORE resetting
+      const previousSnapshot = this.editorState.captureState(
+        this.timelineService.startHandle(),
+        this.timelineService.endHandle()
+      );
+      this.historyService.pushState(previousSnapshot);
 
       // Reset to just start (toggle back)
       this.editorState.clearSelection();
       this.editorState.selectWord(word);
+      // Current state (w_1, null) is NOT saved - it's the current viewing state
       // Play 3 seconds forward from start
       this.videoService.playWordPreview(word.start, false);
       return;
@@ -192,12 +210,17 @@ export class MainEditorContainerComponent implements OnInit {
 
     // Scenario 3B: Complete selection with DIFFERENT words, clicking on the END word
     if (currentStart && currentEnd && word.index === currentEnd.index) {
-      // Capture full selection state BEFORE resetting (Feature 8)
-      this.captureState();
+      // Save previous state (w_1, w_2) BEFORE resetting
+      const previousSnapshot = this.editorState.captureState(
+        this.timelineService.startHandle(),
+        this.timelineService.endHandle()
+      );
+      this.historyService.pushState(previousSnapshot);
 
       // Reset selection and make end word the new start
       this.editorState.clearSelection();
       this.editorState.selectWord(word);
+      // Current state (w_2, null) is NOT saved - it's the current viewing state
       // Play 3 seconds forward from new start
       this.videoService.playWordPreview(word.start, false);
       return;
@@ -205,20 +228,17 @@ export class MainEditorContainerComponent implements OnInit {
 
     // All other cases: Complete selection, clicking on different word → reset and start new selection
     // This includes clicking on a word outside the selection
-    const hadCompleteSelectionBefore = currentStart && currentEnd;
-
-    if (hadCompleteSelectionBefore) {
-      // Capture full selection state BEFORE resetting (Feature 8)
-      this.captureState();
+    if (currentStart && currentEnd) {
+      // Save previous state (w_1, w_2) BEFORE resetting
+      const previousSnapshot = this.editorState.captureState(
+        this.timelineService.startHandle(),
+        this.timelineService.endHandle()
+      );
+      this.historyService.pushState(previousSnapshot);
     }
 
     this.editorState.selectWord(word);
-
-    // Capture new start-only state after resetting (for incremental undo)
-    // Only if we had a complete selection before (so undo can go: new_start → full_selection)
-    if (hadCompleteSelectionBefore) {
-      this.captureState();
-    }
+    // Current state (w_new, null) is NOT saved - it's the current viewing state
 
     this.videoService.playWordPreview(word.start, false);
   }
@@ -233,17 +253,7 @@ export class MainEditorContainerComponent implements OnInit {
 
   // ========== Feature 8: Undo/Redo Functionality ==========
 
-  /**
-   * Capture current editor state snapshot
-   * Called after trackable actions (selection changes, handle adjustments, segment actions)
-   */
-  captureState(): void {
-    const snapshot = this.editorState.captureState(
-      this.timelineService.startHandle(),
-      this.timelineService.endHandle()
-    );
-    this.historyService.pushState(snapshot);
-  }
+  // Removed captureState() - now we explicitly capture and push state before actions
 
   /**
    * Perform undo operation

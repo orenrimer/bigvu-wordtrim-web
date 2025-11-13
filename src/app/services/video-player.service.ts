@@ -152,8 +152,6 @@ export class VideoPlayerService {
             if (!this.videoElement) return;
             this._duration.set(this.videoElement.duration);
             this.detectAspectRatio();
-            console.info('📹 Video metadata loaded - Aspect ratio detected:', this._aspectRatio(),
-                `(${this.videoElement.videoWidth}x${this.videoElement.videoHeight})`);
         });
 
         // Ended event

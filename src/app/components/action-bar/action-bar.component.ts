@@ -125,13 +125,11 @@ export class ActionBarComponent {
     onRemove(): void {
         if (!this.canRemove()) return;
 
-        // Capture state BEFORE action (for undo to restore to this state)
-        this.captureState();
+        // Save previous state BEFORE action
+        this.capturePreviousState();
 
         this.editorState.deleteSelectedWords();
-
-        // Capture state AFTER action (for incremental undo)
-        this.captureState();
+        // Current state (after action) is NOT saved - it's the current viewing state
     }
 
     /**
@@ -144,13 +142,11 @@ export class ActionBarComponent {
     onKeepOnly(): void {
         if (!this.canKeepOnly()) return;
 
-        // Capture state BEFORE action (for undo to restore to this state)
-        this.captureState();
+        // Save previous state BEFORE action
+        this.capturePreviousState();
 
         this.editorState.keepOnlySelectedWords();
-
-        // Capture state AFTER action (for incremental undo)
-        this.captureState();
+        // Current state (after action) is NOT saved - it's the current viewing state
     }
 
     /**
@@ -162,13 +158,11 @@ export class ActionBarComponent {
     onRestore(): void {
         if (!this.canRestore()) return;
 
-        // Capture state BEFORE action (for undo to restore to this state)
-        this.captureState();
+        // Save previous state BEFORE action
+        this.capturePreviousState();
 
         this.editorState.restoreSelectedWords();
-
-        // Capture state AFTER action (for incremental undo)
-        this.captureState();
+        // Current state (after action) is NOT saved - it's the current viewing state
     }
 
     /**
@@ -180,13 +174,11 @@ export class ActionBarComponent {
     onUnselect(): void {
         if (!this.canUnselect()) return;
 
-        // Capture state BEFORE action (for undo to restore to this state)
-        this.captureState();
+        // Save previous state BEFORE action
+        this.capturePreviousState();
 
         this.editorState.clearSelection();
-
-        // Capture state AFTER action (for incremental undo)
-        this.captureState();
+        // Current state (after action) is NOT saved - it's the current viewing state
     }
 
     // ========== Placeholder handlers for future features ==========
@@ -214,17 +206,17 @@ export class ActionBarComponent {
     // ========== Feature 8: Undo/Redo Functionality ==========
 
     /**
-     * Capture current editor state snapshot
-     * Called after segment actions
+     * Capture previous editor state snapshot (before action)
+     * Called BEFORE segment actions to save the state that existed before the action
      * Marks the snapshot as an action bar action
      */
-    private captureState(): void {
-        const snapshot = this.editorState.captureState(
+    private capturePreviousState(): void {
+        const previousSnapshot = this.editorState.captureState(
             this.timelineService.startHandle(),
             this.timelineService.endHandle()
         );
         // Mark as action bar action - this will be checked in undo to clear redo stack
-        this.historyService.pushState(snapshot, true);
+        this.historyService.pushState(previousSnapshot, true);
     }
 
     /**
@@ -253,6 +245,7 @@ export class ActionBarComponent {
             this.timelineService.startHandle(),
             this.timelineService.endHandle()
         );
+
         const nextState = this.historyService.redo(currentSnapshot);
 
         if (nextState) {
