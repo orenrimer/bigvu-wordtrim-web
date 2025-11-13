@@ -19,6 +19,8 @@ export interface EditorStateSnapshot {
     startHandle: HandlePosition | null;
     /** Timeline end handle position (or null) */
     endHandle: HandlePosition | null;
+    /** Deleted segments with fine-tuned handle times */
+    deletedSegments: Array<{ start: number; end: number }>;
     /** Flag indicating if this is the initial baseline state (first frame) */
     isInitialState?: boolean;
     /** Flag indicating if this snapshot was created after an action bar action (Remove, Keep Only, Restore, Unselect) */
@@ -286,6 +288,7 @@ export class HistoryService {
             selectionEnd: snapshot.selectionEnd ? { ...snapshot.selectionEnd } : null,
             startHandle: snapshot.startHandle ? { ...snapshot.startHandle } : null,
             endHandle: snapshot.endHandle ? { ...snapshot.endHandle } : null,
+            deletedSegments: snapshot.deletedSegments ? snapshot.deletedSegments.map(seg => ({ ...seg })) : [],
             // Preserve the isInitialState flag when copying
             isInitialState: snapshot.isInitialState,
             // Preserve the isActionBarAction flag when copying

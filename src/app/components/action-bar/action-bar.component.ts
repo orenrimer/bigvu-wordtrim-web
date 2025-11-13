@@ -5,6 +5,7 @@ import { EditorStateService } from '../../services/editor-state.service';
 import { TutorialService } from '../../services/tutorial.service';
 import { HistoryService } from '../../services/history.service';
 import { TimelineService } from '../../services/timeline.service';
+import { OutputGeneratorService } from '../../services/output-generator.service';
 import { WordState } from '../../models';
 
 /**
@@ -31,6 +32,7 @@ export class ActionBarComponent {
     private readonly tutorialService = inject(TutorialService);
     private readonly historyService = inject(HistoryService);
     private readonly timelineService = inject(TimelineService);
+    private readonly outputGenerator = inject(OutputGeneratorService);
 
     // Computed signals for button states based on selection
 
@@ -121,6 +123,7 @@ export class ActionBarComponent {
      * Marks selected words as deleted
      * Based on PRD: Segment Actions
      * Captures state for undo/redo (Feature 8)
+     * Saves fine-tuned handle times for proper output generation
      */
     onRemove(): void {
         if (!this.canRemove()) return;
@@ -128,7 +131,33 @@ export class ActionBarComponent {
         // Save previous state BEFORE action
         this.capturePreviousState();
 
-        this.editorState.deleteSelectedWords();
+        // Get fine-tuned handle positions before deleting
+        const startHandle = this.timelineService.startHandle();
+        const endHandle = this.timelineService.endHandle();
+
+        // If handles exist, use fine-tuned times; otherwise use word boundaries
+        let fineTunedStart: number | undefined;
+        let fineTunedEnd: number | undefined;
+
+        if (startHandle && endHandle) {
+            // Use fine-tuned handle times (sub-word precision)
+            fineTunedStart = startHandle.time;
+            fineTunedEnd = endHandle.time;
+
+            console.log(`Deleted segment with fine-tuned times: [${fineTunedStart.toFixed(3)}s - ${fineTunedEnd.toFixed(3)}s]`);
+        } else {
+            // No handles - use word boundaries (fallback)
+            const selected = this.editorState.selectedWords();
+            if (selected.length > 0) {
+                const firstWord = selected[0];
+                const lastWord = selected[selected.length - 1];
+                fineTunedStart = firstWord.start;
+                fineTunedEnd = lastWord.end;
+            }
+        }
+
+        // deleteSelectedWords will save the fine-tuned segment internally
+        this.editorState.deleteSelectedWords(fineTunedStart, fineTunedEnd);
         // Current state (after action) is NOT saved - it's the current viewing state
     }
 
@@ -154,6 +183,7 @@ export class ActionBarComponent {
      * Restores deleted words within current selection
      * Based on PRD: Segment Actions
      * Captures state for undo/redo (Feature 8)
+     * Removes deleted segments that overlap with restored words
      */
     onRestore(): void {
         if (!this.canRestore()) return;
@@ -161,6 +191,7 @@ export class ActionBarComponent {
         // Save previous state BEFORE action
         this.capturePreviousState();
 
+        // restoreSelectedWords will remove deleted segments internally
         this.editorState.restoreSelectedWords();
         // Current state (after action) is NOT saved - it's the current viewing state
     }
@@ -201,6 +232,19 @@ export class ActionBarComponent {
      */
     onTutorial(): void {
         this.tutorialService.showVideo();
+    }
+
+    // ========== Feature 9: Save & Output Generation ==========
+
+    /**
+     * Save output
+     * Generates output array and logs to console
+     * Based on PRD Section 9: Save & Output
+     */
+    onSave(): void {
+        const output = this.outputGenerator.generateOutput();
+        // Output to console.log for Phase 1
+        console.log('Output:', JSON.stringify(output, null, 2));
     }
 
     // ========== Feature 8: Undo/Redo Functionality ==========

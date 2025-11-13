@@ -17,12 +17,14 @@ export class EditorStateService {
     private readonly _selectionStart = signal<Word | null>(null);
     private readonly _selectionEnd = signal<Word | null>(null);
     private readonly _currentPlaybackWordIndex = signal<number | null>(null);
+    private readonly _deletedSegments = signal<Array<{ start: number; end: number }>>([]);
 
     // Public read-only signals
     public readonly words = this._words.asReadonly();
     public readonly selectionStart = this._selectionStart.asReadonly();
     public readonly selectionEnd = this._selectionEnd.asReadonly();
     public readonly currentPlaybackWordIndex = this._currentPlaybackWordIndex.asReadonly();
+    public readonly deletedSegments = this._deletedSegments.asReadonly();
 
     // Computed signal: selected words array (all words between start and end inclusive)
     public readonly selectedWords = computed(() => {
@@ -69,6 +71,7 @@ export class EditorStateService {
     public initializeWords(words: Word[]): void {
         this._words.set([...words]);
         this.clearSelection();
+        this.clearDeletedSegments(); // Clear deleted segments when initializing new words
     }
 
     /**
@@ -266,9 +269,12 @@ export class EditorStateService {
     /**
      * Mark selected words as deleted
      * Used by segment actions in Feature 6
+     * Saves fine-tuned handle times for proper output generation
+     * @param fineTunedStart Optional fine-tuned start handle time (if handles were used)
+     * @param fineTunedEnd Optional fine-tuned end handle time (if handles were used)
      * @returns True if operation succeeded, false if it would delete all words
      */
-    public deleteSelectedWords(): boolean {
+    public deleteSelectedWords(fineTunedStart?: number, fineTunedEnd?: number): boolean {
         const selected = this.selectedWords();
         if (selected.length === 0) return false;
 
@@ -278,6 +284,11 @@ export class EditorStateService {
         if (this.wouldDeleteAllWords(selectedIndices)) {
             alert('You cannot remove the entire video');
             return false;
+        }
+
+        // Save fine-tuned deleted segment if provided
+        if (fineTunedStart !== undefined && fineTunedEnd !== undefined) {
+            this.addDeletedSegment(fineTunedStart, fineTunedEnd);
         }
 
         const currentWords = this._words();
@@ -297,6 +308,7 @@ export class EditorStateService {
      * Mark all non-selected words as deleted (Keep Only action)
      * Restores selected words to NORMAL state (even if deleted)
      * Used by segment actions in Feature 6
+     * Clears old deleted segments since all non-selected words are now deleted
      * @returns True if operation succeeded, false if no selection
      */
     public keepOnlySelectedWords(): boolean {
@@ -306,6 +318,10 @@ export class EditorStateService {
         // Note: No validation needed here because:
         // - Selected words are restored to NORMAL (even if deleted)
         // - This ensures at least the selected words remain in the video
+
+        // Clear old deleted segments since all non-selected words are now deleted
+        // The deleted segments are no longer relevant because words are deleted directly
+        this.clearDeletedSegments();
 
         const currentWords = this._words();
         const selectedIndices = new Set(selected.map(w => w.index));
@@ -324,6 +340,7 @@ export class EditorStateService {
     /**
      * Restore selected deleted words to normal state
      * Used by segment actions in Feature 6
+     * Removes deleted segments that overlap with restored words
      */
     public restoreSelectedWords(): void {
         const selected = this.selectedWords();
@@ -331,6 +348,17 @@ export class EditorStateService {
 
         const currentWords = this._words();
         const selectedIndices = new Set(selected.map(w => w.index));
+
+        // Get restored range to remove deleted segments
+        if (selected.length > 0) {
+            const firstWord = selected[0];
+            const lastWord = selected[selected.length - 1];
+            const restoredStart = firstWord.start;
+            const restoredEnd = lastWord.end;
+
+            // Remove deleted segments that overlap with restored range
+            this.removeDeletedSegmentsInRange(restoredStart, restoredEnd);
+        }
 
         const updatedWords = currentWords.map(word => {
             if (selectedIndices.has(word.index) && this.isWordDeleted(word)) {
@@ -388,6 +416,80 @@ export class EditorStateService {
         this._selectionStart.set(null);
         this._selectionEnd.set(null);
         this._currentPlaybackWordIndex.set(null);
+        this._deletedSegments.set([]);
+    }
+
+    // ========== Fine-Tuned Deleted Segments Management ==========
+
+    /**
+     * Add a deleted segment with fine-tuned handle times
+     * Called when user deletes a segment using Remove action
+     * Merges overlapping deleted segments to avoid duplicates
+     * @param start Fine-tuned start handle time in seconds
+     * @param end Fine-tuned end handle time in seconds
+     */
+    public addDeletedSegment(start: number, end: number): void {
+        const currentSegments = this._deletedSegments();
+        const newSegment = { start, end };
+
+        console.log(`=== Adding Deleted Segment ===`);
+        console.log(`New deleted segment: [${start.toFixed(3)}s - ${end.toFixed(3)}s]`);
+        console.log(`Current deleted segments before: ${currentSegments.length}`);
+
+        // Remove any existing deleted segments that overlap with the new segment
+        // We'll replace them with the new one (which has the fine-tuned times)
+        const filteredSegments = currentSegments.filter(segment => {
+            // Check if segments overlap
+            const overlaps = segment.start < end && segment.end > start;
+            if (overlaps) {
+                console.log(`  Removing overlapping segment: [${segment.start.toFixed(3)}s - ${segment.end.toFixed(3)}s]`);
+            }
+            return !overlaps;
+        });
+
+        // Add the new segment and sort by start time
+        const updatedSegments = [...filteredSegments, newSegment].sort((a, b) => a.start - b.start);
+        console.log(`Deleted segments after: ${updatedSegments.length}`);
+        updatedSegments.forEach((seg, index) => {
+            console.log(`  Deleted Segment ${index + 1}: [${seg.start.toFixed(3)}s - ${seg.end.toFixed(3)}s]`);
+        });
+        console.log('================================');
+        this._deletedSegments.set(updatedSegments);
+    }
+
+    /**
+     * Clear all deleted segments
+     * Called when restoring state or resetting
+     */
+    public clearDeletedSegments(): void {
+        this._deletedSegments.set([]);
+    }
+
+    /**
+     * Remove deleted segments that overlap with restored words
+     * Called when user restores deleted words
+     * @param restoredStart Start time of restored segment
+     * @param restoredEnd End time of restored segment
+     */
+    public removeDeletedSegmentsInRange(restoredStart: number, restoredEnd: number): void {
+        const currentSegments = this._deletedSegments();
+
+        // Remove segments that overlap with restored range
+        const filteredSegments = currentSegments.filter(segment => {
+            // Check if segments overlap
+            const overlaps = segment.start < restoredEnd && segment.end > restoredStart;
+            return !overlaps;
+        });
+
+        this._deletedSegments.set(filteredSegments);
+    }
+
+    /**
+     * Get all deleted segments with fine-tuned times
+     * @returns Array of deleted segments with fine-tuned times
+     */
+    public getDeletedSegments(): Array<{ start: number; end: number }> {
+        return this._deletedSegments();
     }
 
     // ========== Feature 8: Undo/Redo State Management ==========
@@ -408,7 +510,8 @@ export class EditorStateService {
             selectionStart: this._selectionStart() ? { ...this._selectionStart()! } : null,
             selectionEnd: this._selectionEnd() ? { ...this._selectionEnd()! } : null,
             startHandle: startHandle ? { ...startHandle } : null,
-            endHandle: endHandle ? { ...endHandle } : null
+            endHandle: endHandle ? { ...endHandle } : null,
+            deletedSegments: this._deletedSegments().map(seg => ({ ...seg }))
         };
 
         return snapshot;
@@ -426,7 +529,25 @@ export class EditorStateService {
         const restoredWords = snapshot.words.map(word => ({ ...word }));
         this._words.set(restoredWords);
 
-        // Step 2: Restore selection AFTER words array is set
+        // Step 2: Restore deleted segments with fine-tuned times
+        if (snapshot.deletedSegments) {
+            const restoredDeletedSegments = snapshot.deletedSegments.map(seg => ({ ...seg }));
+            console.log('=== Restoring Deleted Segments ===');
+            console.log(`Restoring ${restoredDeletedSegments.length} deleted segment(s):`);
+            restoredDeletedSegments.forEach((seg, index) => {
+                console.log(`  Deleted Segment ${index + 1}: [${seg.start.toFixed(3)}s - ${seg.end.toFixed(3)}s]`);
+            });
+            console.log('==================================');
+            this._deletedSegments.set(restoredDeletedSegments);
+        } else {
+            // Fallback for old snapshots that don't have deletedSegments
+            console.log('=== Restoring Deleted Segments ===');
+            console.log('No deleted segments in snapshot (old snapshot) - clearing deleted segments');
+            console.log('==================================');
+            this._deletedSegments.set([]);
+        }
+
+        // Step 3: Restore selection AFTER words array is set
         // Use Map for O(1) lookup instead of O(n) find operations
         const wordsByIndex = new Map<number, Word>();
         restoredWords.forEach(word => {
@@ -441,7 +562,7 @@ export class EditorStateService {
             : null;
 
 
-        // Step 3: Set selection signals - this will trigger timeline effect to update handles
+        // Step 4: Set selection signals - this will trigger timeline effect to update handles
         // Set both signals in the same change detection cycle to avoid intermediate states
         this._selectionStart.set(restoredStart);
         this._selectionEnd.set(restoredEnd);
