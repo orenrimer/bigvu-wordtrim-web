@@ -187,9 +187,16 @@ export class TimelineComponent implements OnInit, OnDestroy {
 
         // Store the current selection BEFORE drag starts
         // We'll use this to check if the word changed after drag ends
-        // We don't save state here - state will be saved only if word actually changes
         this.currentStartBeforeChange = this.editorStateService.selectionStart();
         this.currentEndBeforeChange = this.editorStateService.selectionEnd();
+
+        // Store state snapshot before drag starts
+        // This captures the state BEFORE any handle movement
+        // We'll use this snapshot if the word changes after drag ends
+        this.stateBeforeDrag = this.editorStateService.captureState(
+            this.timelineService.startHandle(),
+            this.timelineService.endHandle()
+        );
 
         this.isDraggingEnd = true;
         this.isHandleDragging = true; // Prevent handle snap during drag
