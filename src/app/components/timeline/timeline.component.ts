@@ -46,6 +46,10 @@ export class TimelineComponent implements OnInit, OnDestroy {
     private dragStartTime = 0;
     private isHandleDragging = false; // Flag to prevent handle snap during drag
 
+    // Store selection before drag to check if word changed
+    private currentStartBeforeChange: any = null;
+    private currentEndBeforeChange: any = null;
+
     // Video frames for timeline display (gradient placeholders)
     // Can be replaced with server-side thumbnails in the future
     public videoFrames: Array<{ index: number; thumbnail: string | null }> =
@@ -151,20 +155,11 @@ export class TimelineComponent implements OnInit, OnDestroy {
         event.preventDefault();
         event.stopPropagation();
 
-        // Capture full selection state BEFORE starting drag (for incremental undo)
-        // This allows undo to go: new_start → old_start → previous state
-        // We capture here because once dragging starts, handles may change
-        const currentStart = this.editorStateService.selectionStart();
-        const currentEnd = this.editorStateService.selectionEnd();
-
-        // Only capture if we have a selection (start word exists)
-        if (currentStart) {
-            const snapshotBeforeDrag = this.editorStateService.captureState(
-                this.timelineService.startHandle(),
-                this.timelineService.endHandle()
-            );
-            this.historyService.pushState(snapshotBeforeDrag);
-        }
+        // Store the current selection BEFORE drag starts
+        // We'll use this to check if the word changed after drag ends
+        // We don't save state here - state will be saved only if word actually changes
+        this.currentStartBeforeChange = this.editorStateService.selectionStart();
+        this.currentEndBeforeChange = this.editorStateService.selectionEnd();
 
         this.isDraggingStart = true;
         this.isHandleDragging = true; // Prevent handle snap during drag
@@ -181,20 +176,11 @@ export class TimelineComponent implements OnInit, OnDestroy {
         event.preventDefault();
         event.stopPropagation();
 
-        // Capture full selection state BEFORE starting drag (for incremental undo)
-        // This allows undo to go: new_end → old_end → previous state
-        // We capture here because once dragging starts, handles may change
-        const currentStart = this.editorStateService.selectionStart();
-        const currentEnd = this.editorStateService.selectionEnd();
-
-        // Only capture if we have a complete selection (both start and end)
-        if (currentStart && currentEnd) {
-            const snapshotBeforeDrag = this.editorStateService.captureState(
-                this.timelineService.startHandle(),
-                this.timelineService.endHandle()
-            );
-            this.historyService.pushState(snapshotBeforeDrag);
-        }
+        // Store the current selection BEFORE drag starts
+        // We'll use this to check if the word changed after drag ends
+        // We don't save state here - state will be saved only if word actually changes
+        this.currentStartBeforeChange = this.editorStateService.selectionStart();
+        this.currentEndBeforeChange = this.editorStateService.selectionEnd();
 
         this.isDraggingEnd = true;
         this.isHandleDragging = true; // Prevent handle snap during drag
@@ -309,9 +295,8 @@ export class TimelineComponent implements OnInit, OnDestroy {
 
         const words = this.editorStateService.words();
 
-        // Store selection before any changes (for comparison after drag)
-        const currentStartBeforeChange = this.editorStateService.selectionStart();
-        const currentEndBeforeChange = this.editorStateService.selectionEnd();
+        // Use stored selection from before drag (set in onStartHandleMouseDown/onEndHandleMouseDown)
+        // This allows us to check if the word actually changed
 
         // Handle START drag - update start word based on handle position
         if (this.isDraggingStart) {
@@ -405,42 +390,78 @@ export class TimelineComponent implements OnInit, OnDestroy {
         this.isHandleDragging = false;
 
         // Capture state after handle drag ends (Feature 8: Undo/Redo)
-        // Note: For both START and END drag, we already captured the state before the change,
-        // so we only need to capture the new state here if the selection actually changed.
+        // IMPORTANT: State is ONLY saved here, when drag ends (onMouseUp), NOT during drag.
+        // The updateSelectionFromHandles() function updates UI during drag but does NOT save state.
+        // State is saved ONLY if the final word selection actually changed after drag.
+        // This ensures history frames are only created when a new word is actually selected, not just on drag.
         if (this.isDraggingStart) {
-            // For start handle drag, we already captured before the change,
-            // now capture the new state after the change (only if start word actually changed)
+            // For start handle drag, check if start word actually changed
             const currentStartAfterChange = this.editorStateService.selectionStart();
-            const startWordChanged = currentStartBeforeChange &&
+            const startWordChanged = this.currentStartBeforeChange &&
                 currentStartAfterChange &&
-                currentStartBeforeChange.index !== currentStartAfterChange.index;
+                this.currentStartBeforeChange.index !== currentStartAfterChange.index;
 
             if (startWordChanged) {
-                const snapshot = this.editorStateService.captureState(
+                // Save state BEFORE the change (for undo to restore to previous word)
+                const snapshotBefore = this.editorStateService.captureState(
                     this.timelineService.startHandle(),
                     this.timelineService.endHandle()
                 );
-                this.historyService.pushState(snapshot);
+                // Temporarily restore previous word to capture "before" state
+                this.editorStateService.selectWord(this.currentStartBeforeChange);
+                if (this.currentEndBeforeChange) {
+                    this.editorStateService.selectWord(this.currentEndBeforeChange);
+                }
+                const snapshotBeforeChange = this.editorStateService.captureState(
+                    this.timelineService.startHandle(),
+                    this.timelineService.endHandle()
+                );
+                this.historyService.pushState(snapshotBeforeChange);
+
+                // Restore new word and save "after" state
+                this.editorStateService.selectWord(currentStartAfterChange);
+                if (this.currentEndBeforeChange) {
+                    this.editorStateService.selectWord(this.currentEndBeforeChange);
+                }
+                const snapshotAfterChange = this.editorStateService.captureState(
+                    this.timelineService.startHandle(),
+                    this.timelineService.endHandle()
+                );
+                this.historyService.pushState(snapshotAfterChange);
             }
-            // If start word didn't change, we don't save a new state
-            // The state we captured before drag remains in history (which is fine)
+            // If start word didn't change, we don't save any state
         } else if (this.isDraggingEnd) {
-            // For end handle drag, we already captured before the change,
-            // now capture the new state after the change (only if end word actually changed)
+            // For end handle drag, check if end word actually changed
             const currentEndAfterChange = this.editorStateService.selectionEnd();
-            const endWordChanged = currentEndBeforeChange &&
+            const endWordChanged = this.currentEndBeforeChange &&
                 currentEndAfterChange &&
-                currentEndBeforeChange.index !== currentEndAfterChange.index;
+                this.currentEndBeforeChange.index !== currentEndAfterChange.index;
 
             if (endWordChanged) {
-                const snapshot = this.editorStateService.captureState(
+                // Save state BEFORE the change (for undo to restore to previous word)
+                const currentStart = this.editorStateService.selectionStart();
+                if (currentStart) {
+                    this.editorStateService.selectWord(currentStart);
+                }
+                this.editorStateService.selectWord(this.currentEndBeforeChange);
+                const snapshotBeforeChange = this.editorStateService.captureState(
                     this.timelineService.startHandle(),
                     this.timelineService.endHandle()
                 );
-                this.historyService.pushState(snapshot);
+                this.historyService.pushState(snapshotBeforeChange);
+
+                // Restore new word and save "after" state
+                if (currentStart) {
+                    this.editorStateService.selectWord(currentStart);
+                }
+                this.editorStateService.selectWord(currentEndAfterChange);
+                const snapshotAfterChange = this.editorStateService.captureState(
+                    this.timelineService.startHandle(),
+                    this.timelineService.endHandle()
+                );
+                this.historyService.pushState(snapshotAfterChange);
             }
-            // If end word didn't change, we don't save a new state
-            // The state we captured before drag remains in history (which is fine)
+            // If end word didn't change, we don't save any state
         }
 
         this.isDraggingStart = false;
@@ -469,6 +490,7 @@ export class TimelineComponent implements OnInit, OnDestroy {
 
             if (wordAtHandle) {
                 // Update selection - the isHandleDragging flag prevents handle snap
+                // NOTE: This is UI-only update - no history state is saved here
                 this.editorStateService.clearSelection();
                 this.editorStateService.selectWord(wordAtHandle);
             }
@@ -496,6 +518,7 @@ export class TimelineComponent implements OnInit, OnDestroy {
 
         if (startWord && endWord) {
             // Update selection - the isHandleDragging flag prevents handle snap
+            // NOTE: This is UI-only update - no history state is saved here
             this.editorStateService.selectWord(startWord);
             if (startWord !== endWord) {
                 this.editorStateService.selectWord(endWord);
