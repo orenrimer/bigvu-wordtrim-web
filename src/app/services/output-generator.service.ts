@@ -49,62 +49,123 @@ export class OutputGeneratorService {
         // Group consecutive words into segments (based on word boundaries)
         let segments = this.collectSegments(nonDeletedWords);
 
-        console.log('=== Initial Segments (from word boundaries) ===');
-        segments.forEach((seg, index) => {
-            console.log(`Segment ${index + 1}: [${seg.start.toFixed(3)}s - ${seg.end.toFixed(3)}s]`);
-        });
-        console.log('==============================================');
-
         // Step 4: Apply fine-tuned deleted segment cuts
         // According to PRD: "Use the fine-tuned times from timeline handles (not just word boundaries)"
         // When segments were deleted, we saved the fine-tuned handle times
         // Now we need to cut the remaining segments at those exact positions
         const deletedSegments = this.editorState.getDeletedSegments();
 
-        console.log('=== Fine-Tuned Deleted Segments ===');
-        deletedSegments.forEach((deleted, index) => {
-            console.log(`Deleted Segment ${index + 1}: [${deleted.start.toFixed(3)}s - ${deleted.end.toFixed(3)}s]`);
-        });
-        console.log('===================================');
-
         // Cut segments at deleted segment boundaries
         segments = this.cutSegmentsAtDeletedBoundaries(segments, deletedSegments);
-
-        console.log('=== Segments After Cutting at Deleted Boundaries ===');
-        segments.forEach((seg, index) => {
-            console.log(`Segment ${index + 1}: [${seg.start.toFixed(3)}s - ${seg.end.toFixed(3)}s]`);
-        });
-        console.log('==================================================');
 
         // Step 5: Apply fine-tuned handle positions if there's a current selection
         // This handles the case where user has selected a segment but hasn't deleted it yet
         const startHandle = this.timelineService.startHandle();
         const endHandle = this.timelineService.endHandle();
 
-        // Log fine-tuned handle positions
-        if (startHandle || endHandle) {
-            console.log('=== Current Fine-Tuned Handle Positions ===');
-            if (startHandle) {
-                console.log(`Start Handle: ${startHandle.time.toFixed(3)}s (${this.formatTime(startHandle.time)})`);
-            }
-            if (endHandle) {
-                console.log(`End Handle: ${endHandle.time.toFixed(3)}s (${this.formatTime(endHandle.time)})`);
-            }
-            console.log('==========================================');
-        }
-
         if (startHandle && endHandle) {
             // Check if selected words are deleted - if so, don't apply fine-tuning
             // Fine-tuning should only apply to non-deleted selections
             const selectedWords = this.editorState.selectedWords();
 
-            console.log(`=== Fine-Tuning Check ===`);
-            console.log(`Selected words count: ${selectedWords.length}`);
-            console.log(`Start handle: ${startHandle.time.toFixed(3)}s, End handle: ${endHandle.time.toFixed(3)}s`);
+            // Check if handles overlap with any existing segment (even if no words are selected)
+            // This handles the case after Restore where selection is cleared but handles remain
+            const handlesOverlapSegment = segments.some(segment =>
+                (startHandle.time >= segment.start && startHandle.time <= segment.end) ||
+                (endHandle.time >= segment.start && endHandle.time <= segment.end) ||
+                (startHandle.time <= segment.start && endHandle.time >= segment.end)
+            );
 
-            // If no words are selected, don't apply fine-tuning
+            // If no words are selected, check if handles overlap with a segment
             if (selectedWords.length === 0) {
-                console.log('=== Skipping Fine-Tuning (no words selected) ===');
+                if (handlesOverlapSegment) {
+                    // Apply fine-tuning to segments that match the handles
+                    segments = segments.map((segment, index) => {
+                        // Check if handles overlap with this segment or are adjacent to it
+                        const handleStartInSegment = startHandle.time >= segment.start && startHandle.time <= segment.end;
+                        const handleEndInSegment = endHandle.time >= segment.start && endHandle.time <= segment.end;
+                        const handleStartBeforeSegment = startHandle.time < segment.start;
+                        const handleEndAfterSegment = endHandle.time > segment.end;
+                        const handlesSpanSegment = startHandle.time <= segment.start && endHandle.time >= segment.end;
+                        const handlesWithinSegment = startHandle.time >= segment.start && endHandle.time <= segment.end;
+
+                        // Check if handles are close to segment boundaries (within 0.1s threshold)
+                        const threshold = 0.1;
+                        const handleStartNearStart = Math.abs(startHandle.time - segment.start) <= threshold;
+                        const handleEndNearEnd = Math.abs(endHandle.time - segment.end) <= threshold;
+
+                        let fineTunedStart = segment.start;
+                        let fineTunedEnd = segment.end;
+                        let wasFineTuned = false;
+
+                        if (handlesWithinSegment) {
+                            // Both handles are within this segment - use handle times
+                            fineTunedStart = startHandle.time;
+                            fineTunedEnd = endHandle.time;
+                            wasFineTuned = true;
+                        } else if (handlesSpanSegment) {
+                            // Handles span this entire segment - use handle times
+                            fineTunedStart = startHandle.time;
+                            fineTunedEnd = endHandle.time;
+                            wasFineTuned = true;
+                        } else if (handleStartInSegment && handleEndInSegment) {
+                            // Both handles are within this segment - use handle times
+                            fineTunedStart = startHandle.time;
+                            fineTunedEnd = endHandle.time;
+                            wasFineTuned = true;
+                        } else if (handleStartInSegment) {
+                            // Start handle is within this segment - trim from start handle
+                            fineTunedStart = startHandle.time;
+                            // Also check if end handle is near the end of the segment
+                            if (handleEndNearEnd || handleEndAfterSegment) {
+                                fineTunedEnd = endHandle.time;
+                            }
+                            wasFineTuned = true;
+                        } else if (handleEndInSegment) {
+                            // End handle is within this segment - trim to end handle
+                            fineTunedEnd = endHandle.time;
+                            // Also check if start handle is near the start of the segment
+                            if (handleStartNearStart || handleStartBeforeSegment) {
+                                fineTunedStart = startHandle.time;
+                            }
+                            wasFineTuned = true;
+                        } else if (handleStartBeforeSegment && handleEndAfterSegment) {
+                            // Handles span this entire segment (even if outside boundaries)
+                            fineTunedStart = startHandle.time;
+                            fineTunedEnd = endHandle.time;
+                            wasFineTuned = true;
+                        } else if (handleStartNearStart && handleEndNearEnd) {
+                            // Both handles are near segment boundaries - use handle times
+                            fineTunedStart = startHandle.time;
+                            fineTunedEnd = endHandle.time;
+                            wasFineTuned = true;
+                        } else if (startHandle.time < segment.end && endHandle.time > segment.start) {
+                            // Handles partially overlap with this segment
+                            fineTunedStart = Math.max(segment.start, startHandle.time);
+                            fineTunedEnd = Math.min(segment.end, endHandle.time);
+                            wasFineTuned = true;
+                        } else if (handleStartNearStart) {
+                            // Start handle is near the start of the segment
+                            fineTunedStart = startHandle.time;
+                            wasFineTuned = true;
+                        } else if (handleEndNearEnd) {
+                            // End handle is near the end of the segment
+                            fineTunedEnd = endHandle.time;
+                            wasFineTuned = true;
+                        }
+
+                        // Only update if valid (start < end)
+                        if (wasFineTuned && fineTunedStart < fineTunedEnd) {
+                            return {
+                                start: fineTunedStart,
+                                end: fineTunedEnd
+                            };
+                        }
+
+                        // No fine-tuning applied - keep segment as-is (word boundaries)
+                        return segment;
+                    });
+                }
             } else {
                 // Check if any selected words are deleted
                 const anySelectedWordsDeleted = selectedWords.some(word =>
@@ -130,22 +191,18 @@ export class OutputGeneratorService {
                     Math.abs(deleted.end - endHandle.time) < 0.01
                 );
 
-                console.log(`  Any selected words deleted: ${anySelectedWordsDeleted}`);
-                console.log(`  All selected words deleted: ${allSelectedWordsDeleted}`);
-                console.log(`  Handles match deleted segment: ${handlesMatchDeletedSegment}`);
+                // Check if there are no deleted segments at all
+                // If no deleted segments exist, it means everything was restored (after undo)
+                // In this case, don't apply fine-tuning because the handles are from before the deletion
+                const noDeletedSegments = deletedSegments.length === 0;
 
                 // Don't apply fine-tuning if:
                 // 1. All selected words are deleted (they won't be in output anyway)
                 // 2. Handles match a deleted segment (user undid deletion but handles remain - don't fine-tune deleted segment)
+                // 3. No deleted segments exist (after undo, everything was restored - handles are from before deletion)
                 // Note: We DO apply fine-tuning if words are restored (after restore, words are not deleted but handles exist)
-                if (allSelectedWordsDeleted || handlesMatchDeletedSegment) {
-                    console.log('=== Skipping Fine-Tuning ===');
-                    if (allSelectedWordsDeleted) {
-                        console.log('  Reason: All selected words are deleted');
-                    }
-                    if (handlesMatchDeletedSegment) {
-                        console.log('  Reason: Handles match a deleted segment (likely after undo)');
-                    }
+                if (allSelectedWordsDeleted || handlesMatchDeletedSegment || noDeletedSegments) {
+                    // Skip fine-tuning
                 } else {
                     // Apply fine-tuned handle positions to segments
                     segments = segments.map((segment, index) => {
@@ -224,7 +281,6 @@ export class OutputGeneratorService {
 
                         // Only update if valid (start < end)
                         if (wasFineTuned && fineTunedStart < fineTunedEnd) {
-                            console.log(`Segment ${index + 1}: Fine-tuned from [${segment.start.toFixed(3)}s - ${segment.end.toFixed(3)}s] to [${fineTunedStart.toFixed(3)}s - ${fineTunedEnd.toFixed(3)}s]`);
                             return {
                                 start: fineTunedStart,
                                 end: fineTunedEnd
@@ -245,15 +301,8 @@ export class OutputGeneratorService {
         // After cutting at deleted boundaries, we may have many small segments that should be merged
         const mergedSegments = this.mergeConsecutiveSegments(sortedSegments);
 
-        console.log('=== Final Output Segments (after all processing) ===');
-        mergedSegments.forEach((seg, index) => {
-            console.log(`Segment ${index + 1}: [${seg.start.toFixed(3)}s - ${seg.end.toFixed(3)}s]`);
-        });
-        console.log('===================================================');
-
         // Step 8: Validate output (no gaps, proper ordering)
         this.validateOutput(mergedSegments);
-
         return mergedSegments;
     }
 

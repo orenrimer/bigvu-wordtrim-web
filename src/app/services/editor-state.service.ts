@@ -471,20 +471,60 @@ export class EditorStateService {
     /**
      * Remove deleted segments that overlap with restored words
      * Called when user restores deleted words
+     * Cuts deleted segments instead of removing them completely if only part is restored
      * @param restoredStart Start time of restored segment
      * @param restoredEnd End time of restored segment
      */
     public removeDeletedSegmentsInRange(restoredStart: number, restoredEnd: number): void {
         const currentSegments = this._deletedSegments();
+        const resultSegments: Array<{ start: number; end: number }> = [];
 
-        // Remove segments that overlap with restored range
-        const filteredSegments = currentSegments.filter(segment => {
+        for (const segment of currentSegments) {
             // Check if segments overlap
             const overlaps = segment.start < restoredEnd && segment.end > restoredStart;
-            return !overlaps;
-        });
 
-        this._deletedSegments.set(filteredSegments);
+            if (!overlaps) {
+                // No overlap - keep segment as-is
+                resultSegments.push(segment);
+                continue;
+            }
+
+            // Segments overlap - need to cut the deleted segment
+            // Case 1: Restored segment is completely within deleted segment
+            // Example: Deleted [8.560s - 17.755s], Restored [11.600s - 15.995s]
+            // Result: [8.560s - 11.600s] and [15.995s - 17.755s]
+            if (restoredStart > segment.start && restoredEnd < segment.end) {
+                // Keep part before restored segment
+                if (segment.start < restoredStart) {
+                    resultSegments.push({ start: segment.start, end: restoredStart });
+                }
+                // Keep part after restored segment
+                if (restoredEnd < segment.end) {
+                    resultSegments.push({ start: restoredEnd, end: segment.end });
+                }
+            }
+            // Case 2: Restored segment starts before deleted segment but ends within it
+            // Example: Deleted [8.560s - 17.755s], Restored [5.000s - 11.600s]
+            // Result: [11.600s - 17.755s]
+            else if (restoredStart <= segment.start && restoredEnd > segment.start && restoredEnd < segment.end) {
+                resultSegments.push({ start: restoredEnd, end: segment.end });
+            }
+            // Case 3: Restored segment starts within deleted segment but ends after it
+            // Example: Deleted [8.560s - 17.755s], Restored [11.600s - 20.000s]
+            // Result: [8.560s - 11.600s]
+            else if (restoredStart > segment.start && restoredStart < segment.end && restoredEnd >= segment.end) {
+                resultSegments.push({ start: segment.start, end: restoredStart });
+            }
+            // Case 4: Restored segment completely covers deleted segment
+            // Example: Deleted [8.560s - 17.755s], Restored [5.000s - 20.000s]
+            // Result: (no segments - completely removed)
+            // Don't add anything - segment is completely removed
+        }
+
+        // Sort by start time
+        resultSegments.sort((a, b) => a.start - b.start);
+
+        this._deletedSegments.set(resultSegments);
     }
 
     /**
