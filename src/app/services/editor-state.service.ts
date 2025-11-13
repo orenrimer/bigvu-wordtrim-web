@@ -145,8 +145,49 @@ export class EditorStateService {
     }
 
     /**
+     * Calculate the new state for a word based on current selection
+     * @param word The word to calculate state for
+     * @param startIndex Selection start index (or -1 if no start)
+     * @param endIndex Selection end index (or -1 if no end)
+     * @returns The new WordState for the word
+     */
+    private calculateWordState(word: Word, startIndex: number, endIndex: number): WordState {
+        const wasDeleted = this.isWordDeleted(word);
+
+        // No selection - return to normal or keep deleted
+        if (startIndex === -1) {
+            return wasDeleted ? WordState.DELETED : WordState.NORMAL;
+        }
+
+        // Only start selected
+        if (endIndex === -1) {
+            if (word.index === startIndex) {
+                return wasDeleted ? WordState.DELETED_SELECTED_START : WordState.SELECTED_START;
+            }
+            return wasDeleted ? WordState.DELETED : WordState.NORMAL;
+        }
+
+        // Complete selection (start + end)
+        if (word.index === startIndex) {
+            return wasDeleted ? WordState.DELETED_SELECTED_START : WordState.SELECTED_START;
+        }
+
+        if (word.index === endIndex) {
+            return wasDeleted ? WordState.DELETED_SELECTED_END : WordState.SELECTED_END;
+        }
+
+        if (word.index > startIndex && word.index < endIndex) {
+            return wasDeleted ? WordState.DELETED_SELECTED_RANGE : WordState.SELECTED_RANGE;
+        }
+
+        // Not in selection
+        return wasDeleted ? WordState.DELETED : WordState.NORMAL;
+    }
+
+    /**
      * Update word states based on current selection
      * Updates the state property of each word in the words array
+     * Optimized to only create new objects for words that actually changed
      * 
      * Important: Deleted words can be selected (for restoration).
      * When selected, they get a combined state (e.g., DELETED_SELECTED_START)
@@ -156,58 +197,21 @@ export class EditorStateService {
         const end = this._selectionEnd();
         const currentWords = this._words();
 
+        const startIndex = start?.index ?? -1;
+        const endIndex = end?.index ?? -1;
+
         const updatedWords = currentWords.map(word => {
-            // Check if word was originally deleted (before any selection changes)
-            const wasDeleted = this.isWordDeleted(word);
+            const newState = this.calculateWordState(word, startIndex, endIndex);
 
-            // No selection - return to normal or keep deleted
-            if (!start) {
-                return {
-                    ...word,
-                    state: wasDeleted ? WordState.DELETED : WordState.NORMAL
-                };
+            // If state didn't change, return the same object (no new object creation)
+            if (word.state === newState) {
+                return word;
             }
 
-            // Only start selected
-            if (!end) {
-                if (word.index === start.index) {
-                    return {
-                        ...word,
-                        state: wasDeleted ? WordState.DELETED_SELECTED_START : WordState.SELECTED_START
-                    };
-                }
-                return {
-                    ...word,
-                    state: wasDeleted ? WordState.DELETED : WordState.NORMAL
-                };
-            }
-
-            // Complete selection (start + end)
-            if (word.index === start.index) {
-                return {
-                    ...word,
-                    state: wasDeleted ? WordState.DELETED_SELECTED_START : WordState.SELECTED_START
-                };
-            }
-
-            if (word.index === end.index) {
-                return {
-                    ...word,
-                    state: wasDeleted ? WordState.DELETED_SELECTED_END : WordState.SELECTED_END
-                };
-            }
-
-            if (word.index > start.index && word.index < end.index) {
-                return {
-                    ...word,
-                    state: wasDeleted ? WordState.DELETED_SELECTED_RANGE : WordState.SELECTED_RANGE
-                };
-            }
-
-            // Not in selection
+            // State changed - create new object
             return {
                 ...word,
-                state: wasDeleted ? WordState.DELETED : WordState.NORMAL
+                state: newState
             };
         });
 
@@ -391,13 +395,16 @@ export class EditorStateService {
     /**
      * Capture current editor state snapshot
      * Used by HistoryService for undo/redo
+     * Creates a deep copy to prevent reference issues
      * @param startHandle Timeline start handle position (or null)
      * @param endHandle Timeline end handle position (or null)
-     * @returns Editor state snapshot
+     * @returns Editor state snapshot (deep copy)
      */
     public captureState(startHandle: HandlePosition | null, endHandle: HandlePosition | null): EditorStateSnapshot {
+        // Create deep copy of words array to prevent reference issues
+        // This is done here instead of in HistoryService to avoid double copying
         const snapshot = {
-            words: [...this._words()],
+            words: this._words().map(word => ({ ...word })),
             selectionStart: this._selectionStart() ? { ...this._selectionStart()! } : null,
             selectionEnd: this._selectionEnd() ? { ...this._selectionEnd()! } : null,
             startHandle: startHandle ? { ...startHandle } : null,
@@ -420,12 +427,17 @@ export class EditorStateService {
         this._words.set(restoredWords);
 
         // Step 2: Restore selection AFTER words array is set
-        // Find the actual word objects from the restored words array to maintain references
+        // Use Map for O(1) lookup instead of O(n) find operations
+        const wordsByIndex = new Map<number, Word>();
+        restoredWords.forEach(word => {
+            wordsByIndex.set(word.index, word);
+        });
+
         const restoredStart = snapshot.selectionStart
-            ? restoredWords.find(w => w.index === snapshot.selectionStart!.index) || null
+            ? wordsByIndex.get(snapshot.selectionStart.index) || null
             : null;
         const restoredEnd = snapshot.selectionEnd
-            ? restoredWords.find(w => w.index === snapshot.selectionEnd!.index) || null
+            ? wordsByIndex.get(snapshot.selectionEnd.index) || null
             : null;
 
 

@@ -1,6 +1,7 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { Word } from '../models';
 import { HandlePosition } from './timeline.service';
+import { environment } from '../../environments/environment';
 
 /**
  * Editor State Snapshot
@@ -40,13 +41,18 @@ export interface EditorStateSnapshot {
     providedIn: 'root'
 })
 export class HistoryService {
+    // Maximum history stack size to prevent memory leaks
+    // After this limit, oldest states are removed (FIFO)
+    private readonly MAX_HISTORY_SIZE = 50;
+
     // Private writable signals for history management
     private readonly _historyStack = signal<EditorStateSnapshot[]>([]);
     private readonly _redoStack = signal<EditorStateSnapshot[]>([]);
 
     // Flag to track if we're currently at the initial baseline state
     // When true, undo button should be disabled
-    private _isAtInitialState = true;
+    // Using signal so computed can react to changes
+    private readonly _isAtInitialState = signal<boolean>(true);
 
     // Store the initial state separately (not in undo stack until first action)
     private _initialState: EditorStateSnapshot | null = null;
@@ -58,10 +64,9 @@ export class HistoryService {
     // Computed signals for button states
     // Can't undo if we're at the initial baseline state (page load)
     public readonly canUndo = computed(() => {
-        const isAtInitial = this._isAtInitialState;
+        const isAtInitial = this._isAtInitialState();
         const historyLength = this._historyStack().length;
-        const canUndoResult = !isAtInitial && historyLength > 0;
-        return canUndoResult;
+        return !isAtInitial && historyLength > 0;
     });
     public readonly canRedo = computed(() => this._redoStack().length > 0);
 
@@ -71,10 +76,12 @@ export class HistoryService {
      * @param initialState The initial empty state
      */
     public setInitialState(initialState: EditorStateSnapshot): void {
+        // Initial state is already deep copied in captureState(), so we can use it directly
+        // but we still need to copy to ensure isolation
         const stateCopy = this.deepCopySnapshot(initialState);
         stateCopy.isInitialState = true;
         this._initialState = stateCopy;
-        this._isAtInitialState = true;
+        this._isAtInitialState.set(true);
         this.logStacks('Initial State Set');
     }
 
@@ -95,11 +102,17 @@ export class HistoryService {
         // Don't mark as initial state when pushing (initial state is already pushed above if needed)
         stateCopy.isInitialState = false;
 
-        // Add to history stack
-        this._historyStack.update(stack => [...stack, stateCopy]);
+        // Add to history stack and limit size to prevent memory leaks
+        this._historyStack.update(stack => {
+            const newStack = [...stack, stateCopy];
+            // Keep only the most recent MAX_HISTORY_SIZE states (remove oldest if exceeded)
+            return newStack.length > this.MAX_HISTORY_SIZE
+                ? newStack.slice(-this.MAX_HISTORY_SIZE)
+                : newStack;
+        });
 
         // We're no longer at initial state after pushing any state
-        this._isAtInitialState = false;
+        this._isAtInitialState.set(false);
 
         // Clear redo stack when new action is performed
         this._redoStack.set([]);
@@ -126,7 +139,9 @@ export class HistoryService {
         const history = this._historyStack();
 
         if (history.length === 0) {
+            if (environment.enableDebugLogs) {
             console.log('[HistoryService] undo() - No history, returning null');
+            }
             return null;
         }
 
@@ -148,9 +163,9 @@ export class HistoryService {
 
         if (isRestoringToInitial) {
             // We're restoring to initial state - mark as at initial state
-            this._isAtInitialState = true;
+            this._isAtInitialState.set(true);
         } else {
-            this._isAtInitialState = false;
+            this._isAtInitialState.set(false);
         }
 
         // Check if the previous state (the one we're restoring to) was an action bar action
@@ -160,7 +175,9 @@ export class HistoryService {
         }
 
         this.logStacks('After UNDO');
-        console.log(`Restoring to: ${this.formatState(previousState)}`);
+        if (environment.enableDebugLogs) {
+            console.log(`Restoring to: ${this.formatState(previousState)}`);
+        }
 
         return previousState;
     }
@@ -175,7 +192,9 @@ export class HistoryService {
         const redo = this._redoStack();
 
         if (redo.length === 0) {
+            if (environment.enableDebugLogs) {
             console.log('[HistoryService] redo() - No redo available, returning null');
+            }
             return null;
         }
 
@@ -190,10 +209,12 @@ export class HistoryService {
         this._redoStack.update(stack => stack.slice(0, -1));
 
         // After redo, we're no longer at initial state (we've moved forward)
-        this._isAtInitialState = false;
+        this._isAtInitialState.set(false);
 
         this.logStacks('After REDO');
-        console.log(`Restoring to: ${this.formatState(nextState)}`);
+        if (environment.enableDebugLogs) {
+            console.log(`Restoring to: ${this.formatState(nextState)}`);
+        }
 
         return nextState;
     }
@@ -205,7 +226,7 @@ export class HistoryService {
         this._historyStack.set([]);
         this._redoStack.set([]);
         this._initialState = null;
-        this._isAtInitialState = true;
+        this._isAtInitialState.set(true);
     }
 
     /**
@@ -220,12 +241,15 @@ export class HistoryService {
 
     /**
      * Helper method to log stacks in a clear format
+     * Only logs in development mode to avoid performance impact in production
      */
     private logStacks(operation: string): void {
+        if (!environment.enableDebugLogs) return;
+
         const undoStack = this._historyStack();
         const redoStack = this._redoStack();
 
-        console.log(`\n========== ${operation} ==========`);
+        console.groupCollapsed(`========== ${operation} ==========`);
         console.log('UNDO Stack (bottom to top):');
         if (undoStack.length === 0) {
             console.log('  [empty]');
@@ -243,24 +267,28 @@ export class HistoryService {
                 console.log(`  [${index}] ${this.formatState(state)}`);
             });
         }
-        console.log('================================\n');
+        console.groupEnd();
     }
 
     /**
      * Create deep copy of state snapshot to avoid reference issues
+     * Note: Words array is already deep copied in captureState(), but we still need to copy
+     * the array reference and other properties to ensure complete isolation
      * @param snapshot Snapshot to copy
      * @returns Deep copy of snapshot
      */
     private deepCopySnapshot(snapshot: EditorStateSnapshot): EditorStateSnapshot {
+        // Words are already deep copied in captureState(), but we need to copy array reference
+        // and ensure all properties are isolated
         return {
             words: snapshot.words.map(word => ({ ...word })),
             selectionStart: snapshot.selectionStart ? { ...snapshot.selectionStart } : null,
             selectionEnd: snapshot.selectionEnd ? { ...snapshot.selectionEnd } : null,
             startHandle: snapshot.startHandle ? { ...snapshot.startHandle } : null,
             endHandle: snapshot.endHandle ? { ...snapshot.endHandle } : null,
-            // STEP 6: Preserve the isInitialState flag when copying
+            // Preserve the isInitialState flag when copying
             isInitialState: snapshot.isInitialState,
-            // STEP 7: Preserve the isActionBarAction flag when copying
+            // Preserve the isActionBarAction flag when copying
             isActionBarAction: snapshot.isActionBarAction
         };
     }
