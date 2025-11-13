@@ -190,6 +190,7 @@
     gap: 24px;
     align-items: center;
     font-family: 'Courier New', monospace;
+    flex-direction: column;
 }
 
 .debug-row {
@@ -224,6 +225,34 @@
     &--duration {
         color: #ff6b35;
         font-size: 15px;
+    }
+}
+
+.debug-input {
+    font-size: 14px;
+    font-weight: 700;
+    color: #00d4ff;
+    background-color: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 212, 255, 0.5);
+    border-radius: 4px;
+    padding: 4px 8px;
+    min-width: 80px;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    outline: none;
+    transition: border-color 0.2s ease;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+
+    &:focus {
+        border-color: #00d4ff;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    &::placeholder {
+        color: rgba(0, 212, 255, 0.4);
     }
 }
 
@@ -300,7 +329,7 @@
     outline-offset: 2px;
 }
 
-// Prevent text selection during drag
+// Prevent text selection during drag (except for input fields)
 .timeline-container * {
     -webkit-user-select: none;
     -moz-user-select: none;

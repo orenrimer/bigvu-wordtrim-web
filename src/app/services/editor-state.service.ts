@@ -341,8 +341,10 @@ export class EditorStateService {
      * Restore selected deleted words to normal state
      * Used by segment actions in Feature 6
      * Removes deleted segments that overlap with restored words
+     * @param fineTunedStart Optional fine-tuned start handle time (if handles were moved)
+     * @param fineTunedEnd Optional fine-tuned end handle time (if handles were moved)
      */
-    public restoreSelectedWords(): void {
+    public restoreSelectedWords(fineTunedStart?: number, fineTunedEnd?: number): void {
         const selected = this.selectedWords();
         if (selected.length === 0) return;
 
@@ -350,11 +352,12 @@ export class EditorStateService {
         const selectedIndices = new Set(selected.map(w => w.index));
 
         // Get restored range to remove deleted segments
+        // Use fine-tuned handle times if provided, otherwise use word boundaries
         if (selected.length > 0) {
             const firstWord = selected[0];
             const lastWord = selected[selected.length - 1];
-            const restoredStart = firstWord.start;
-            const restoredEnd = lastWord.end;
+            const restoredStart = fineTunedStart !== undefined ? fineTunedStart : firstWord.start;
+            const restoredEnd = fineTunedEnd !== undefined ? fineTunedEnd : lastWord.end;
 
             // Remove deleted segments that overlap with restored range
             this.removeDeletedSegmentsInRange(restoredStart, restoredEnd);

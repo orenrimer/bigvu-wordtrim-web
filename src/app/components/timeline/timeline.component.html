@@ -70,6 +70,9 @@
                 {{ formatTimeWithMs(timelineService.startHandle()!.time) }}
             </span>
             <span class="debug-value" *ngIf="!timelineService.startHandle()">--:--.---</span>
+            <input type="text" class="debug-input" placeholder="MM:SS.mmm"
+                [value]="timelineService.startHandle() ? formatTimeWithMs(timelineService.startHandle()!.time) : ''"
+                (blur)="onStartTimeInput($event)" (keydown.enter)="onStartTimeInput($event)">
         </div>
 
         <div class="debug-row" *ngIf="!timelineService.isSingleWordMode()">
@@ -77,7 +80,11 @@
             <span class="debug-value" *ngIf="timelineService.endHandle()">
                 {{ formatTimeWithMs(timelineService.endHandle()!.time) }}
             </span>
+            <br />
             <span class="debug-value" *ngIf="!timelineService.endHandle()">--:--.---</span>
+            <input type="text" class="debug-input" placeholder="MM:SS.mmm"
+                [value]="timelineService.endHandle() ? formatTimeWithMs(timelineService.endHandle()!.time) : ''"
+                (blur)="onEndTimeInput($event)" (keydown.enter)="onEndTimeInput($event)">
         </div>
     </div>
 </div>

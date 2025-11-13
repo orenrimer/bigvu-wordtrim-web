@@ -318,7 +318,6 @@
 ### Component Tasks
 - [ ] 8.10: Add undo button to main editor container
 - [ ] 8.11: Add redo button to main editor container
-- [ ] 8.12: Style undo/redo buttons matching Figma
 - [ ] 8.13: Implement disabled states for undo/redo buttons
 
 ### UI/Logic Integration

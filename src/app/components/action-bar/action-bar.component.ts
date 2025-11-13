@@ -184,6 +184,7 @@ export class ActionBarComponent {
      * Based on PRD: Segment Actions
      * Captures state for undo/redo (Feature 8)
      * Removes deleted segments that overlap with restored words
+     * Uses fine-tuned handle positions if available
      */
     onRestore(): void {
         if (!this.canRestore()) return;
@@ -191,8 +192,15 @@ export class ActionBarComponent {
         // Save previous state BEFORE action
         this.capturePreviousState();
 
+        // Get fine-tuned handle positions if available
+        const startHandle = this.timelineService.startHandle();
+        const endHandle = this.timelineService.endHandle();
+        const fineTunedStart = startHandle?.time;
+        const fineTunedEnd = endHandle?.time;
+
         // restoreSelectedWords will remove deleted segments internally
-        this.editorState.restoreSelectedWords();
+        // Pass fine-tuned handle times to ensure correct deleted segments are removed
+        this.editorState.restoreSelectedWords(fineTunedStart, fineTunedEnd);
         // Current state (after action) is NOT saved - it's the current viewing state
     }
 

@@ -45,6 +45,7 @@ export class TimelineComponent implements OnInit, OnDestroy {
     private dragStartX = 0;
     private dragStartTime = 0;
     private isHandleDragging = false; // Flag to prevent handle snap during drag
+    private isRestoringHandlePosition = false; // Flag to prevent effect from running after restoring handle position
 
     // Store selection before drag to check if word changed
     private currentStartBeforeChange: any = null;
@@ -79,6 +80,7 @@ export class TimelineComponent implements OnInit, OnDestroy {
 
         // Effect: Update handles when selection changes
         // Skip during drag to prevent handle snap
+        // Also skip if handles already exist and are within the selected words (preserve fine-tuned positions)
         effect(() => {
             const selectionStart = this.editorStateService.selectionStart();
             const selectionEnd = this.editorStateService.selectionEnd();
@@ -86,8 +88,33 @@ export class TimelineComponent implements OnInit, OnDestroy {
             // Don't update handles during drag - allow free positioning
             if (this.isHandleDragging) return;
 
+            // Don't update handles while restoring fine-tuned position
+            if (this.isRestoringHandlePosition) return;
+
             if (selectionStart) {
-                this.timelineService.setHandlesFromSelection(selectionStart, selectionEnd);
+                // Check if handles already exist and are within the selected words
+                // If so, preserve their fine-tuned positions (don't snap to word boundaries)
+                const existingStartHandle = this.timelineService.startHandle();
+                const existingEndHandle = this.timelineService.endHandle();
+
+                // Calculate selection range
+                const selectionStartTime = selectionStart.start;
+                const selectionEndTime = selectionEnd ? selectionEnd.end : selectionStart.end;
+
+                // Check if existing handles are within the selection range
+                const startHandleInRange = existingStartHandle &&
+                    existingStartHandle.time >= selectionStartTime &&
+                    existingStartHandle.time <= selectionEndTime;
+
+                const endHandleInRange = selectionEnd && existingEndHandle &&
+                    existingEndHandle.time >= selectionStartTime &&
+                    existingEndHandle.time <= selectionEndTime;
+
+                // Only update handles if they don't exist or are outside the selected range
+                // This preserves fine-tuned positions when selection changes but handles are still valid
+                if (!startHandleInRange || (selectionEnd && !endHandleInRange)) {
+                    this.timelineService.setHandlesFromSelection(selectionStart, selectionEnd);
+                }
             } else {
                 this.timelineService.clearHandles();
             }
@@ -279,7 +306,12 @@ export class TimelineComponent implements OnInit, OnDestroy {
 
     /**
      * Find word for end handle based on handle position
-     * If handle passed the midpoint of a word (going backwards), select the previous word
+     * If handle passed the midpoint of a word, select the previous word (word exits selection)
+     * 
+     * Example: User selects words 1-10, drags end handle to middle of word 7
+     * - Selection updates to words 1-6
+     * - Word 7 is no longer in selected state
+     * - Timeline handle stays at the dragged position (between word 6 end and word 7 start)
      */
     private findWordForEndHandle(handleTime: number, words: any[]): any | null {
         // Find the word that contains the handle time
@@ -293,12 +325,13 @@ export class TimelineComponent implements OnInit, OnDestroy {
 
         const midpoint = (currentWord.start + currentWord.end) / 2;
 
-        // If handle is before the midpoint, select the previous word
+        // If handle passed the midpoint, select the previous word (current word exits selection)
         if (handleTime < midpoint) {
             const prevWord = words.find(w => w.index === currentWord.index - 1);
             return prevWord || currentWord; // If no previous word, stay on current
         }
 
+        // If handle is before or at midpoint, select the current word
         return currentWord;
     }
 
@@ -320,6 +353,9 @@ export class TimelineComponent implements OnInit, OnDestroy {
             const isSingleWordMode = this.timelineService.isSingleWordMode();
 
             if (startHandle) {
+                // Save the fine-tuned handle position BEFORE selecting word (which will snap handles)
+                const fineTunedStartTime = startHandle.time;
+
                 // Find word using midpoint logic
                 const wordAtHandle = this.findWordForStartHandle(startHandle.time, words);
 
@@ -329,6 +365,9 @@ export class TimelineComponent implements OnInit, OnDestroy {
                     // If there was no selection before drag started (first word selection via slider)
                     // The stateBeforeDrag was already saved in onStartHandleMouseDown
                     // We'll use it if the word actually changes (handled below in the state saving logic)
+
+                    // Set flag BEFORE selectWord to prevent effect from snapping handles
+                    this.isRestoringHandlePosition = true;
 
                     // In single word mode, clear selection and start fresh
                     if (isSingleWordMode && !currentEnd) {
@@ -341,6 +380,16 @@ export class TimelineComponent implements OnInit, OnDestroy {
                             this.editorStateService.selectWord(currentEnd);
                         }
                     }
+
+                    // Restore the fine-tuned handle position (don't snap to word start)
+                    // The selectWord() call would trigger setHandlesFromSelection which snaps to word start,
+                    // but we prevented that with the flag, and now we restore the exact position
+                    this.timelineService.updateStartHandle(fineTunedStartTime);
+
+                    // Clear flag after restoring position
+                    setTimeout(() => {
+                        this.isRestoringHandlePosition = false;
+                    }, 0);
                 }
             }
 
@@ -369,16 +418,32 @@ export class TimelineComponent implements OnInit, OnDestroy {
             let wordAtHandle = null;
 
             if (endHandle) {
+                // Save the fine-tuned handle position BEFORE selecting word (which will snap handles)
+                const fineTunedEndTime = endHandle.time;
+
                 // Find word using midpoint logic
                 wordAtHandle = this.findWordForEndHandle(endHandle.time, words);
 
                 if (wordAtHandle) {
+                    // Set flag BEFORE selectWord to prevent effect from snapping handles
+                    this.isRestoringHandlePosition = true;
+
                     // Keep existing start word and update end word
                     const currentStart = this.editorStateService.selectionStart();
                     if (currentStart) {
                         this.editorStateService.selectWord(currentStart);
                         this.editorStateService.selectWord(wordAtHandle);
                     }
+
+                    // Restore the fine-tuned handle position (don't snap to word end)
+                    // The selectWord() call would trigger setHandlesFromSelection which snaps to word end,
+                    // but we prevented that with the flag, and now we restore the exact position
+                    this.timelineService.updateEndHandle(fineTunedEndTime);
+
+                    // Clear flag after restoring position
+                    setTimeout(() => {
+                        this.isRestoringHandlePosition = false;
+                    }, 0);
                 }
             }
 
@@ -406,7 +471,7 @@ export class TimelineComponent implements OnInit, OnDestroy {
             }
         }
 
-        // Re-enable handle updates - this will trigger the effect to snap handle to final position
+        // Re-enable handle updates
         this.isHandleDragging = false;
 
         // Capture state after handle drag ends (Feature 8: Undo/Redo)
@@ -623,6 +688,146 @@ export class TimelineComponent implements OnInit, OnDestroy {
         const seconds = Math.floor(timeInSeconds % 60);
         const milliseconds = Math.floor((timeInSeconds % 1) * 1000);
         return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+    }
+
+    /**
+     * Parse time string (MM:SS.mmm or seconds) to seconds
+     * @param timeString Time string in format MM:SS.mmm or just seconds
+     * @returns Time in seconds or null if invalid
+     */
+    private parseTimeString(timeString: string): number | null {
+        if (!timeString || !timeString.trim()) return null;
+
+        const trimmed = timeString.trim();
+
+        // Try to parse as MM:SS.mmm format
+        const timeMatch = trimmed.match(/^(\d+):(\d+)(?:\.(\d+))?$/);
+        if (timeMatch) {
+            const minutes = parseInt(timeMatch[1], 10);
+            const seconds = parseInt(timeMatch[2], 10);
+            const milliseconds = timeMatch[3] ? parseInt(timeMatch[3].padEnd(3, '0').substring(0, 3), 10) : 0;
+
+            if (isNaN(minutes) || isNaN(seconds) || isNaN(milliseconds)) return null;
+
+            return minutes * 60 + seconds + milliseconds / 1000;
+        }
+
+        // Try to parse as plain seconds (number)
+        const seconds = parseFloat(trimmed);
+        if (!isNaN(seconds) && seconds >= 0) {
+            return seconds;
+        }
+
+        return null;
+    }
+
+    /**
+     * Handle start time input change
+     * Updates start handle position based on user input
+     */
+    onStartTimeInput(event: Event): void {
+        const input = event.target as HTMLInputElement;
+        const timeString = input.value;
+        const timeInSeconds = this.parseTimeString(timeString);
+
+        if (timeInSeconds === null) {
+            // Invalid input - restore original value
+            const startHandle = this.timelineService.startHandle();
+            if (startHandle) {
+                input.value = this.formatTimeWithMs(startHandle.time);
+            }
+            return;
+        }
+
+        // Clamp to valid range
+        const duration = this.duration();
+        const clampedTime = Math.max(0, Math.min(timeInSeconds, duration));
+
+        // Update handle position
+        this.timelineService.updateStartHandle(clampedTime);
+
+        // Update selection based on new handle position
+        const words = this.editorStateService.words();
+        const wordAtHandle = this.findWordForStartHandle(clampedTime, words);
+
+        if (wordAtHandle) {
+            const currentEnd = this.editorStateService.selectionEnd();
+
+            // Set flag to prevent effect from snapping handles
+            this.isRestoringHandlePosition = true;
+
+            if (this.timelineService.isSingleWordMode() && !currentEnd) {
+                this.editorStateService.clearSelection();
+                this.editorStateService.selectWord(wordAtHandle);
+            } else {
+                this.editorStateService.selectWord(wordAtHandle);
+                if (currentEnd) {
+                    this.editorStateService.selectWord(currentEnd);
+                }
+            }
+
+            // Restore fine-tuned position
+            this.timelineService.updateStartHandle(clampedTime);
+
+            setTimeout(() => {
+                this.isRestoringHandlePosition = false;
+            }, 0);
+        }
+
+        // Update input value to show formatted time
+        input.value = this.formatTimeWithMs(clampedTime);
+    }
+
+    /**
+     * Handle end time input change
+     * Updates end handle position based on user input
+     */
+    onEndTimeInput(event: Event): void {
+        const input = event.target as HTMLInputElement;
+        const timeString = input.value;
+        const timeInSeconds = this.parseTimeString(timeString);
+
+        if (timeInSeconds === null) {
+            // Invalid input - restore original value
+            const endHandle = this.timelineService.endHandle();
+            if (endHandle) {
+                input.value = this.formatTimeWithMs(endHandle.time);
+            }
+            return;
+        }
+
+        // Clamp to valid range
+        const duration = this.duration();
+        const clampedTime = Math.max(0, Math.min(timeInSeconds, duration));
+
+        // Update handle position
+        this.timelineService.updateEndHandle(clampedTime);
+
+        // Update selection based on new handle position
+        const words = this.editorStateService.words();
+        const wordAtHandle = this.findWordForEndHandle(clampedTime, words);
+
+        if (wordAtHandle) {
+            const currentStart = this.editorStateService.selectionStart();
+
+            // Set flag to prevent effect from snapping handles
+            this.isRestoringHandlePosition = true;
+
+            if (currentStart) {
+                this.editorStateService.selectWord(currentStart);
+                this.editorStateService.selectWord(wordAtHandle);
+            }
+
+            // Restore fine-tuned position
+            this.timelineService.updateEndHandle(clampedTime);
+
+            setTimeout(() => {
+                this.isRestoringHandlePosition = false;
+            }, 0);
+        }
+
+        // Update input value to show formatted time
+        input.value = this.formatTimeWithMs(clampedTime);
     }
 }
 

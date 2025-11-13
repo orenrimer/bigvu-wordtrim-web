@@ -136,18 +136,15 @@ export class OutputGeneratorService {
 
                 // Don't apply fine-tuning if:
                 // 1. All selected words are deleted (they won't be in output anyway)
-                // 2. Handles match a deleted segment (user undid deletion but handles remain)
-                // 3. No selected words are deleted (after undo, words are restored - don't fine-tune)
-                if (allSelectedWordsDeleted || handlesMatchDeletedSegment || !anySelectedWordsDeleted) {
+                // 2. Handles match a deleted segment (user undid deletion but handles remain - don't fine-tune deleted segment)
+                // Note: We DO apply fine-tuning if words are restored (after restore, words are not deleted but handles exist)
+                if (allSelectedWordsDeleted || handlesMatchDeletedSegment) {
                     console.log('=== Skipping Fine-Tuning ===');
                     if (allSelectedWordsDeleted) {
                         console.log('  Reason: All selected words are deleted');
                     }
                     if (handlesMatchDeletedSegment) {
                         console.log('  Reason: Handles match a deleted segment (likely after undo)');
-                    }
-                    if (!anySelectedWordsDeleted) {
-                        console.log('  Reason: No selected words are deleted (likely after undo - words restored)');
                     }
                 } else {
                     // Apply fine-tuned handle positions to segments
