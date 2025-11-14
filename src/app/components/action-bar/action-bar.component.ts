@@ -174,7 +174,15 @@ export class ActionBarComponent {
         // Save previous state BEFORE action
         this.capturePreviousState();
 
-        this.editorState.keepOnlySelectedWords();
+        // Get fine-tuned handle positions if available
+        const startHandle = this.timelineService.startHandle();
+        const endHandle = this.timelineService.endHandle();
+        const fineTunedStart = startHandle?.time;
+        const fineTunedEnd = endHandle?.time;
+
+        // keepOnlySelectedWords will create deleted segments for non-selected words
+        // Pass fine-tuned handle times if available to ensure correct deleted segments
+        this.editorState.keepOnlySelectedWords(fineTunedStart, fineTunedEnd);
         // Current state (after action) is NOT saved - it's the current viewing state
     }
 

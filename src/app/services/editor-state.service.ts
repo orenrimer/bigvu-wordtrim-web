@@ -287,8 +287,14 @@ export class EditorStateService {
         }
 
         // Save fine-tuned deleted segment if provided
+        // Handles are always provided together or not at all
         if (fineTunedStart !== undefined && fineTunedEnd !== undefined) {
             this.addDeletedSegment(fineTunedStart, fineTunedEnd);
+        } else if (selected.length > 0) {
+            // Fallback: use word boundaries if handles not provided
+            const firstWord = selected[0];
+            const lastWord = selected[selected.length - 1];
+            this.addDeletedSegment(firstWord.start, lastWord.end);
         }
 
         const currentWords = this._words();
@@ -308,10 +314,12 @@ export class EditorStateService {
      * Mark all non-selected words as deleted (Keep Only action)
      * Restores selected words to NORMAL state (even if deleted)
      * Used by segment actions in Feature 6
-     * Clears old deleted segments since all non-selected words are now deleted
+     * Creates deleted segments for all non-selected words (using word boundaries)
+     * @param fineTunedStart Optional fine-tuned start handle time (if handles were used for selection)
+     * @param fineTunedEnd Optional fine-tuned end handle time (if handles were used for selection)
      * @returns True if operation succeeded, false if no selection
      */
-    public keepOnlySelectedWords(): boolean {
+    public keepOnlySelectedWords(fineTunedStart?: number, fineTunedEnd?: number): boolean {
         const selected = this.selectedWords();
         if (selected.length === 0) return false;
 
@@ -319,12 +327,48 @@ export class EditorStateService {
         // - Selected words are restored to NORMAL (even if deleted)
         // - This ensures at least the selected words remain in the video
 
-        // Clear old deleted segments since all non-selected words are now deleted
-        // The deleted segments are no longer relevant because words are deleted directly
-        this.clearDeletedSegments();
-
         const currentWords = this._words();
         const selectedIndices = new Set(selected.map(w => w.index));
+
+        // Get selection boundaries - use handles if available, otherwise use word boundaries
+        // Handles are always at word boundaries by default, so this simplifies the logic
+        const selectedFirstWord = selected[0];
+        const selectedLastWord = selected[selected.length - 1];
+        const selectionStart = fineTunedStart !== undefined ? fineTunedStart : selectedFirstWord.start;
+        const selectionEnd = fineTunedEnd !== undefined ? fineTunedEnd : selectedLastWord.end;
+
+        // Create deleted segments for all non-selected words
+        // Split into two segments: before selection and after selection
+        const newDeletedSegments: Array<{ start: number; end: number }> = [];
+
+        // Get first and last word indices for comparison
+        const firstWordIndex = currentWords[0]?.index ?? -1;
+        const lastWordIndex = currentWords[currentWords.length - 1]?.index ?? -1;
+
+        // Add deleted segment before selection (if any words exist before)
+        if (selectedFirstWord.index > firstWordIndex) {
+            const firstWord = currentWords[0];
+            if (firstWord) {
+                newDeletedSegments.push({
+                    start: firstWord.start,
+                    end: selectionStart
+                });
+            }
+        }
+
+        // Add deleted segment after selection (if any words exist after)
+        if (selectedLastWord.index < lastWordIndex) {
+            const lastWord = currentWords[currentWords.length - 1];
+            if (lastWord) {
+                newDeletedSegments.push({
+                    start: selectionEnd,
+                    end: lastWord.end
+                });
+            }
+        }
+
+        // Set new deleted segments
+        this._deletedSegments.set(newDeletedSegments);
 
         const updatedWords = currentWords.map(word =>
             selectedIndices.has(word.index)
@@ -334,6 +378,10 @@ export class EditorStateService {
 
         this._words.set(updatedWords);
         this.clearSelection();
+
+        // Log deleted segments after keep only operation
+        console.log('deletedSegments after KEEP ONLY:', this._deletedSegments());
+
         return true;
     }
 
@@ -353,15 +401,13 @@ export class EditorStateService {
 
         // Get restored range to remove deleted segments
         // Use fine-tuned handle times if provided, otherwise use word boundaries
-        if (selected.length > 0) {
-            const firstWord = selected[0];
-            const lastWord = selected[selected.length - 1];
-            const restoredStart = fineTunedStart !== undefined ? fineTunedStart : firstWord.start;
-            const restoredEnd = fineTunedEnd !== undefined ? fineTunedEnd : lastWord.end;
+        const firstWord = selected[0];
+        const lastWord = selected[selected.length - 1];
+        const restoredStart = fineTunedStart !== undefined ? fineTunedStart : firstWord.start;
+        const restoredEnd = fineTunedEnd !== undefined ? fineTunedEnd : lastWord.end;
 
-            // Remove deleted segments that overlap with restored range
-            this.removeDeletedSegmentsInRange(restoredStart, restoredEnd);
-        }
+        // Remove deleted segments that overlap with restored range
+        this.removeDeletedSegmentsInRange(restoredStart, restoredEnd);
 
         const updatedWords = currentWords.map(word => {
             if (selectedIndices.has(word.index) && this.isWordDeleted(word)) {
@@ -435,28 +481,16 @@ export class EditorStateService {
         const currentSegments = this._deletedSegments();
         const newSegment = { start, end };
 
-        console.log(`=== Adding Deleted Segment ===`);
-        console.log(`New deleted segment: [${start.toFixed(3)}s - ${end.toFixed(3)}s]`);
-        console.log(`Current deleted segments before: ${currentSegments.length}`);
-
         // Remove any existing deleted segments that overlap with the new segment
         // We'll replace them with the new one (which has the fine-tuned times)
         const filteredSegments = currentSegments.filter(segment => {
             // Check if segments overlap
             const overlaps = segment.start < end && segment.end > start;
-            if (overlaps) {
-                console.log(`  Removing overlapping segment: [${segment.start.toFixed(3)}s - ${segment.end.toFixed(3)}s]`);
-            }
             return !overlaps;
         });
 
         // Add the new segment and sort by start time
         const updatedSegments = [...filteredSegments, newSegment].sort((a, b) => a.start - b.start);
-        console.log(`Deleted segments after: ${updatedSegments.length}`);
-        updatedSegments.forEach((seg, index) => {
-            console.log(`  Deleted Segment ${index + 1}: [${seg.start.toFixed(3)}s - ${seg.end.toFixed(3)}s]`);
-        });
-        console.log('================================');
         this._deletedSegments.set(updatedSegments);
     }
 
@@ -489,42 +523,25 @@ export class EditorStateService {
                 continue;
             }
 
-            // Segments overlap - need to cut the deleted segment
-            // Case 1: Restored segment is completely within deleted segment
-            // Example: Deleted [8.560s - 17.755s], Restored [11.600s - 15.995s]
-            // Result: [8.560s - 11.600s] and [15.995s - 17.755s]
-            if (restoredStart > segment.start && restoredEnd < segment.end) {
-                // Keep part before restored segment
-                if (segment.start < restoredStart) {
-                    resultSegments.push({ start: segment.start, end: restoredStart });
-                }
-                // Keep part after restored segment
-                if (restoredEnd < segment.end) {
-                    resultSegments.push({ start: restoredEnd, end: segment.end });
-                }
-            }
-            // Case 2: Restored segment starts before deleted segment but ends within it
-            // Example: Deleted [8.560s - 17.755s], Restored [5.000s - 11.600s]
-            // Result: [11.600s - 17.755s]
-            else if (restoredStart <= segment.start && restoredEnd > segment.start && restoredEnd < segment.end) {
-                resultSegments.push({ start: restoredEnd, end: segment.end });
-            }
-            // Case 3: Restored segment starts within deleted segment but ends after it
-            // Example: Deleted [8.560s - 17.755s], Restored [11.600s - 20.000s]
-            // Result: [8.560s - 11.600s]
-            else if (restoredStart > segment.start && restoredStart < segment.end && restoredEnd >= segment.end) {
+            // Segments overlap - cut the deleted segment, keeping only non-overlapping parts
+            // Keep part before restored segment (if exists)
+            if (segment.start < restoredStart) {
                 resultSegments.push({ start: segment.start, end: restoredStart });
             }
-            // Case 4: Restored segment completely covers deleted segment
-            // Example: Deleted [8.560s - 17.755s], Restored [5.000s - 20.000s]
-            // Result: (no segments - completely removed)
-            // Don't add anything - segment is completely removed
+            // Keep part after restored segment (if exists)
+            if (restoredEnd < segment.end) {
+                resultSegments.push({ start: restoredEnd, end: segment.end });
+            }
+            // If restored segment completely covers deleted segment, nothing is added
         }
 
         // Sort by start time
         resultSegments.sort((a, b) => a.start - b.start);
 
         this._deletedSegments.set(resultSegments);
+
+        // Log deleted segments after restore operation
+        console.log('deletedSegments after RESTORE:', this._deletedSegments());
     }
 
     /**
@@ -573,22 +590,12 @@ export class EditorStateService {
         this._words.set(restoredWords);
 
         // Step 2: Restore deleted segments with fine-tuned times
-        if (snapshot.deletedSegments) {
-            const restoredDeletedSegments = snapshot.deletedSegments.map(seg => ({ ...seg }));
-            console.log('=== Restoring Deleted Segments ===');
-            console.log(`Restoring ${restoredDeletedSegments.length} deleted segment(s):`);
-            restoredDeletedSegments.forEach((seg, index) => {
-                console.log(`  Deleted Segment ${index + 1}: [${seg.start.toFixed(3)}s - ${seg.end.toFixed(3)}s]`);
-            });
-            console.log('==================================');
-            this._deletedSegments.set(restoredDeletedSegments);
-        } else {
-            // Fallback for old snapshots that don't have deletedSegments
-            console.log('=== Restoring Deleted Segments ===');
-            console.log('No deleted segments in snapshot (old snapshot) - clearing deleted segments');
-            console.log('==================================');
-            this._deletedSegments.set([]);
-        }
+        // Fallback to empty array for old snapshots that don't have deletedSegments
+        const restoredDeletedSegments = (snapshot.deletedSegments || []).map(seg => ({ ...seg }));
+        this._deletedSegments.set(restoredDeletedSegments);
+
+        // Log deleted segments after restore (undo)
+        console.log('deletedSegments after UNDO:', this._deletedSegments());
 
         // Step 3: Restore selection AFTER words array is set
         // Use Map for O(1) lookup instead of O(n) find operations
