@@ -167,14 +167,6 @@ export class OutputGeneratorService {
                     });
                 }
             } else {
-                // Check if any selected words are deleted
-                const anySelectedWordsDeleted = selectedWords.some(word =>
-                    word.state === WordState.DELETED ||
-                    word.state === WordState.DELETED_SELECTED_START ||
-                    word.state === WordState.DELETED_SELECTED_END ||
-                    word.state === WordState.DELETED_SELECTED_RANGE
-                );
-
                 // Check if all selected words are deleted
                 const allSelectedWordsDeleted = selectedWords.every(word =>
                     word.state === WordState.DELETED ||
@@ -297,13 +289,9 @@ export class OutputGeneratorService {
         // Step 6: Sort chronologically by start time
         const sortedSegments = this.sortChronologically(segments);
 
-        // Step 7: Merge consecutive segments (segments with no gaps between them)
-        // After cutting at deleted boundaries, we may have many small segments that should be merged
-        const mergedSegments = this.mergeConsecutiveSegments(sortedSegments);
-
-        // Step 8: Validate output (no gaps, proper ordering)
-        this.validateOutput(mergedSegments);
-        return mergedSegments;
+        // Step 7: Validate output (no gaps, proper ordering)
+        this.validateOutput(sortedSegments);
+        return sortedSegments;
     }
 
     /**
@@ -328,8 +316,6 @@ export class OutputGeneratorService {
         const result: OutputSegment[] = [];
 
         for (const segment of segments) {
-            console.log(`\nProcessing segment: [${segment.start.toFixed(3)}s - ${segment.end.toFixed(3)}s]`);
-
             // Find all deleted segments that overlap with this segment
             // Only consider deleted segments that actually overlap, not ones that just end before
             const overlappingDeleted = deletedSegments.filter(deleted => {
@@ -359,8 +345,6 @@ export class OutputGeneratorService {
                 if (deletedEndingBefore.length > 0) {
                     // Find the latest deleted segment that ends just before this segment starts
                     const latestDeletedEnd = Math.max(...deletedEndingBefore.map(d => d.end));
-                    console.log(`  No overlapping deleted segments, but found deleted segment ending at ${latestDeletedEnd.toFixed(3)}s just before segment start`);
-                    console.log(`  Adjusted segment start from ${segment.start.toFixed(3)}s to ${latestDeletedEnd.toFixed(3)}s (after deleted segment)`);
                     result.push({
                         start: latestDeletedEnd,
                         end: segment.end
@@ -370,63 +354,42 @@ export class OutputGeneratorService {
                     // Extend the segment to the start of the deleted segment (similar to end handle logic)
                     // This preserves the part between segment.end and deleted.start (the fine-tuned part)
                     const earliestDeletedStart = Math.min(...deletedStartingAfter.map(d => d.start));
-                    console.log(`  No overlapping deleted segments, but found deleted segment starting at ${earliestDeletedStart.toFixed(3)}s just after segment end`);
-                    console.log(`  Extended segment end from ${segment.end.toFixed(3)}s to ${earliestDeletedStart.toFixed(3)}s (before deleted segment)`);
                     result.push({
                         start: segment.start,
                         end: earliestDeletedStart
                     });
                 } else {
                     // No relevant deleted segments - keep segment as-is
-                    console.log(`  No relevant deleted segments - keeping segment as-is`);
                     result.push(segment);
                 }
                 continue;
             }
 
-            console.log(`  Found ${overlappingDeleted.length} overlapping deleted segment(s)`);
-
             // Sort overlapping deleted segments by start time
             overlappingDeleted.sort((a, b) => a.start - b.start);
 
-            // Start with the original segment start
-            let actualStart = segment.start;
-
             // Cut segment at deleted boundaries
-            let currentStart = actualStart;
+            let currentStart = segment.start;
 
             for (const deleted of overlappingDeleted) {
-                console.log(`  Processing deleted segment: [${deleted.start.toFixed(3)}s - ${deleted.end.toFixed(3)}s]`);
-                console.log(`  Current start: ${currentStart.toFixed(3)}s`);
-
                 // If deleted segment starts after current start, keep the part before it
                 if (deleted.start > currentStart) {
-                    const beforeSegment = {
+                    result.push({
                         start: currentStart,
                         end: deleted.start
-                    };
-                    result.push(beforeSegment);
-                    console.log(`  ✓ Added segment before deleted: [${beforeSegment.start.toFixed(3)}s - ${beforeSegment.end.toFixed(3)}s]`);
-                } else {
-                    console.log(`  ✗ Skipped segment before deleted (deleted starts at or before current start)`);
+                    });
                 }
 
                 // Update current start to after the deleted segment
-                const previousStart = currentStart;
                 currentStart = Math.max(currentStart, deleted.end);
-                console.log(`  Updated current start from ${previousStart.toFixed(3)}s to ${currentStart.toFixed(3)}s`);
             }
 
             // If there's remaining segment after all deleted segments, add it
             if (currentStart < segment.end) {
-                const afterSegment = {
+                result.push({
                     start: currentStart,
                     end: segment.end
-                };
-                result.push(afterSegment);
-                console.log(`  ✓ Added segment after deleted: [${afterSegment.start.toFixed(3)}s - ${afterSegment.end.toFixed(3)}s]`);
-            } else {
-                console.log(`  ✗ No segment after deleted (current start ${currentStart.toFixed(3)}s >= segment end ${segment.end.toFixed(3)}s)`);
+                });
             }
         }
 
@@ -434,109 +397,21 @@ export class OutputGeneratorService {
     }
 
     /**
-     * Merge consecutive segments (segments with no gaps between them)
-     * After cutting at deleted boundaries, we may have many small segments that should be merged
-     * 
-     * Example:
-     * - Input: [17.500s - 21.355s], [21.355s - 29.675s], [29.675s - 38.260s]
-     * - Output: [17.500s - 38.260s]
-     * 
-     * @param segments Array of segments to merge
-     * @returns Array of merged segments
-     */
-    private mergeConsecutiveSegments(segments: OutputSegment[]): OutputSegment[] {
-        if (segments.length === 0) return [];
-
-        const merged: OutputSegment[] = [];
-        let currentSegment = { ...segments[0] };
-
-        console.log(`\n=== Merging Consecutive Segments ===`);
-        console.log(`Input segments: ${segments.length}`);
-
-        for (let i = 1; i < segments.length; i++) {
-            const nextSegment = segments[i];
-            const gap = nextSegment.start - currentSegment.end;
-            // Increased threshold to 1 second to handle gaps between words
-            // Words can have small gaps between them (silence, pauses) but should still be merged
-            const threshold = 1.0; // 1 second threshold for considering segments consecutive
-
-            if (gap <= threshold) {
-                // Segments are consecutive (no gap or small gap) - merge them
-                console.log(`  Merging: [${currentSegment.start.toFixed(3)}s - ${currentSegment.end.toFixed(3)}s] + [${nextSegment.start.toFixed(3)}s - ${nextSegment.end.toFixed(3)}s] (gap: ${gap.toFixed(3)}s)`);
-                currentSegment.end = nextSegment.end;
-            } else {
-                // Gap detected - save current segment and start new one
-                console.log(`  Gap detected (${gap.toFixed(3)}s) - saving segment: [${currentSegment.start.toFixed(3)}s - ${currentSegment.end.toFixed(3)}s]`);
-                merged.push(currentSegment);
-                currentSegment = { ...nextSegment };
-            }
-        }
-
-        // Add the last segment
-        console.log(`  Final segment: [${currentSegment.start.toFixed(3)}s - ${currentSegment.end.toFixed(3)}s]`);
-        merged.push(currentSegment);
-
-        console.log(`Output segments: ${merged.length}`);
-        console.log('=====================================\n');
-
-        return merged;
-    }
-
-    /**
-     * Format time in seconds to MM:SS.mmm format
-     * @param timeInSeconds Time in seconds
-     * @returns Formatted time string (e.g., "00:03.250")
-     */
-    private formatTime(timeInSeconds: number): string {
-        const minutes = Math.floor(timeInSeconds / 60);
-        const seconds = Math.floor(timeInSeconds % 60);
-        const milliseconds = Math.floor((timeInSeconds % 1) * 1000);
-        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
-    }
-
-    /**
      * Collect segments from non-deleted words
-     * Groups consecutive words into continuous segments
+     * Creates a single continuous segment from all non-deleted words
+     * Gaps between words are ignored - only deleted segments will cut this segment
      * @param words Array of non-deleted words
-     * @returns Array of segments
+     * @returns Array of segments (usually one segment unless words array is empty)
      */
     private collectSegments(words: any[]): OutputSegment[] {
         if (words.length === 0) return [];
 
-        const segments: OutputSegment[] = [];
-        let currentSegmentStart = words[0].start;
-        let currentSegmentEnd = words[0].end;
-
-        for (let i = 1; i < words.length; i++) {
-            const currentWord = words[i];
-            const previousWord = words[i - 1];
-
-            // Check if there's a gap between words (more than a small threshold)
-            // If words are consecutive (no gap), merge into same segment
-            const gap = currentWord.start - previousWord.end;
-            const threshold = 0.1; // 100ms threshold for considering words consecutive
-
-            if (gap <= threshold) {
-                // Words are consecutive - extend current segment
-                currentSegmentEnd = currentWord.end;
-            } else {
-                // Gap detected - save current segment and start new one
-                segments.push({
-                    start: currentSegmentStart,
-                    end: currentSegmentEnd
-                });
-                currentSegmentStart = currentWord.start;
-                currentSegmentEnd = currentWord.end;
-            }
-        }
-
-        // Add the last segment
-        segments.push({
-            start: currentSegmentStart,
-            end: currentSegmentEnd
-        });
-
-        return segments;
+        // Create a single continuous segment from first word start to last word end
+        // Gaps between words don't matter - only deleted segments will cut this segment later
+        return [{
+            start: words[0].start,
+            end: words[words.length - 1].end
+        }];
     }
 
 
@@ -577,10 +452,8 @@ export class OutputGeneratorService {
                 const previousSegment = segments[i - 1];
                 const gap = segment.start - previousSegment.end;
 
-                // Small gaps (< 0.1s) are acceptable, but log warning for larger gaps
-                if (gap > 0.1) {
-                    console.warn(`Gap detected between segments: ${gap.toFixed(2)}s`);
-                }
+                // Small gaps (< 0.1s) are acceptable
+                // Larger gaps are expected when segments are deleted
             }
         }
     }
