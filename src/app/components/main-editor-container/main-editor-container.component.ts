@@ -7,7 +7,6 @@ import { TimelineService } from '../../services/timeline.service';
 import { TutorialService } from '../../services/tutorial.service';
 import { HistoryService } from '../../services/history.service';
 import { VideoDataService } from '../../services/video-data.service';
-import { HlsLoaderService } from '../../services/hls-loader.service';
 import { SkeletonLoaderComponent } from '../skeleton-loader/skeleton-loader.component';
 import { WordChipComponent } from '../word-chip/word-chip.component';
 import { ActionBarComponent } from '../action-bar/action-bar.component';
@@ -15,7 +14,6 @@ import { VideoPlayerComponent } from '../video-player/video-player.component';
 import { TimelineComponent } from '../timeline/timeline.component';
 import { TutorialModalComponent } from '../tutorial-modal/tutorial-modal.component';
 import { Word } from '../../models';
-import { environment } from '../../../environments/environment.development';
 
 /**
  * Main Editor Container Component
@@ -304,9 +302,8 @@ export class MainEditorContainerComponent implements OnInit {
       this.editorState.selectWord(word); // This will make it both start and end
       // Current state (w_1, w_1) is NOT saved - it's the current viewing state
 
-      // Play 3 seconds backward ending at word end with smart margin
-      const wordDuration = word.end - word.start;
-      this.videoService.playWordPreview(word.start, true, wordDuration);
+      // Play 3 seconds backward ending at word end
+      this.videoService.playWordPreview(word.start, true, word.end);
       return;
     }
 
@@ -322,9 +319,8 @@ export class MainEditorContainerComponent implements OnInit {
       this.editorState.selectWord(word);
       // Current state (w_1, w_2) is NOT saved - it's the current viewing state
 
-      // Play 3 seconds backward ending at word end with smart margin
-      const wordDuration = word.end - word.start;
-      this.videoService.playWordPreview(word.start, true, wordDuration);
+      // Play 3 seconds backward ending at word end
+      this.videoService.playWordPreview(word.start, true, word.end);
       return;
     }
 

@@ -484,25 +484,26 @@ export class TimelineComponent implements OnInit, OnDestroy {
                 }
             }
 
-            // Play preview leading up to the new end word with smart margin
+            // Play preview leading up to the new end handle position
             const currentStart = this.editorStateService.selectionStart();
-            if (currentStart && wordAtHandle) {
+            if (currentStart && endHandle) {
+                // Use the fine-tuned end handle time (exact position)
+                const endHandleTime = endHandle.time;
+
                 // After dragging end handle, check distance from start
-                const timeDifference = wordAtHandle.end - currentStart.start;
+                const timeDifference = endHandleTime - currentStart.start;
                 let previewStart: number;
 
                 if (timeDifference < 3) {
                     // If start word is less than 3 seconds before end, play from start word
                     previewStart = currentStart.start;
                 } else {
-                    // If start word is 3+ seconds before end, play last 3 seconds before end word
-                    previewStart = Math.max(0, wordAtHandle.end - 3);
+                    // If start word is 3+ seconds before end, play last 3 seconds before end handle
+                    previewStart = Math.max(0, endHandleTime - 3);
                 }
 
-                // Always use 33% margin from end word to prevent spillover (play 2/3 of word)
-                const endWordDuration = wordAtHandle.end - wordAtHandle.start;
-                const margin = endWordDuration * (1.0 / 3.0);
-                const previewEnd = wordAtHandle.end - margin;
+                // Use end handle time directly (no margin) - same logic as playWordPreview
+                const previewEnd = endHandleTime;
 
                 this.videoPlayerService.playSegment(previewStart, previewEnd);
             }

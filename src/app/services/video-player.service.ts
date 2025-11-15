@@ -76,7 +76,8 @@ export class VideoPlayerService {
 
     // Smooth playback checks
     private playbackCheckInterval: number | null = null;
-    private readonly PLAYBACK_CHECK_INTERVAL_MS = 50; // Check every 50ms for accurate preview/skip
+    private readonly PLAYBACK_CHECK_INTERVAL_MS = 16; // Check every ~16ms (60 FPS) for accurate preview/skip
+    private readonly PREVIEW_STOP_THRESHOLD_MS = 0.05; // Stop if within 50ms of preview end time
 
     // Loading timeout
     private loadingTimeout: number | null = null;
@@ -188,10 +189,12 @@ export class VideoPlayerService {
             this.stopPlaybackCheck();
         });
 
-        // Time update event - just update current time signal
+        // Time update event - update current time signal and check preview end
         this.videoElement.addEventListener('timeupdate', () => {
             if (!this.videoElement) return;
             this._currentTime.set(this.videoElement.currentTime);
+            // Check preview end on timeupdate for more precise stopping
+            this.checkPreviewEnd();
         });
 
         // Duration change event
@@ -276,10 +279,10 @@ export class VideoPlayerService {
     /**
      * Play 3-second preview from word start time
      * @param startTime Word start time
-     * @param isEndWord Whether this is an end word (play 3 seconds before word with smart ending)
-     * @param wordDuration Duration of the word (for smart margin calculation)
+     * @param isEndWord Whether this is an end word (play 3 seconds before ending at word end)
+     * @param wordEnd Word end time (used directly to avoid floating point precision errors)
      */
-    public playWordPreview(startTime: number, isEndWord: boolean = false, wordDuration?: number): void {
+    public playWordPreview(startTime: number, isEndWord: boolean = false, wordEnd?: number): void {
         if (!this.videoElement) return;
 
         // Calculate preview times
@@ -287,13 +290,12 @@ export class VideoPlayerService {
         let previewStart: number;
         let previewEnd: number;
 
-        if (isEndWord && wordDuration !== undefined) {
-            // For end words: play 3 seconds before with smart ending to prevent spillover
+        if (isEndWord && wordEnd !== undefined) {
+            // For end words: play 3 seconds before ending at word end
             previewStart = Math.max(0, startTime - PREVIEW_DURATION);
 
-            // Always use 33% margin from word end to prevent spillover (play 2/3 of word)
-            const margin = wordDuration * (1.0 / 3.0);
-            previewEnd = startTime + wordDuration - margin;
+            // Use word.end directly to avoid floating point precision errors
+            previewEnd = wordEnd;
 
         } else {
             // For start words: play 3 seconds from start
@@ -497,9 +499,35 @@ export class VideoPlayerService {
     }
 
     /**
-     * Start interval to check playback state every 50ms
+     * Check if preview should end and stop playback if needed
+     * Called from both timeupdate event (for precision) and interval (for reliability)
+     * Uses early detection and seek to ensure precise stopping at previewEndTime
+     */
+    private checkPreviewEnd(): void {
+        if (!this.videoElement) return;
+
+        // Check preview mode - stop at precise end time
+        if (this.isPreviewMode && this.previewEndTime !== null) {
+            const currentTime = this.videoElement.currentTime;
+            const timeUntilEnd = this.previewEndTime - currentTime;
+
+            // If we've passed the end time or are very close (within threshold), stop precisely
+            if (currentTime >= this.previewEndTime || timeUntilEnd <= this.PREVIEW_STOP_THRESHOLD_MS) {
+                // Seek to exact end time before pausing to ensure precision
+                this.seek(this.previewEndTime);
+                this.pause();
+                this.isPreviewMode = false;
+                this.previewEndTime = null;
+                return;
+            }
+        }
+    }
+
+    /**
+     * Start interval to check playback state every ~16ms (60 FPS)
      * Handles both preview mode ending and deleted segment skipping
      * Provides much more accurate timing than relying on timeupdate alone (which fires every ~250ms)
+     * Also uses timeupdate event for additional precision
      */
     private startPlaybackCheck(): void {
         // Clear any existing interval
@@ -508,17 +536,8 @@ export class VideoPlayerService {
         this.playbackCheckInterval = window.setInterval(() => {
             if (!this.videoElement) return;
 
-            const currentTime = this.videoElement.currentTime;
-
-            // Check preview mode - stop at precise end time
-            if (this.isPreviewMode && this.previewEndTime !== null) {
-                if (currentTime >= this.previewEndTime) {
-                    this.pause();
-                    this.isPreviewMode = false;
-                    this.previewEndTime = null;
-                    return;
-                }
-            }
+            // Check preview end (also checked in timeupdate for precision)
+            this.checkPreviewEnd();
 
             // Check deleted segments - skip smoothly
             if (this.isEditedPlaybackMode && this.deletedSegments.length > 0) {
