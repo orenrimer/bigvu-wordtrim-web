@@ -260,7 +260,7 @@
             flex-direction: row;
             gap: var(--spacing-16);
             width: 100%;
-            align-items: flex-start;
+            align-items: stretch;
         }
     }
 
@@ -286,8 +286,8 @@
         display: flex;
         flex-direction: column;
         flex-shrink: 0;
-        align-self: flex-start;
-        justify-content: flex-start;
+        align-self: stretch;
+        justify-content: space-between;
         padding: var(--timestamp-container-padding-y) var(--timestamp-container-padding-x);
         min-width: fit-content;
 

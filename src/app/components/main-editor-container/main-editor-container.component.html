@@ -60,12 +60,9 @@
                 <!-- Content - Show only when loaded and no error -->
                 <div *ngIf="!isLoading() && !hasError()" class="transcript-content-wrapper">
                     <div class="timestamps-container" *ngIf="hasWords()">
-                        <span class="timestamp">00:00 s</span>
-                        <span class="timestamp">00:10 s</span>
-                        <span class="timestamp">00:15 s</span>
-                        <span class="timestamp">00:20 s</span>
-                        <span class="timestamp">00:25 s</span>
-                        <span class="timestamp">00:30 s</span>
+                        <span *ngFor="let timestamp of timestamps()" class="timestamp">
+                            {{ formatTimestamp(timestamp) }}
+                        </span>
                     </div>
                     <div class="words-container">
                         <app-word-chip *ngFor="let word of words()" [word]="word"

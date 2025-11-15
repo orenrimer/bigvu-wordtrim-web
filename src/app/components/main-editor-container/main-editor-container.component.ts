@@ -71,6 +71,73 @@ export class MainEditorContainerComponent implements OnInit {
     return errorMsg.includes('empty') || errorMsg.includes('no words found') || errorMsg.includes('no valid words');
   });
 
+  // Dynamic timestamps based on words and video duration
+  timestamps = computed(() => {
+    const wordsList = this.words();
+    if (!wordsList || wordsList.length === 0) {
+      return [];
+    }
+
+    // Find first and last word
+    const firstWord = wordsList[0];
+    const lastWord = wordsList[wordsList.length - 1];
+    const firstTime = firstWord.start;
+    const lastTime = lastWord.start;
+
+    // Calculate content duration (from first word to last word)
+    const contentDuration = lastTime - firstTime;
+
+    // Calculate number of timestamps based on duration
+    // Target: one timestamp every 10 seconds
+    const targetInterval = 10; // seconds between timestamps
+    const timestampCount = Math.max(2, Math.ceil(contentDuration / targetInterval)); // At least 2 (first and last)
+
+    // If we have fewer words than timestamps, use all words
+    if (wordsList.length <= timestampCount) {
+      return wordsList.map(word => word.start);
+    }
+
+    // Calculate evenly distributed times between first and last
+    const timestamps: number[] = [];
+    timestamps.push(firstTime); // First timestamp is first word
+
+    // Calculate intermediate timestamps
+    for (let i = 1; i < timestampCount - 1; i++) {
+      const ratio = i / (timestampCount - 1);
+      const targetTime = firstTime + (lastTime - firstTime) * ratio;
+
+      // Find the word with start time closest to targetTime
+      let closestWord = wordsList[0];
+      let minDiff = Math.abs(closestWord.start - targetTime);
+
+      for (const word of wordsList) {
+        const diff = Math.abs(word.start - targetTime);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestWord = word;
+        }
+      }
+
+      timestamps.push(closestWord.start);
+    }
+
+    timestamps.push(lastTime); // Last timestamp is last word
+
+    // Remove duplicates and sort
+    const uniqueTimestamps = Array.from(new Set(timestamps)).sort((a, b) => a - b);
+
+    return uniqueTimestamps;
+  });
+
+  /**
+   * Format timestamp in MM:SS format
+   */
+  formatTimestamp(seconds: number): string {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')} s`;
+  }
+
   // Expose video player service error signal
   videoPlayerError = this.videoService.error;
 
