@@ -17,15 +17,12 @@
         <div class="timeline-frames">
             <!-- Generate frame thumbnails (gradient placeholders until server thumbnails ready) -->
             <div class="frame-item" *ngFor="let frame of videoFrames; let i = index"
+                [class.has-thumbnail]="!!frame.thumbnail"
                 [style.background-image]="frame.thumbnail ? 'url(' + frame.thumbnail + ')' : null"
                 [style.--frame-index]="i" [title]="'Frame ' + (i + 1)">
             </div>
         </div>
 
-        <!-- Deleted Segments Overlay -->
-        <div *ngFor="let segment of deletedSegments" class="deleted-segment" [style.left.%]="segment.startPercentage"
-            [style.width.%]="segment.endPercentage - segment.startPercentage">
-        </div>
 
         <!-- Unselected Region Overlay (covers the NON-selected area based on handles) -->
         <!-- Left overlay: from start to start handle -->

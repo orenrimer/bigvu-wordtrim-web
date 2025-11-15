@@ -6,6 +6,7 @@ import { TimelineService } from '../../services/timeline.service';
 import { EditorStateService } from '../../services/editor-state.service';
 import { VideoPlayerService } from '../../services/video-player.service';
 import { HistoryService } from '../../services/history.service';
+import { VideoDataService } from '../../services/video-data.service';
 import { Word, WordState } from '../../models';
 
 /**
@@ -53,8 +54,7 @@ export class TimelineComponent implements OnInit, OnDestroy {
     // Store state snapshot before drag starts (for first word selection)
     private stateBeforeDrag: any = null;
 
-    // Video frames for timeline display (gradient placeholders)
-    // Can be replaced with server-side thumbnails in the future
+    // Video frames for timeline display (gradient placeholders or thumbnails)
     public videoFrames: Array<{ index: number; thumbnail: string | null }> =
         Array.from({ length: 15 }, (_, i) => ({ index: i, thumbnail: null }));
 
@@ -70,7 +70,8 @@ export class TimelineComponent implements OnInit, OnDestroy {
         timelineService: TimelineService,
         editorStateService: EditorStateService,
         videoPlayerService: VideoPlayerService,
-        historyService: HistoryService
+        historyService: HistoryService,
+        private videoDataService: VideoDataService
     ) {
         // Assign injected services
         this.timelineService = timelineService;
@@ -127,7 +128,23 @@ export class TimelineComponent implements OnInit, OnDestroy {
 
             if (words.length > 0 && duration > 0) {
                 this.timelineService.initialize(words, duration);
-                this.generateVideoFrames(duration);
+                // Only generate frames if we don't have thumbnails yet (metadata effect will handle it)
+                const metadata = this.videoDataService.metadata();
+                if (!metadata || !metadata.thumbnails || metadata.thumbnails.length === 0) {
+                    // Generate frames without thumbnails (will be updated by metadata effect when available)
+                    this.generateVideoFrames(duration);
+                }
+            }
+        }, { allowSignalWrites: true });
+
+        // Effect: Update video frames with thumbnails when metadata is loaded
+        effect(() => {
+            const metadata = this.videoDataService.metadata();
+            const duration = this.videoPlayerService.duration();
+
+            if (metadata && duration > 0 && metadata.thumbnails.length > 0) {
+                // Regenerate frames with thumbnails
+                this.generateVideoFrames(duration, metadata.thumbnails);
             }
         }, { allowSignalWrites: true });
     }
@@ -149,20 +166,40 @@ export class TimelineComponent implements OnInit, OnDestroy {
 
     /**
      * Generate video frame placeholders for timeline display
-     * Creates gradient placeholders that will be displayed
-     * 
-     * Future: Can be replaced with server-side thumbnails or client-side generation
+     * Creates gradient placeholders or uses thumbnails from video metadata
      * 
      * @param duration Video duration in seconds
+     * @param thumbnails Optional array of thumbnails from video metadata
      */
-    private generateVideoFrames(duration: number): void {
-        // Generate approximately 10-20 frames depending on duration
-        const frameCount = Math.min(20, Math.max(10, Math.ceil(duration / 3)));
+    private generateVideoFrames(duration: number, thumbnails?: Array<{ width: number; height: number; url: string }>): void {
+        // Calculate frame count based on timeline-track width divided by frame width
+        // Frame width is 60px (min-width from CSS)
+        const frameWidth = 60; // pixels
+        let timelineTrackWidth = 352; // Default width (timeline-container width)
 
-        // Create frames with gradient placeholders (no actual thumbnails)
+        // Try to get actual width from DOM element if available
+        if (this.timelineTrack?.nativeElement) {
+            timelineTrackWidth = this.timelineTrack.nativeElement.offsetWidth;
+        }
+
+        // Calculate number of frames: timeline-track width / frame width
+        const frameCount = Math.floor(timelineTrackWidth / frameWidth);
+
+        // Select appropriate thumbnail if available
+        let selectedThumbnailUrl: string | null = null;
+        if (thumbnails && thumbnails.length > 0) {
+            // Use VideoDataService to select appropriate thumbnail based on stream size
+            try {
+                selectedThumbnailUrl = this.videoDataService.selectThumbnail(thumbnails);
+            } catch (error) {
+                // Silently fail - will use gradient placeholder
+            }
+        }
+
+        // Create frames with thumbnails or gradient placeholders
         this.videoFrames = Array.from({ length: frameCount }, (_, i) => ({
             index: i,
-            thumbnail: null // null = show gradient placeholder
+            thumbnail: selectedThumbnailUrl // Use selected thumbnail URL or null for gradient placeholder
         }));
     }
 

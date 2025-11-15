@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { catchError, retry, tap, throwError, Observable } from 'rxjs';
+import { catchError, retry, tap, throwError, Observable, map, switchMap, of } from 'rxjs';
 import { Word, Segment, WordState } from '../models';
 
 /**
@@ -39,7 +39,6 @@ export class SegmentationLoaderService {
                 count: 3,
                 delay: (_error, retryCount) => {
                     const delayMs = Math.min(1000 * Math.pow(2, retryCount - 1), 10000);
-                    console.info(`Retry attempt ${retryCount} after ${delayMs}ms`);
                     return new Observable<void>(subscriber => {
                         setTimeout(() => {
                             subscriber.next();
@@ -49,16 +48,43 @@ export class SegmentationLoaderService {
                 }
             }),
 
-            // Transform and update state on success
-            tap((segments: Segment[]) => {
+            // Validate and transform segmentation data
+            switchMap((segments: Segment[]) => {
+                // Check if segments array is empty
+                if (!segments || segments.length === 0) {
+                    const errorMsg = 'Segmentation data is empty - no words found in the video';
+                    this._error.set(errorMsg);
+                    this._loadingState.set('error');
+                    this._words.set([]);
+                    return throwError(() => new Error(errorMsg));
+                }
+
                 const flattenedWords = this.flattenSegments(segments);
+
+                // Check if flattened words array is empty
+                if (!flattenedWords || flattenedWords.length === 0) {
+                    const errorMsg = 'Segmentation data contains no valid words';
+                    this._error.set(errorMsg);
+                    this._loadingState.set('error');
+                    this._words.set([]);
+                    return throwError(() => new Error(errorMsg));
+                }
+
                 this._words.set(flattenedWords);
                 this._loadingState.set('success');
+
+                return of(segments);
             }),
 
-            // Handle errors
-            catchError((error: HttpErrorResponse) => {
-                return this.handleError(error);
+            // Handle errors (both HTTP errors and validation errors)
+            catchError((error: HttpErrorResponse | Error) => {
+                // If it's already a validation error (Error instance), handle it directly
+                if (error instanceof Error && !(error instanceof HttpErrorResponse)) {
+                    // Error state already set in switchMap, just return the error
+                    return throwError(() => error);
+                }
+                // Otherwise, it's an HTTP error, use the standard handler
+                return this.handleError(error as HttpErrorResponse);
             })
         );
     }
@@ -107,12 +133,13 @@ export class SegmentationLoaderService {
         if (error.error instanceof ErrorEvent) {
             // Client-side or network error
             errorMessage = `Network error: ${error.error.message}`;
+        } else if (error.status) {
+            // Backend error with status
+            errorMessage = `Server error: ${error.status} - ${error.statusText || 'Unknown'}`;
         } else {
-            // Backend error
-            errorMessage = `Server error: ${error.status} - ${error.statusText}`;
+            // Unknown error (could be CORS, network failure, etc.)
+            errorMessage = `Failed to load segmentation: ${error.message || 'Unknown error'}`;
         }
-
-        console.error('Segmentation loading failed:', errorMessage, error);
 
         this._loadingState.set('error');
         this._error.set(errorMessage);

@@ -1,32 +1,19 @@
 <!-- Matching video_player.png design -->
 <div>
-    <!-- Loading -->
-    <div *ngIf="isLoading()" style="min-height: 400px; display: flex; align-items: center; justify-content: center;">
-        <p>Loading video...</p>
-    </div>
-
-    <!-- Error -->
-    <div *ngIf="error()"
-        style="min-height: 400px; display: flex; align-items: center; justify-content: center; color: red;">
-        <p>Error: {{ error() }}</p>
-    </div>
-
     <!-- Video Player -->
-    <div [style.display]="isLoading() || error() ? 'none' : 'block'" class="video-player-container">
+    <div class="video-player-container" [style.aspect-ratio]="getAspectRatioValue()">
 
-        <video #videoElement playsinline 
-            (click)="isEntireSegmentDeleted() ? null : onTogglePlayPause()"
+        <video #videoElement playsinline (click)="isEntireSegmentDeleted() ? null : onTogglePlayPause()"
             [style.cursor]="isEntireSegmentDeleted() ? 'not-allowed' : 'pointer'"
             style="display: block; background: #000;">
             Your browser does not support video.
         </video>
 
         <!-- Centered Play Button (when paused) -->
-        <div class="center-play-overlay" *ngIf="!isPlaying()" 
-             [class.disabled]="isEntireSegmentDeleted()"
-             (click)="isEntireSegmentDeleted() ? null : onTogglePlayPause()"
-             [attr.aria-disabled]="isEntireSegmentDeleted()"
-             [title]="isEntireSegmentDeleted() ? 'Cannot play: entire selected segment is deleted' : 'Play'">
+        <div class="center-play-overlay" *ngIf="!isPlaying()" [class.disabled]="isEntireSegmentDeleted()"
+            (click)="isEntireSegmentDeleted() ? null : onTogglePlayPause()"
+            [attr.aria-disabled]="isEntireSegmentDeleted()"
+            [title]="isEntireSegmentDeleted() ? 'Cannot play: entire selected segment is deleted' : 'Play'">
             <div class="play-button-circle">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
                     <path d="M8 5v14l11-7z" />

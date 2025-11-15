@@ -360,10 +360,6 @@
         .modal-text {
             margin: 0 0 var(--spacing-4) 0;
         }
-
-        .show-me-button {
-            padding: var(--spacing-1) var(--spacing-4);
-        }
     }
 
     .modal-video {
@@ -384,35 +380,6 @@
             width: 100%;
             height: auto;
             aspect-ratio: 16 / 9;
-        }
-    }
-}
-
-// Very small screens (below 480px)
-@media (max-width: 480px) {
-    .modal-tip {
-        width: calc(100vw - var(--spacing-4));
-        padding: var(--spacing-2);
-
-        .modal-header {
-            .modal-title {
-                font-size: var(--font-size-12);
-            }
-        }
-
-        .modal-text {
-            font-size: var(--font-size-10);
-        }
-    }
-
-    .modal-video {
-        width: calc(100vw - var(--spacing-4));
-        padding: var(--spacing-2);
-        bottom: var(--spacing-2);
-        inset-inline-start: var(--spacing-2);
-
-        .modal-title-dark {
-            font-size: var(--font-size-16);
         }
     }
 }

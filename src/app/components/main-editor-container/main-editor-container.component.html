@@ -1,23 +1,19 @@
 <div class="wordtrim-editor">
-    <!-- Loading State -->
-    <div *ngIf="isLoading()" class="loading-section">
-        <app-skeleton-loader [wordCount]="50"></app-skeleton-loader>
-    </div>
-
-    <!-- Error State -->
-    <div *ngIf="hasError()" class="error-section">
-        <div class="error-card">
-            <h2>Failed to Load Segmentation</h2>
-            <p class="error-message">{{ error() }}</p>
-            <button class="retry-button" (click)="retryLoad()">Retry</button>
-        </div>
-    </div>
-
     <!-- Main Content - Two Column Layout -->
-    <div *ngIf="hasWords() && !isLoading()" class="editor-layout">
+    <!-- Show layout if video data is ready (even if segmentation failed) -->
+    <div *ngIf="isVideoDataReady() && !isLoadingVideoData()" class="editor-layout">
         <!-- Left Column: Video Player + Timeline -->
         <div class="editor-layout__video">
-            <app-video-player></app-video-player>
+            <!-- Video Player Error State - Show only when there's an error -->
+            <div *ngIf="hasVideoPlayerError()" class="video-error-section">
+                <div class="error-card">
+                    <h2>Failed to Load Video</h2>
+                    <p class="error-message">{{ videoPlayerErrorMessage() }}</p>
+                </div>
+            </div>
+
+            <!-- Video Player - Show when no error -->
+            <app-video-player *ngIf="!hasVideoPlayerError()"></app-video-player>
 
             <!-- Timeline (Always visible) -->
             <div class="timeline-section">
@@ -28,7 +24,7 @@
         <!-- Right Column: Transcript/Words Area -->
         <div class="editor-layout__transcript">
             <!-- Selection Info Panel (for testing/debugging) -->
-            <div class="selection-info" *ngIf="hasSelection()">
+            <div class="selection-info" *ngIf="!isLoading() && hasWords() && hasSelection()">
                 <div class="selection-info-content">
                     <strong>Selection:</strong>
                     <span *ngIf="!hasCompleteSelection()">
@@ -50,23 +46,50 @@
 
             <!-- Transcript Content with Timestamps -->
             <div class="transcript-content">
-                <div class="timestamps-container">
-                    <span class="timestamp">00:00 s</span>
-                    <span class="timestamp">00:10 s</span>
-                    <span class="timestamp">00:15 s</span>
-                    <span class="timestamp">00:20 s</span>
-                    <span class="timestamp">00:25 s</span>
-                    <span class="timestamp">00:30 s</span>
+                <!-- Skeleton Loader - Show while segmentation is loading -->
+                <app-skeleton-loader *ngIf="isLoading()" [wordCount]="50"></app-skeleton-loader>
+
+                <!-- Error State - Show if segmentation failed (but not for empty data) -->
+                <div *ngIf="hasError() && !isLoading() && !isEmptySegmentationError()" class="transcript-error-section">
+                    <div class="error-card">
+                        <h2>Failed to Load Transcription</h2>
+                        <p class="error-message">{{ error() || 'Unknown error loading segmentation data' }}</p>
+                    </div>
                 </div>
-                <div class="words-container">
-                    <app-word-chip *ngFor="let word of words()" [word]="word"
-                        [currentPlaybackWordIndex]="currentPlaybackWordIndex()" (wordClicked)="onWordClick($event)">
-                    </app-word-chip>
+
+                <!-- Content - Show only when loaded and no error -->
+                <div *ngIf="!isLoading() && !hasError()" class="transcript-content-wrapper">
+                    <div class="timestamps-container" *ngIf="hasWords()">
+                        <span class="timestamp">00:00 s</span>
+                        <span class="timestamp">00:10 s</span>
+                        <span class="timestamp">00:15 s</span>
+                        <span class="timestamp">00:20 s</span>
+                        <span class="timestamp">00:25 s</span>
+                        <span class="timestamp">00:30 s</span>
+                    </div>
+                    <div class="words-container">
+                        <app-word-chip *ngFor="let word of words()" [word]="word"
+                            [currentPlaybackWordIndex]="currentPlaybackWordIndex()" (wordClicked)="onWordClick($event)">
+                        </app-word-chip>
+                    </div>
                 </div>
             </div>
 
-            <!-- Action Bar (fixed bottom) -->
-            <app-action-bar></app-action-bar>
+            <!-- Action Bar (fixed bottom) - Show when loaded (even if empty), but hide on error -->
+            <app-action-bar *ngIf="!isLoading() && (!hasError() || isEmptySegmentationError())"></app-action-bar>
+        </div>
+    </div>
+
+    <!-- Loading State (only show if video data is still loading) -->
+    <div *ngIf="isLoadingVideoData()" class="loading-section">
+        <app-skeleton-loader [wordCount]="50"></app-skeleton-loader>
+    </div>
+
+    <!-- Error State (only show if video data failed to load) -->
+    <div *ngIf="hasVideoDataError()" class="error-section">
+        <div class="error-card">
+            <h2>Failed to Load Video Data</h2>
+            <p class="error-message">{{ videoDataError() || 'Unknown error loading video data' }}</p>
         </div>
     </div>
 

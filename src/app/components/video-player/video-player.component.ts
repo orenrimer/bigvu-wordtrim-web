@@ -1,9 +1,9 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, ViewEncapsulation, computed, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, ViewEncapsulation, computed, inject, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { VideoPlayerService } from '../../services/video-player.service';
 import { EditorStateService } from '../../services/editor-state.service';
+import { VideoDataService } from '../../services/video-data.service';
 import { WordState } from '../../models';
-import { environment } from '../../../environments/environment.development';
 
 /**
  * Video Player Component
@@ -28,6 +28,10 @@ export class VideoPlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     @ViewChild('videoElement', { static: false }) videoElementRef!: ElementRef<HTMLVideoElement>;
 
     private editorState = inject(EditorStateService);
+    private videoDataService = inject(VideoDataService);
+
+    // Track if player has been initialized to avoid re-initialization
+    private isPlayerInitialized = false;
 
     // Expose service signals to template
     isPlaying = this.videoService.isPlaying;
@@ -59,20 +63,30 @@ export class VideoPlayerComponent implements OnInit, AfterViewInit, OnDestroy {
         );
     });
 
-    constructor(public videoService: VideoPlayerService) { }
+    constructor(public videoService: VideoPlayerService) {
+        // Effect: Initialize video player when metadata is loaded and view is ready
+        effect(() => {
+            const metadata = this.videoDataService.metadata();
+            const videoElement = this.videoElementRef?.nativeElement;
+
+            // Only initialize once when both metadata and video element are ready
+            if (metadata && videoElement && !this.isPlayerInitialized) {
+                this.videoService.initializePlayer(
+                    videoElement,
+                    metadata.hlsPlaylistUrl
+                );
+                this.isPlayerInitialized = true;
+            }
+        }, { allowSignalWrites: true });
+    }
 
     ngOnInit(): void {
         // Initialization logic
     }
 
     ngAfterViewInit(): void {
-        // Initialize video player after view is ready
-        if (this.videoElementRef?.nativeElement) {
-            this.videoService.initializePlayer(
-                this.videoElementRef.nativeElement,
-                environment.videoUrl
-            );
-        }
+        // Video player initialization is now handled by the effect
+        // which waits for both video element and metadata to be ready
     }
 
     ngOnDestroy(): void {
@@ -117,6 +131,22 @@ export class VideoPlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     getAspectRatioClass(): string {
         const ratio = this.aspectRatio();
         return `video-container--${ratio.replace(':', '-')}`;
+    }
+
+    /**
+     * Get aspect ratio value for CSS style binding
+     * Returns format like "16 / 9", "9 / 16", or "1 / 1"
+     * Defaults to "16 / 9" if aspect ratio is not yet detected
+     * On mobile (screen width <= 768px), always returns "16 / 9"
+     */
+    getAspectRatioValue(): string {
+        // Check if we're on mobile (screen width <= 768px)
+        if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+            return '16 / 9';
+        }
+
+        const ratio = this.aspectRatio();
+        return ratio.replace(':', ' / ') || '16 / 9';
     }
 }
 

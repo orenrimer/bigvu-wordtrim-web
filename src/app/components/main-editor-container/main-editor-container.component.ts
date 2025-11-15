@@ -6,6 +6,8 @@ import { VideoPlayerService } from '../../services/video-player.service';
 import { TimelineService } from '../../services/timeline.service';
 import { TutorialService } from '../../services/tutorial.service';
 import { HistoryService } from '../../services/history.service';
+import { VideoDataService } from '../../services/video-data.service';
+import { HlsLoaderService } from '../../services/hls-loader.service';
 import { SkeletonLoaderComponent } from '../skeleton-loader/skeleton-loader.component';
 import { WordChipComponent } from '../word-chip/word-chip.component';
 import { ActionBarComponent } from '../action-bar/action-bar.component';
@@ -36,6 +38,11 @@ import { environment } from '../../../environments/environment.development';
   styleUrl: './main-editor-container.component.scss'
 })
 export class MainEditorContainerComponent implements OnInit {
+  // Expose video data service signals to template
+  videoDataLoadingState = this.videoDataService.loadingState;
+  videoDataError = this.videoDataService.error;
+  videoMetadata = this.videoDataService.metadata;
+
   // Expose segmentation service signals to template
   loadingState = this.segmentationService.loadingState;
   error = this.segmentationService.error;
@@ -50,11 +57,37 @@ export class MainEditorContainerComponent implements OnInit {
   currentPlaybackWordIndex = this.editorState.currentPlaybackWordIndex;
 
   // Computed signals for template conditionals
+  isLoadingVideoData = computed(() => this.videoDataLoadingState() === 'loading');
+  hasVideoDataError = computed(() => this.videoDataLoadingState() === 'error');
   isLoading = computed(() => this.loadingState() === 'loading');
   hasError = computed(() => this.loadingState() === 'error');
   hasWords = computed(() => this.words().length > 0);
+  isVideoDataReady = computed(() => this.videoDataLoadingState() === 'success' && this.videoMetadata() !== null);
+
+  // Check if error is due to empty segmentation data (don't show error card for this case)
+  isEmptySegmentationError = computed(() => {
+    const errorMsg = this.error();
+    if (!errorMsg) return false;
+    return errorMsg.includes('empty') || errorMsg.includes('no words found') || errorMsg.includes('no valid words');
+  });
+
+  // Expose video player service error signal
+  videoPlayerError = this.videoService.error;
+
+  hasVideoPlayerError = computed(() => {
+    const error = this.videoPlayerError();
+    // Only show error if there's an explicit error message
+    return error !== null && error.trim() !== '';
+  });
+
+  // Get error message
+  videoPlayerErrorMessage = computed(() => {
+    const error = this.videoPlayerError();
+    return error || 'Failed to load video';
+  });
 
   constructor(
+    private videoDataService: VideoDataService,
     private segmentationService: SegmentationLoaderService,
     private editorState: EditorStateService,
     private videoService: VideoPlayerService,
@@ -76,24 +109,63 @@ export class MainEditorContainerComponent implements OnInit {
         this.editorState.clearCurrentPlaybackWord();
       }
     }, { allowSignalWrites: true });
+
+    // Effect: Pause video player when tutorial video modal opens
+    effect(() => {
+      const modalState = this.tutorialService.modalState();
+      const isPlaying = this.videoService.isPlaying();
+
+      // If tutorial video modal is opened and video is playing, pause it
+      if (modalState === 'video' && isPlaying) {
+        this.videoService.pause();
+      }
+    });
   }
 
   ngOnInit(): void {
-    // Load segmentation data from environment URL on component initialization
-    this.loadSegmentation();
+    // STEP 1: Load video metadata JSON first (FEATURE 11)
+    this.loadVideoMetadata();
 
     // Auto-show tutorial tip on initial load (Feature 7)
     this.tutorialService.autoShowOnInit();
   }
 
   /**
-   * Load segmentation data from configured URL
+   * Load video metadata JSON file
+   * After successful load, proceed to load video and segmentation
    */
-  loadSegmentation(): void {
-    this.segmentationService.loadSegmentation(environment.segmentationUrl).subscribe({
+  loadVideoMetadata(): void {
+    this.videoDataService.loadVideoMetadata().subscribe({
+      next: (metadata) => {
+        // Video metadata loaded successfully
+        // Now load segmentation and initialize video player
+        this.loadSegmentation(metadata.segmentationUrl);
+        // Video player will be initialized by VideoPlayerComponent after view init
+        // We'll pass the hlsPlaylistUrl through a service or signal
+      },
+      error: () => {
+        // Error handling is done by the service
+      }
+    });
+  }
+
+  /**
+   * Load segmentation data from URL (from JSON metadata)
+   * @param segmentationUrl URL from video metadata JSON
+   */
+  loadSegmentation(segmentationUrl: string): void {
+    this.segmentationService.loadSegmentation(segmentationUrl).subscribe({
       next: () => {
         // Initialize editor state with loaded words
         const loadedWords = this.segmentationService.words();
+
+        // Check if words array is empty
+        if (!loadedWords || loadedWords.length === 0) {
+          // Don't initialize editor state with empty array - this will cause issues
+          // The error state is already set in the service
+          return;
+        }
+
         this.editorState.initializeWords(loadedWords);
 
         // STEP 1: Save initial empty state (after words are loaded)
@@ -104,19 +176,20 @@ export class MainEditorContainerComponent implements OnInit {
         );
         this.historyService.setInitialState(initialSnapshot);
       },
-      error: (err: Error) => {
-        console.error('Failed to load segmentation', err);
+      error: () => {
+        // Error handling is done by the service
       }
     });
   }
 
   /**
-   * Retry loading segmentation after error
+   * Retry loading video metadata and segmentation after error
    */
   retryLoad(): void {
+    this.videoDataService.reset();
     this.segmentationService.reset();
     this.editorState.reset();
-    this.loadSegmentation();
+    this.loadVideoMetadata();
   }
 
   /**

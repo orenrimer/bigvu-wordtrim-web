@@ -2,7 +2,7 @@
 .video-player-container {
     width: 100%;
     max-width: 832px; // Maximum width for video player
-    max-height: calc(100vh - 80px);
+    max-height: 625.78px; // Maximum height for video player
     position: relative;
     background: #000;
     border-radius: var(--radius-3xl);
@@ -10,7 +10,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    aspect-ratio: 16 / 9; // Default aspect ratio, will be overridden by video service
+    // aspect-ratio is set dynamically via [style.aspect-ratio] binding in template
 
     video {
         width: 100%;
@@ -23,27 +23,24 @@
 // Up to 1440px: Fixed width of 352px
 @media (max-width: 1440px) {
     .video-player-container {
-        width: 352px;
+        // width: 352px;
         max-width: 352px;
-        min-width: 352px;
+        // min-width: 352px;
         border-radius: var(--radius-2xl);
     }
 }
 
 @media (max-width: 1024px) {
     .video-player-container {
-        max-height: calc(100vh - 60px);
+        max-height: 625.78px; // Maximum height for video player
         border-radius: var(--radius-2xl);
     }
 }
 
 @media (max-width: 768px) {
     .video-player-container {
-        height: 198px;
-        max-height: 198px;
-        min-height: 198px;
         border-radius: var(--radius-xl);
-        aspect-ratio: auto; // Let video determine aspect ratio on mobile
+        aspect-ratio: 16 / 9; // Always 16:9 on mobile
     }
 }
 

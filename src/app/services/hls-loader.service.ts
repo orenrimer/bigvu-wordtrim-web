@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import Hls from 'hls.js';
 
 /**
@@ -83,23 +83,6 @@ export class HlsLoaderService {
         });
 
         hls.on(Hls.Events.ERROR, (event, data) => {
-            if (data.fatal) {
-                console.error('❌ HLS fatal error:', {
-                    type: data.type,
-                    details: data.details,
-                    fatal: data.fatal,
-                    url: data.url,
-                    error: data.error,
-                    response: data.response
-                });
-            } else {
-                console.warn('⚠️ HLS non-fatal error:', {
-                    type: data.type,
-                    details: data.details,
-                    fatal: data.fatal,
-                    url: data.url
-                });
-            }
             callbacks?.onError?.(event, data);
         });
 
@@ -137,7 +120,6 @@ export class HlsLoaderService {
         videoElement.addEventListener('error', () => {
             const error = videoElement.error;
             const errorMessage = error ? `Video Error: ${error.message}` : 'Unknown video error';
-            console.error('❌ Native HLS error:', errorMessage);
             callbacks?.onError?.('error', { message: errorMessage });
         });
 
@@ -168,7 +150,6 @@ export class HlsLoaderService {
         }
 
         // Not supported
-        console.error('HLS is not supported in this browser');
         callbacks?.onError?.('unsupported', { message: 'HLS is not supported in this browser' });
         return null;
     }

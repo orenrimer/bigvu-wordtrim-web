@@ -78,6 +78,20 @@ export class VideoPlayerService {
     private playbackCheckInterval: number | null = null;
     private readonly PLAYBACK_CHECK_INTERVAL_MS = 50; // Check every 50ms for accurate preview/skip
 
+    // Loading timeout
+    private loadingTimeout: number | null = null;
+    private readonly LOADING_TIMEOUT_MS = 30000; // 30 seconds timeout
+
+    /**
+     * Clear loading timeout
+     */
+    private clearLoadingTimeout(): void {
+        if (this.loadingTimeout !== null) {
+            clearTimeout(this.loadingTimeout);
+            this.loadingTimeout = null;
+        }
+    }
+
     /**
      * Initialize video player with HTML video element and video URL
      * @param videoElement HTML video element reference
@@ -94,19 +108,52 @@ export class VideoPlayerService {
         this._isLoading.set(true);
         this._error.set(null);
 
+        // Set loading timeout - if video doesn't load within timeout, show error
+        this.clearLoadingTimeout();
+        this.loadingTimeout = window.setTimeout(() => {
+            if (this._isLoading()) {
+                this._error.set('Failed to load video');
+                this._isLoading.set(false);
+            }
+        }, this.LOADING_TIMEOUT_MS);
+
         // Initialize HLS using HlsLoaderService
         this.hls = this.hlsLoaderService.initialize(
             videoElement,
             videoUrl,
             {
                 onManifestParsed: () => {
+                    this.clearLoadingTimeout();
                     this._isLoading.set(false);
-                    console.info('Current aspect ratio:', this._aspectRatio());
                 },
                 onError: (event, data) => {
+                    // Only handle fatal errors
                     if (data?.fatal || event === 'unsupported') {
-                        const errorMessage = data?.message ||
-                            (data?.type ? `Video Error: ${data.type}` : 'Unknown video error');
+                        // Create error message from data
+                        let errorMessage = 'Failed to load video';
+
+                        if (data?.message) {
+                            errorMessage = data.message;
+                        } else if (event === 'unsupported') {
+                            errorMessage = 'Video format not supported';
+                        } else if (data?.type) {
+                            // Map HLS error types to simple messages
+                            switch (data.type) {
+                                case 'networkError':
+                                    errorMessage = 'Failed to load video';
+                                    break;
+                                case 'mediaError':
+                                    errorMessage = 'Video playback failed';
+                                    break;
+                                case 'muxError':
+                                    errorMessage = 'Invalid video format';
+                                    break;
+                                default:
+                                    errorMessage = 'Failed to load video';
+                            }
+                        }
+
+                        this.clearLoadingTimeout();
                         this._error.set(errorMessage);
                         this._isLoading.set(false);
                     }
@@ -166,7 +213,28 @@ export class VideoPlayerService {
         this.videoElement.addEventListener('error', () => {
             if (!this.videoElement) return;
             const error = this.videoElement.error;
-            this._error.set(error ? `Video Error: ${error.message}` : 'Unknown video error');
+            let errorMessage = 'Unknown video error';
+
+            if (error) {
+                switch (error.code) {
+                    case MediaError.MEDIA_ERR_ABORTED:
+                        errorMessage = 'Video loading was aborted';
+                        break;
+                    case MediaError.MEDIA_ERR_NETWORK:
+                        errorMessage = 'Failed to load video';
+                        break;
+                    case MediaError.MEDIA_ERR_DECODE:
+                        errorMessage = 'Video playback failed';
+                        break;
+                    case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                        errorMessage = 'Video format not supported';
+                        break;
+                    default:
+                        errorMessage = 'Failed to load video';
+                }
+            }
+
+            this._error.set(errorMessage);
             this._isLoading.set(false);
         });
     }
@@ -181,17 +249,24 @@ export class VideoPlayerService {
         const width = this.videoElement.videoWidth;
         const height = this.videoElement.videoHeight;
 
-        if (width === 0 || height === 0) return;
+        if (width === 0 || height === 0) {
+            return;
+        }
 
         const ratio = width / height;
 
         // Determine aspect ratio with tolerance
-        if (Math.abs(ratio - 16 / 9) < 0.1) {
-            this._aspectRatio.set('16:9');
-        } else if (Math.abs(ratio - 1) < 0.1) {
-            this._aspectRatio.set('1:1');
-        } else if (Math.abs(ratio - 9 / 16) < 0.1) {
+        // Check ratios in order: 9:16 (vertical), 1:1 (square), 16:9 (horizontal)
+        const ratio9_16 = 9 / 16; // 0.5625
+        const ratio1_1 = 1; // 1.0
+        const ratio16_9 = 16 / 9; // 1.777...
+
+        if (Math.abs(ratio - ratio9_16) < 0.1) {
             this._aspectRatio.set('9:16');
+        } else if (Math.abs(ratio - ratio1_1) < 0.1) {
+            this._aspectRatio.set('1:1');
+        } else if (Math.abs(ratio - ratio16_9) < 0.1) {
+            this._aspectRatio.set('16:9');
         } else {
             // Default to 16:9 for unknown ratios
             this._aspectRatio.set('16:9');
@@ -476,8 +551,7 @@ export class VideoPlayerService {
                     // Immediately update state on successful play
                     this._isPlaying.set(true);
                 })
-                .catch((error) => {
-                    console.error('Play error:', error);
+                .catch(() => {
                     this._error.set('Failed to play video');
                     this._isPlaying.set(false);
                 });
@@ -524,7 +598,6 @@ export class VideoPlayerService {
 
                 // If entire segment is deleted, don't play anything
                 if (allDeleted) {
-                    console.warn('⚠️ Cannot play: entire selected segment is deleted');
                     return;
                 }
 

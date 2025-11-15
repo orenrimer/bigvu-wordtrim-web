@@ -30,21 +30,35 @@
                 color: var(--color-text-secondary);
                 margin: 0 0 1.5rem 0;
             }
+        }
+    }
 
-            .retry-button {
-                background: var(--color-danger);
-                color: var(--color-text-white);
-                border: none;
-                padding: 0.75rem 2rem;
-                border-radius: 4px;
-                font-size: 1rem;
-                cursor: pointer;
-                transition: background 0.2s;
+    // Transcript Error Section (inside transcript area)
+    .transcript-error-section {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding: var(--spacing-8);
+        min-height: 200px;
 
-                &:hover {
-                    background: var(--color-danger);
-                    opacity: 0.9;
-                }
+        .error-card {
+            background: var(--color-bg-secondary);
+            border: 2px solid var(--color-danger);
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+
+            h2 {
+                color: var(--color-danger);
+                margin: 0 0 1rem 0;
+                font-size: 1.25rem;
+            }
+
+            .error-message {
+                color: var(--color-text-secondary);
+                margin: 0 0 1.5rem 0;
             }
         }
     }
@@ -228,14 +242,26 @@
     .transcript-content {
         width: 100%;
         display: flex;
+        flex-direction: column;
         gap: var(--editor-content-gap);
         align-items: flex-start;
+        justify-content: flex-start;
+
         padding: var(--editor-content-padding-y) var(--editor-content-padding-x);
         flex: 1; // Take remaining space between selection-info and action-bar
         overflow-y: auto; // Enable scrolling
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
         scroll-behavior: smooth; // Smooth scrolling
+
+        // Container for timestamps and words side by side
+        .transcript-content-wrapper {
+            display: flex;
+            flex-direction: row;
+            gap: var(--spacing-16);
+            width: 100%;
+            align-items: flex-start;
+        }
     }
 
 
@@ -260,13 +286,14 @@
         display: flex;
         flex-direction: column;
         flex-shrink: 0;
-        align-self: stretch;
-        justify-content: space-between;
+        align-self: flex-start;
+        justify-content: flex-start;
         padding: var(--timestamp-container-padding-y) var(--timestamp-container-padding-x);
+        min-width: fit-content;
 
         .timestamp {
             display: flex;
-            width: 100%;
+            width: auto;
             background-color: var(--color-gray-100);
             border-radius: var(--radius-timestamp);
             color: var(--color-text-secondary);

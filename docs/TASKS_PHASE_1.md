@@ -418,87 +418,134 @@
 
 ---
 
-## Edge Cases & Quality Assurance
+## FEATURE 11: Server Integration & Data Loading
+
+### Git Branch Setup
+- [ ] **feature11-git-1:** Create new Git branch for this feature — `git checkout -b feature/server-integration`
+
+### Service Tasks
+- [ ] 11.1: Create `VideoDataService` for loading video metadata JSON files from `src/assets/data/videos`
+- [ ] 11.2: Implement method to select a JSON file by index (1-20) using a configurable variable
+- [ ] 11.3: Parse JSON structure to extract `hlsPlaylistUrl` from `videos[0].hlsPlaylistUrl`
+- [ ] 11.4: Parse JSON structure to extract `segmentation` URL from `segmentation[0].url`
+- [ ] 11.5: Parse JSON structure to extract `thumbnails` array from `videos[0].thumbnails`
+- [ ] 11.6: Create Signal-based state for video metadata (loading, success, error)
+- [ ] 11.7: Handle error states for missing or invalid JSON files
+
+### Component Tasks
+- [ ] 11.8: Update `VideoPlayerComponent` to use `hlsPlaylistUrl` from loaded JSON instead of `environment.videoUrl`
+- [ ] 11.9: Update `SegmentationLoaderService` to use `segmentation[0].url` from loaded JSON instead of `environment.segmentationUrl`
+- [ ] 11.10: Update `TimelineComponent` to use `thumbnails` array from loaded JSON for timeline frame display
+- [ ] 11.11: Implement loading state while video metadata JSON is being loaded
+- [ ] 11.12: Handle case where multiple thumbnails are available (select appropriate size for timeline)
+
+### UI/Logic Integration
+- [ ] 11.13: Load video metadata JSON on application initialization (in `MainEditorContainerComponent`)
+- [ ] 11.14: Pass `hlsPlaylistUrl` to `VideoPlayerService` after JSON is loaded
+- [ ] 11.15: Pass `segmentation[0].url` to `SegmentationLoaderService` after JSON is loaded
+- [ ] 11.16: Pass `thumbnails` array to `TimelineComponent` after JSON is loaded
+- [ ] 11.17: Ensure video player initializes only after metadata is loaded
+- [ ] 11.18: Ensure segmentation loads only after metadata is loaded
+- [ ] 11.19: Display thumbnails in timeline frames (replace placeholders)
+
+### Testing Tasks
+- [ ] 11.20: Test loading JSON file by index (1-20) from `src/assets/data/videos` directory
+- [ ] 11.21: Test parsing `hlsPlaylistUrl` from JSON structure
+- [ ] 11.22: Test parsing `segmentation[0].url` from JSON structure
+- [ ] 11.23: Test parsing `thumbnails` array from JSON structure
+- [ ] 11.24: Test video player initialization with `hlsPlaylistUrl` from JSON
+- [ ] 11.25: Test segmentation loading with URL from JSON
+- [ ] 11.26: Test thumbnail display in timeline component
+- [ ] 11.27: Test error handling for missing or invalid JSON files
+- [ ] 11.28: Test with different JSON files to ensure compatibility
+- [ ] 11.29: Verify application works without `environment.videoUrl` and `environment.segmentationUrl`
+
+### Git Branch Merge
+- [ ] **feature11-git-2:** Merge feature branch into main — `git checkout main && git merge feature/server-integration`
+
+---
+
+## FEATURE 12: Edge Cases & Quality Assurance
 
 ### Git Branch Setup
 - [ ] **qa-git-1:** Create new Git branch for this feature — `git checkout -b qa/edge-cases-testing`
 
 ### Edge Case Testing
-- [ ] 11.1: Test Scenario 1 - Fine-tuning across words (select 1-10, drag end to middle of 7, verify selection updates to 1-6)
-- [ ] 11.2: Test Scenario 2 - Selecting deleted words (verify deleted words 20-30 can be reselected)
-- [ ] 11.3: Test Scenario 3 - Keep Only on deleted selection (verify 15-25 with deleted 15-20 restores on Keep Only)
-- [ ] 11.4: Test Scenario 4 - Empty output error (delete all words, verify error shown)
-- [ ] 11.5: Test with short videos (<30 seconds)
-- [ ] 11.6: Test with long videos (>10 minutes)
-- [ ] 11.7: Test with hundreds of words (large transcripts)
-- [ ] 11.8: Test performance with large datasets
+- [ ] 12.1: Test Scenario 1 - Fine-tuning across words (select 1-10, drag end to middle of 7, verify selection updates to 1-6)
+- [ ] 12.2: Test Scenario 2 - Selecting deleted words (verify deleted words 20-30 can be reselected)
+- [ ] 12.3: Test Scenario 3 - Keep Only on deleted selection (verify 15-25 with deleted 15-20 restores on Keep Only)
+- [ ] 12.4: Test Scenario 4 - Empty output error (delete all words, verify error shown)
+- [ ] 12.5: Test with short videos (<30 seconds)
+- [ ] 12.6: Test with long videos (>10 minutes)
+- [ ] 12.7: Test with hundreds of words (large transcripts)
+- [ ] 12.8: Test performance with large datasets
 
 ### Multi-Language Testing
-- [ ] 11.9: Test with English content
-- [ ] 11.10: Test with RTL languages (Arabic, Hebrew)
-- [ ] 11.11: Test with CJK languages (Chinese, Japanese, Korean)
-- [ ] 11.12: Test with languages containing special characters
-- [ ] 11.13: Verify i18n compliance and accessibility
+- [ ] 12.9: Test with English content
+- [ ] 12.10: Test with RTL languages (Arabic, Hebrew)
+- [ ] 12.11: Test with CJK languages (Chinese, Japanese, Korean)
+- [ ] 12.12: Test with languages containing special characters
+- [ ] 12.13: Verify i18n compliance and accessibility
 
 ### Accessibility Testing
-- [ ] 11.14: Implement keyboard navigation for word selection
-- [ ] 11.15: Add ARIA labels to interactive elements
-- [ ] 11.16: Test screen reader compatibility
-- [ ] 11.17: Ensure proper focus management
-- [ ] 11.18: Test keyboard shortcuts for undo/redo
+- [ ] 12.14: Implement keyboard navigation for word selection
+- [ ] 12.15: Add ARIA labels to interactive elements
+- [ ] 12.16: Test screen reader compatibility
+- [ ] 12.17: Ensure proper focus management
+- [ ] 12.18: Test keyboard shortcuts for undo/redo
 
 ### Performance Optimization
-- [ ] 11.19: Optimize rendering for large word arrays
-- [ ] 11.20: Implement virtual scrolling if needed for long transcripts
-- [ ] 11.21: Optimize video player performance
-- [ ] 11.22: Test memory usage and cleanup
+- [ ] 12.19: Optimize rendering for large word arrays
+- [ ] 12.20: Implement virtual scrolling if needed for long transcripts
+- [ ] 12.21: Optimize video player performance
+- [ ] 12.22: Test memory usage and cleanup
 
 ### Git Branch Merge
 - [ ] **qa-git-2:** Merge feature branch into main — `git checkout main && git merge qa/edge-cases-testing`
 
 ---
 
-## Code Quality & Documentation
+## FEATURE 13: Code Quality & Documentation
 
 ### Git Branch Setup
 - [ ] **docs-git-1:** Create new Git branch for this feature — `git checkout -b docs/code-quality`
 
 ### Code Quality Tasks
-- [ ] 12.1: Review all components for Angular style guide compliance
-- [ ] 12.2: Ensure proper TypeScript typing throughout
-- [ ] 12.3: Add JSDoc comments to services and complex methods
-- [ ] 12.4: Implement proper error handling in all services
-- [ ] 12.5: Optimize RxJS subscriptions (unsubscribe, takeUntil patterns)
-- [ ] 12.6: Review and optimize Signal usage
-- [ ] 12.7: Ensure proper component lifecycle management
+- [ ] 13.1: Review all components for Angular style guide compliance
+- [ ] 13.2: Ensure proper TypeScript typing throughout
+- [ ] 13.3: Add JSDoc comments to services and complex methods
+- [ ] 13.4: Implement proper error handling in all services
+- [ ] 13.5: Optimize RxJS subscriptions (unsubscribe, takeUntil patterns)
+- [ ] 13.6: Review and optimize Signal usage
+- [ ] 13.7: Ensure proper component lifecycle management
 
 ### Documentation Tasks
-- [ ] 12.8: Document component interfaces and inputs/outputs
-- [ ] 12.9: Document service APIs and method signatures
-- [ ] 12.10: Create inline comments for complex logic
-- [ ] 12.11: Document state management patterns
-- [ ] 12.12: Create README with setup instructions
+- [ ] 13.8: Document component interfaces and inputs/outputs
+- [ ] 13.9: Document service APIs and method signatures
+- [ ] 13.10: Create inline comments for complex logic
+- [ ] 13.11: Document state management patterns
+- [ ] 13.12: Create README with setup instructions
 
 ### Git Branch Merge
 - [ ] **docs-git-2:** Merge feature branch into main — `git checkout main && git merge docs/code-quality`
 
 ---
 
-## Deployment & Integration Preparation
+## FEATURE 14: Deployment & Integration Preparation
 
 **Goal:** Prepare application for integration with existing BIGVU frontend infrastructure
 
-- [ ] 13.1: Create environment configuration for production
-- [ ] 13.2: Configure build settings for deployment
-- [ ] 13.3: Create environment variables for data URLs (segmentation, video)
-- [ ] 13.4: Test build process and output
-- [ ] 13.5: Verify all assets are properly bundled
-- [ ] 13.6: Test with production-like data URLs
-- [ ] 13.7: Create deployment checklist
-- [ ] 13.8: Document integration points with existing infrastructure
-- [ ] 13.9: Final cross-browser testing (Chrome, Firefox, Safari, Edge)
-- [ ] 13.10: Final responsive testing across devices
-- [ ] 13.11: Create final git tag for Phase 1 release
+- [ ] 14.1: Create environment configuration for production
+- [ ] 14.2: Configure build settings for deployment
+- [ ] 14.3: Create environment variables for data URLs (segmentation, video)
+- [ ] 14.4: Test build process and output
+- [ ] 14.5: Verify all assets are properly bundled
+- [ ] 14.6: Test with production-like data URLs
+- [ ] 14.7: Create deployment checklist
+- [ ] 14.8: Document integration points with existing infrastructure
+- [ ] 14.9: Final cross-browser testing (Chrome, Firefox, Safari, Edge)
+- [ ] 14.10: Final responsive testing across devices
+- [ ] 14.11: Create final git tag for Phase 1 release
 
 ---
 
