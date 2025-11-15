@@ -49,10 +49,9 @@
         }
     }
 
-    // Two Column Layout: Video (Left 1/3) + Transcript (Right 2/3)
+    // Two Column Layout: Video (takes needed width) + Transcript (takes remaining space)
     .editor-layout {
-        display: grid;
-        grid-template-columns: 1fr 1fr; // 1/3 video, 2/3 transcript
+        display: flex;
         align-items: start;
         flex: 1; // Take all available space
         height: 100vh; // Full viewport height
@@ -63,13 +62,16 @@
             position: sticky;
             top: 0;
             height: 100vh;
-            padding: 40px;
+            padding: var(--editor-video-padding);
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: var(--editor-video-gap);
             background: var(--color-bg-secondary);
             overflow-y: auto;
             box-sizing: border-box;
+            align-items: center; // Center video player and timeline horizontally
+            flex-shrink: 0; // Don't shrink - take only needed width
+            width: auto; // Width determined by content (352px for video/timeline)
         }
 
         // Right Column: Transcript Area - Container (no scroll)
@@ -80,17 +82,97 @@
             padding: 0px;
             border-left: 1px solid var(--color-border-primary);
             overflow: hidden; // No scroll on container
+            flex: 1; // Take remaining space
+            min-width: 0; // Allow flex item to shrink below content size
         }
     }
 
-    // Responsive: Stack on smaller screens
-    @media (max-width: 1024px) {
+    // Responsive: Desktop Large (1920px+)
+    @media (min-width: 1921px) {
         .editor-layout {
-            grid-template-columns: 1fr;
+            &__video {
+                align-items: flex-start; // Align to left on larger screens
+            }
+        }
+    }
+
+    // Responsive: Desktop Medium (1440px - 1920px)
+    @media (min-width: 1441px) and (max-width: 1920px) {
+        .editor-layout {
+            &__video {
+                align-items: flex-start; // Align to left on larger screens
+            }
+        }
+    }
+
+    // Responsive: Desktop Small (1280px - 1440px)
+    @media (min-width: 1281px) and (max-width: 1440px) {
+        .editor-layout {
+            &__video {
+                display: flex;
+                flex-direction: column;
+                align-items: center; // Center video player horizontally
+                justify-content: flex-start; // Align to top
+            }
+        }
+    }
+
+    // Responsive: Tablet (1024px - 1280px)
+    @media (min-width: 1025px) and (max-width: 1280px) {
+        .editor-layout {
+            &__video {
+                display: flex;
+                flex-direction: column;
+                align-items: center; // Center video player horizontally
+                justify-content: flex-start; // Align to top
+            }
+        }
+    }
+
+    // Responsive: Tablet Small (768px - 1024px)
+    @media (min-width: 769px) and (max-width: 1024px) {
+        .editor-layout {
+            &__video {
+                display: flex;
+                flex-direction: column;
+                align-items: center; // Center video player horizontally
+                justify-content: flex-start; // Align to top
+                padding: var(--editor-video-padding-sm);
+            }
+        }
+    }
+
+    // Responsive: Stack on smaller screens (Mobile) - Vertical Layout
+    @media (max-width: 768px) {
+        .editor-layout {
+            flex-direction: column; // Stack vertically on mobile
+            height: 100vh; // Full viewport height
+            overflow: hidden;
 
             &__video {
                 position: relative;
                 top: 0;
+                height: auto; // Auto height based on content
+                padding: var(--editor-video-padding-sm);
+                overflow-y: auto; // Enable scrolling if needed
+                -webkit-overflow-scrolling: touch;
+                display: flex;
+                flex-direction: column;
+                align-items: center; // Center video player horizontally
+                justify-content: flex-start; // Align to top
+                flex-shrink: 0; // Don't shrink - take only needed height
+                width: 100%; // Full width on mobile
+            }
+
+            &__transcript {
+                border-left: none;
+                border-top: 1px solid var(--color-border-primary);
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden; // Container doesn't scroll, content does
+                flex: 1; // Take remaining space
+                min-width: 0; // Allow flex item to shrink below content size
             }
         }
     }
@@ -135,16 +217,43 @@
         }
     }
 
+    // Hide selection info panel on screens smaller than 1024px
+    @media (max-width: 1023px) {
+        .selection-info {
+            display: none;
+        }
+    }
+
     // Transcript Content Area - THIS SCROLLS
     .transcript-content {
         width: 100%;
         display: flex;
         gap: var(--editor-content-gap);
         align-items: flex-start;
-        padding: 40px 60px;
+        padding: var(--editor-content-padding-y) var(--editor-content-padding-x);
         flex: 1; // Take remaining space between selection-info and action-bar
         overflow-y: auto; // Enable scrolling
         overflow-x: hidden;
+        -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
+        scroll-behavior: smooth; // Smooth scrolling
+    }
+
+
+    @media (max-width: 1024px) {
+        .transcript-content {
+            padding: var(--spacing-8);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .transcript-content {
+            padding: var(--spacing-8);
+            overflow-y: auto; // Enable scrolling on mobile
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
+            scroll-behavior: smooth;
+            flex: 1; // Take remaining space (above action bar)
+        }
     }
 
     .timestamps-container {
@@ -169,12 +278,47 @@
         }
     }
 
+    // Responsive: Adjust timestamps container for smaller screens
+    @media (max-width: 1024px) {
+        .timestamps-container {
+            padding: calc(var(--timestamp-container-padding-y) * 0.75) calc(var(--timestamp-container-padding-x) * 0.75);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .timestamps-container {
+            padding: calc(var(--timestamp-container-padding-y) * 0.5) calc(var(--timestamp-container-padding-x) * 0.5);
+
+            .timestamp {
+                font-size: var(--font-size-10);
+            }
+        }
+    }
+
     .words-container {
         display: flex;
         flex-wrap: wrap;
         gap: var(--word-chip-gap);
         line-height: 2.5rem;
         flex: 1;
+        min-width: 0; // Allow flex item to shrink below content size
+        overflow-wrap: break-word; // Ensure long words wrap
+    }
+
+    // Responsive: Adjust words container for smaller screens
+    @media (max-width: 1024px) {
+        .words-container {
+            line-height: 2rem;
+        }
+
+    }
+
+    @media (max-width: 768px) {
+        .words-container {
+            line-height: 1.75rem;
+            gap: calc(var(--word-chip-gap) * 0.8);
+        }
+
     }
 
     // Timeline Section (in video column)
@@ -182,6 +326,7 @@
         width: 100%;
         padding: 0;
         background: transparent;
+
     }
 }
 
