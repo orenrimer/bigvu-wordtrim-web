@@ -10,10 +10,11 @@
     width: 100%;
     background-color: var(--color-bg-primary);
     border-top: 1px solid var(--color-border-primary);
-    padding: var(--spacing-4);
+    padding: var(--spacing-4) var(--spacing-9);
     z-index: var(--z-action-bar);
     gap: var(--spacing-3);
     margin-top: auto; // Push to bottom of flex container
+    flex-shrink: 0; // Prevent action bar from shrinking
 }
 
 .action-bar-content {
@@ -57,7 +58,6 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    // gap: 4px;
 
     // Premium badge
     .premium-badge {
@@ -75,7 +75,7 @@
         width: var(--action-bar-item-icon-size);
         height: var(--action-bar-item-icon-size);
         display: block;
-        
+
         // SVG icon styling (for undo/redo buttons)
         &.svg-icon,
         &[class*="svg"] {
@@ -83,7 +83,7 @@
             height: 100%;
         }
     }
-    
+
     // Direct SVG styling when action-icon is an SVG element
     svg.action-icon {
         width: var(--action-bar-item-icon-size);
@@ -102,16 +102,59 @@
     }
 }
 
+
+
 /**
  * Responsive behavior
- * Mobile: Adjust padding and layout
+ * Tablet (1024px and below)
  */
-@media (max-width: 768px) {
+@media (max-width: 1440px) {
     .action-bar {
-        padding: var(--spacing-3);
+        padding: var(--spacing-4);
+    }
+
+    .action-bar-items {
+        gap: 0;
+    }
+}
+
+
+
+/**
+ * Responsive behavior
+ * Tablet (1024px and below)
+ */
+@media (max-width: 1024px) {
+    .action-bar {
+        padding: var(--spacing-4);
     }
 
     .action-bar-content {
+        justify-content: center;
+    }
+
+    .action-bar-items {
+        gap: var(--spacing-2);
+    }
+}
+
+/**
+ * Mobile (768px and below)
+ */
+@media (max-width: 768px) {
+    .action-bar {
+        padding: var(--spacing-4) var(--spacing-8);
+        border-top-width: 1px;
+    }
+
+    .action-bar-content {
+        justify-content: center;
+        gap: var(--spacing-2);
+    }
+
+    .action-bar-items {
+        gap: var(--spacing-1);
+        flex-wrap: wrap;
         justify-content: center;
     }
 }

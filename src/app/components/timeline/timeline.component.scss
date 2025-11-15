@@ -1,13 +1,22 @@
 // Timeline Component Styles
 // Based on DESIGN_GUIDE.md specifications
 
+
+
 .timeline-container {
     position: relative;
-    width: 100%;
+    width: 352px; // Fixed width for all screen sizes
+    max-width: 352px;
+    min-width: 352px;
     padding: var(--spacing-base, 8px) 0;
     padding-top: 32px; // Space for time indicator above timeline
     user-select: none;
     min-height: 100px; // Ensure container has height
+    display: flex;
+    flex-direction: column;
+    align-items: center; // Center timeline track horizontally
+    justify-content: flex-start; // Align to top
+    margin: 0 auto; // Center timeline horizontally
 }
 
 .timeline-track {
@@ -193,6 +202,13 @@
     flex-direction: column;
 }
 
+// Hide debug panel on screens smaller than 1024px
+@media (max-width: 1023px) {
+    .timeline-debug-panel {
+        display: none;
+    }
+}
+
 .debug-row {
     display: flex;
     align-items: center;
@@ -308,9 +324,46 @@
 }
 
 // Responsive adjustments
-@media (max-width: 768px) {
+// Timeline track and frames take full width of container (352px)
+.timeline-track {
+    width: 100%; // Track takes full width of container (352px)
+}
+
+.timeline-frames {
+    width: 100%; // Frames take full width of container (352px)
+}
+
+// Tablet (1024px and below)
+@media (max-width: 1024px) {
+    .timeline-container {
+        padding-top: 24px; // Reduce top padding
+        // Width already set to 352px in @media (max-width: 1440px)
+    }
+
     .timeline-track {
-        height: 60px; // Slightly smaller on mobile
+        height: 70px; // Slightly smaller on tablet
+        // Width already set to 100% in @media (max-width: 1440px)
+    }
+
+    .frame-item {
+        min-width: 50px; // Smaller frames on tablet
+    }
+}
+
+// Mobile (768px and below)
+@media (max-width: 768px) {
+    .timeline-container {
+        padding-top: 20px;
+        overflow-x: auto; // Enable horizontal scrolling on mobile
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
+        scroll-behavior: smooth;
+        // Width already set to 352px in @media (max-width: 1440px)
+    }
+
+    .timeline-track {
+        height: 60px; // Smaller on mobile
+        // Width already set to 100% in @media (max-width: 1440px)
     }
 
     .timeline-handle {
@@ -320,6 +373,25 @@
 
     .frame-item {
         min-width: 40px; // Smaller frames on mobile
+    }
+}
+
+// Very small screens (below 480px)
+@media (max-width: 480px) {
+    .timeline-container {
+        padding-top: 16px;
+    }
+
+    .timeline-track {
+        height: 50px; // Even smaller on very small screens
+    }
+
+    .frame-item {
+        min-width: 30px; // Very small frames
+    }
+
+    .timeline-handle {
+        width: 16px; // Wider for easier touch on very small screens
     }
 }
 

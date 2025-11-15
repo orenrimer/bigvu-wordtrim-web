@@ -384,40 +384,74 @@
 
 ---
 
+## FEATURE 10: Responsive Design
+
+### Git Branch Setup
+- [ ] **feature10-git-1:** Create new Git branch for this feature — `git checkout -b feature/responsive-design`
+
+### Component Tasks
+- [ ] 10.1: Review and optimize main editor container layout for different screen sizes
+- [ ] 10.2: Ensure word chips area is scrollable and responsive on smaller screens
+- [ ] 10.3: Optimize timeline component for narrow screens (horizontal scrolling if needed)
+- [ ] 10.4: Ensure video player maintains aspect ratio across different container widths
+- [ ] 10.5: Make action bar responsive (button layout adapts to available space)
+- [ ] 10.6: Optimize tutorial modal for mobile and tablet viewports
+- [ ] 10.7: Implement layout styling matching Figma design (see **src/images/layout** folder)
+
+### UI/Logic Integration
+- [ ] 10.8: Test layout on common desktop resolutions (1920, 1440, 1280, 1024, 768)
+- [ ] 10.9: Implement responsive breakpoints using CSS media queries
+- [ ] 10.10: Ensure text remains readable at all screen sizes
+
+### Testing Tasks
+- [ ] 10.11: Test word selection 
+- [ ] 10.12: Test timeline handle dragging 
+- [ ] 10.13: Test video player controls
+- [ ] 10.14: Test action bar buttons on narrow screens
+- [ ] 10.15: Verify horizontal scrolling works correctly on timeline
+- [ ] 10.16: Test modal display and interactions
+- [ ] 10.17: Verify no horizontal overflow on any screen size
+- [ ] 10.18: Test landscape and portrait orientations
+
+### Git Branch Merge
+- [ ] **feature10-git-2:** Merge feature branch into main — `git checkout main && git merge feature/responsive-design`
+
+---
+
 ## Edge Cases & Quality Assurance
 
 ### Git Branch Setup
 - [ ] **qa-git-1:** Create new Git branch for this feature — `git checkout -b qa/edge-cases-testing`
 
 ### Edge Case Testing
-- [ ] 10.1: Test Scenario 1 - Fine-tuning across words (select 1-10, drag end to middle of 7, verify selection updates to 1-6)
-- [ ] 10.2: Test Scenario 2 - Selecting deleted words (verify deleted words 20-30 can be reselected)
-- [ ] 10.3: Test Scenario 3 - Keep Only on deleted selection (verify 15-25 with deleted 15-20 restores on Keep Only)
-- [ ] 10.4: Test Scenario 4 - Empty output error (delete all words, verify error shown)
-- [ ] 10.5: Test with short videos (<30 seconds)
-- [ ] 10.6: Test with long videos (>10 minutes)
-- [ ] 10.7: Test with hundreds of words (large transcripts)
-- [ ] 10.8: Test performance with large datasets
+- [ ] 11.1: Test Scenario 1 - Fine-tuning across words (select 1-10, drag end to middle of 7, verify selection updates to 1-6)
+- [ ] 11.2: Test Scenario 2 - Selecting deleted words (verify deleted words 20-30 can be reselected)
+- [ ] 11.3: Test Scenario 3 - Keep Only on deleted selection (verify 15-25 with deleted 15-20 restores on Keep Only)
+- [ ] 11.4: Test Scenario 4 - Empty output error (delete all words, verify error shown)
+- [ ] 11.5: Test with short videos (<30 seconds)
+- [ ] 11.6: Test with long videos (>10 minutes)
+- [ ] 11.7: Test with hundreds of words (large transcripts)
+- [ ] 11.8: Test performance with large datasets
 
 ### Multi-Language Testing
-- [ ] 10.9: Test with English content
-- [ ] 10.10: Test with RTL languages (Arabic, Hebrew)
-- [ ] 10.11: Test with CJK languages (Chinese, Japanese, Korean)
-- [ ] 10.12: Test with languages containing special characters
-- [ ] 10.13: Verify i18n compliance and accessibility
+- [ ] 11.9: Test with English content
+- [ ] 11.10: Test with RTL languages (Arabic, Hebrew)
+- [ ] 11.11: Test with CJK languages (Chinese, Japanese, Korean)
+- [ ] 11.12: Test with languages containing special characters
+- [ ] 11.13: Verify i18n compliance and accessibility
 
 ### Accessibility Testing
-- [ ] 10.14: Implement keyboard navigation for word selection
-- [ ] 10.15: Add ARIA labels to interactive elements
-- [ ] 10.16: Test screen reader compatibility
-- [ ] 10.17: Ensure proper focus management
-- [ ] 10.18: Test keyboard shortcuts for undo/redo
+- [ ] 11.14: Implement keyboard navigation for word selection
+- [ ] 11.15: Add ARIA labels to interactive elements
+- [ ] 11.16: Test screen reader compatibility
+- [ ] 11.17: Ensure proper focus management
+- [ ] 11.18: Test keyboard shortcuts for undo/redo
 
 ### Performance Optimization
-- [ ] 10.19: Optimize rendering for large word arrays
-- [ ] 10.20: Implement virtual scrolling if needed for long transcripts
-- [ ] 10.21: Optimize video player performance
-- [ ] 10.22: Test memory usage and cleanup
+- [ ] 11.19: Optimize rendering for large word arrays
+- [ ] 11.20: Implement virtual scrolling if needed for long transcripts
+- [ ] 11.21: Optimize video player performance
+- [ ] 11.22: Test memory usage and cleanup
 
 ### Git Branch Merge
 - [ ] **qa-git-2:** Merge feature branch into main — `git checkout main && git merge qa/edge-cases-testing`
@@ -430,20 +464,20 @@
 - [ ] **docs-git-1:** Create new Git branch for this feature — `git checkout -b docs/code-quality`
 
 ### Code Quality Tasks
-- [ ] 11.1: Review all components for Angular style guide compliance
-- [ ] 11.2: Ensure proper TypeScript typing throughout
-- [ ] 11.3: Add JSDoc comments to services and complex methods
-- [ ] 11.4: Implement proper error handling in all services
-- [ ] 11.5: Optimize RxJS subscriptions (unsubscribe, takeUntil patterns)
-- [ ] 11.6: Review and optimize Signal usage
-- [ ] 11.7: Ensure proper component lifecycle management
+- [ ] 12.1: Review all components for Angular style guide compliance
+- [ ] 12.2: Ensure proper TypeScript typing throughout
+- [ ] 12.3: Add JSDoc comments to services and complex methods
+- [ ] 12.4: Implement proper error handling in all services
+- [ ] 12.5: Optimize RxJS subscriptions (unsubscribe, takeUntil patterns)
+- [ ] 12.6: Review and optimize Signal usage
+- [ ] 12.7: Ensure proper component lifecycle management
 
 ### Documentation Tasks
-- [ ] 11.8: Document component interfaces and inputs/outputs
-- [ ] 11.9: Document service APIs and method signatures
-- [ ] 11.10: Create inline comments for complex logic
-- [ ] 11.11: Document state management patterns
-- [ ] 11.12: Create README with setup instructions
+- [ ] 12.8: Document component interfaces and inputs/outputs
+- [ ] 12.9: Document service APIs and method signatures
+- [ ] 12.10: Create inline comments for complex logic
+- [ ] 12.11: Document state management patterns
+- [ ] 12.12: Create README with setup instructions
 
 ### Git Branch Merge
 - [ ] **docs-git-2:** Merge feature branch into main — `git checkout main && git merge docs/code-quality`
@@ -454,17 +488,17 @@
 
 **Goal:** Prepare application for integration with existing BIGVU frontend infrastructure
 
-- [ ] 12.1: Create environment configuration for production
-- [ ] 12.2: Configure build settings for deployment
-- [ ] 12.3: Create environment variables for data URLs (segmentation, video)
-- [ ] 12.4: Test build process and output
-- [ ] 12.5: Verify all assets are properly bundled
-- [ ] 12.6: Test with production-like data URLs
-- [ ] 12.7: Create deployment checklist
-- [ ] 12.8: Document integration points with existing infrastructure
-- [ ] 12.9: Final cross-browser testing (Chrome, Firefox, Safari, Edge)
-- [ ] 12.10: Final responsive testing across devices
-- [ ] 12.11: Create final git tag for Phase 1 release
+- [ ] 13.1: Create environment configuration for production
+- [ ] 13.2: Configure build settings for deployment
+- [ ] 13.3: Create environment variables for data URLs (segmentation, video)
+- [ ] 13.4: Test build process and output
+- [ ] 13.5: Verify all assets are properly bundled
+- [ ] 13.6: Test with production-like data URLs
+- [ ] 13.7: Create deployment checklist
+- [ ] 13.8: Document integration points with existing infrastructure
+- [ ] 13.9: Final cross-browser testing (Chrome, Firefox, Safari, Edge)
+- [ ] 13.10: Final responsive testing across devices
+- [ ] 13.11: Create final git tag for Phase 1 release
 
 ---
 

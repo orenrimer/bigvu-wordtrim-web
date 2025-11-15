@@ -80,7 +80,6 @@
             <span class="debug-value" *ngIf="timelineService.endHandle()">
                 {{ formatTimeWithMs(timelineService.endHandle()!.time) }}
             </span>
-            <br />
             <span class="debug-value" *ngIf="!timelineService.endHandle()">--:--.---</span>
             <input type="text" class="debug-input" placeholder="MM:SS.mmm"
                 [value]="timelineService.endHandle() ? formatTimeWithMs(timelineService.endHandle()!.time) : ''"

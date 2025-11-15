@@ -17,6 +17,7 @@
   user-select: none;
   transition: all var(--transition-hover);
   border: none;
+  line-height: 140%; // Ensure readable line height
 
   // Ensure proper focus outline for accessibility
   &:focus-visible {
@@ -216,6 +217,21 @@
  */
 [dir="rtl"] .word-chip {
   direction: rtl;
+}
+
+/**
+ * Responsive: Ensure text remains readable at all screen sizes
+ */
+@media (max-width: 768px) {
+  .word-chip {
+    padding: calc(var(--word-chip-padding-y) * 0.9) calc(var(--word-chip-padding-x) * 0.9);
+  }
+}
+
+@media (max-width: 480px) {
+  .word-chip {
+    padding: calc(var(--word-chip-padding-y) * 0.8) calc(var(--word-chip-padding-x) * 0.8);
+  }
 }
 
 /**

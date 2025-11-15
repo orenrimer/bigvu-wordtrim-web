@@ -55,6 +55,7 @@
     --spacing-5: 20px;
     --spacing-6: 24px;
     --spacing-8: 32px;
+    --spacing-9: 40px;
 
     /* ===== Border Radius ===== */
     --radius-sm: 6px;
@@ -87,6 +88,13 @@
     --editor-content-gap: 17px;
     --editor-content-padding-x: 60px;
     --editor-content-padding-y: 40px;
+
+
+    /* Editor Video */
+    --editor-video-gap: 10px;
+    --editor-video-padding: 40px;
+    --editor-video-padding-sm: 32px;
+
 
     /* Word Chip */
     --word-chip-padding-x: 5px;
@@ -135,6 +143,13 @@
     --opacity-disabled: 0.3;
     --opacity-active: 1;
     --opacity-hover: 0.9;
+
+    /* ===== Responsive Breakpoints ===== */
+    --breakpoint-mobile: 768px;
+    --breakpoint-tablet: 1024px;
+    --breakpoint-desktop-sm: 1280px;
+    --breakpoint-desktop-md: 1440px;
+    --breakpoint-desktop-lg: 1920px;
 }
 
 /* ===== Global Styles ===== */
@@ -164,6 +179,7 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+
 /* ===== Utility Classes ===== */
 .text-center {
     text-align: center;
@@ -182,3 +198,18 @@ body {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
 }
+
+/* ===== Responsive Breakpoints Mixins (for reference) ===== */
+/* 
+ * Usage in SCSS files:
+ * @media (max-width: var(--breakpoint-mobile)) { ... }
+ * @media (min-width: var(--breakpoint-tablet)) { ... }
+ * 
+ * Breakpoints:
+ * - Mobile: up to 768px
+ * - Tablet: 769px - 1024px
+ * - Desktop Small: 1025px - 1280px
+ * - Desktop Medium: 1281px - 1440px
+ * - Desktop Large: 1441px - 1920px
+ * - Desktop XL: above 1920px
+ */

@@ -310,14 +310,15 @@
 }
 
 // ===== RESPONSIVE =====
-@media (max-width: 768px) {
+// Tablet (1024px and below)
+@media (max-width: 1024px) {
     .modal-tip {
         width: calc(100vw - var(--spacing-8));
         max-width: var(--tip-modal-width);
-        // Keep centered positioning
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
+        padding: var(--spacing-3);
     }
 
     .modal-video {
@@ -331,6 +332,87 @@
             width: 100%;
             height: auto;
             aspect-ratio: 16 / 9;
+        }
+    }
+}
+
+// Mobile (768px and below)
+@media (max-width: 768px) {
+    .modal-tip {
+        width: calc(100vw - var(--spacing-6));
+        max-width: calc(var(--tip-modal-width) * 0.95);
+        padding: var(--spacing-3);
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+
+        .modal-header {
+            gap: var(--spacing-1);
+            margin-bottom: var(--spacing-3);
+
+            .info-icon {
+                width: 20px;
+                height: 20px;
+            }
+
+        }
+
+        .modal-text {
+            margin: 0 0 var(--spacing-4) 0;
+        }
+
+        .show-me-button {
+            padding: var(--spacing-1) var(--spacing-4);
+        }
+    }
+
+    .modal-video {
+        width: calc(100vw - var(--spacing-6));
+        max-width: calc(var(--tutorial-modal-width) * 0.95);
+        padding: var(--spacing-3);
+        bottom: var(--spacing-3);
+        inset-inline-start: var(--spacing-3);
+        border-radius: var(--radius-xl);
+
+        .modal-title-dark {
+            font-size: var(--font-size-18);
+            margin: 0 0 var(--spacing-3) 0;
+            padding-inline-end: var(--spacing-6);
+        }
+
+        .video-container {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 16 / 9;
+        }
+    }
+}
+
+// Very small screens (below 480px)
+@media (max-width: 480px) {
+    .modal-tip {
+        width: calc(100vw - var(--spacing-4));
+        padding: var(--spacing-2);
+
+        .modal-header {
+            .modal-title {
+                font-size: var(--font-size-12);
+            }
+        }
+
+        .modal-text {
+            font-size: var(--font-size-10);
+        }
+    }
+
+    .modal-video {
+        width: calc(100vw - var(--spacing-4));
+        padding: var(--spacing-2);
+        bottom: var(--spacing-2);
+        inset-inline-start: var(--spacing-2);
+
+        .modal-title-dark {
+            font-size: var(--font-size-16);
         }
     }
 }
