@@ -435,13 +435,15 @@ export class TimelineComponent implements OnInit, OnDestroy {
             const currentStart = this.editorStateService.selectionStart();
 
             if (currentEnd && currentStart) {
-                // If we have end word, play segment from start word to end word
-                // Always use 33% margin from end word to prevent spillover (play 2/3 of word)
-                const endWordDuration = currentEnd.end - currentEnd.start;
-                const margin = endWordDuration * (1.0 / 3.0);
+                // Play segment from start to end using fine-tuned handle positions
+                // Use handle positions if available (fine-tuned), otherwise use word boundaries
+                const startHandle = this.timelineService.startHandle();
+                const endHandle = this.timelineService.endHandle();
 
-                const playStart = currentStart.start;
-                const playEnd = currentEnd.end - margin;
+                // Use handle positions if available (fine-tuned), otherwise use word boundaries
+                const playStart = startHandle?.time ?? currentStart.start;
+                const playEnd = endHandle?.time ?? currentEnd.end;
+
                 this.videoPlayerService.playSegment(playStart, playEnd);
             } else if (currentStart) {
                 // If no end word, play from start word beginning with deleted skipping

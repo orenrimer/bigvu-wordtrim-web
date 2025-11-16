@@ -73,11 +73,14 @@ export class VideoPlayerService {
     private previewEndTime: number | null = null;
     private isEditedPlaybackMode = false;
     private deletedSegments: Array<{ start: number; end: number }> = [];
+    private lastSkipTarget: number | null = null; // Track last skip target for logging
+    private lastSeekTime: number | null = null; // Track last seek time to prevent infinite loops
 
     // Smooth playback checks
     private playbackCheckInterval: number | null = null;
     private readonly PLAYBACK_CHECK_INTERVAL_MS = 16; // Check every ~16ms (60 FPS) for accurate preview/skip
     private readonly PREVIEW_STOP_THRESHOLD_MS = 0.05; // Stop if within 50ms of preview end time
+    private readonly DELETED_SEGMENT_SKIP_THRESHOLD_MS = 0.05; // Skip if within 50ms of deleted segment start
 
     // Loading timeout
     private loadingTimeout: number | null = null;
@@ -195,6 +198,48 @@ export class VideoPlayerService {
             this._currentTime.set(this.videoElement.currentTime);
             // Check preview end on timeupdate for more precise stopping
             this.checkPreviewEnd();
+            // Check deleted segments on timeupdate for more precise skipping
+            if (this.isEditedPlaybackMode && this.deletedSegments.length > 0) {
+                this.skipDeletedSegments();
+            }
+            // Log skip accuracy if we just performed a skip
+            if (this.lastSkipTarget !== null) {
+                const currentTime = this.videoElement.currentTime;
+                const seekAccuracy = Math.abs(currentTime - this.lastSkipTarget);
+                // Only log if we're close to the skip target (within 0.1s) to avoid false positives
+                if (seekAccuracy < 0.1) {
+                    console.log('[SKIP] Deleted segment skip - AFTER:', {
+                        actualTime: currentTime.toFixed(6) + 's',
+                        expectedTime: this.lastSkipTarget.toFixed(6) + 's',
+                        seekAccuracy: seekAccuracy.toFixed(6) + 's',
+                        seekPrecision: seekAccuracy < 0.001 ? 'EXACT' : seekAccuracy < 0.01 ? 'GOOD' : 'APPROXIMATE'
+                    });
+
+                    // If seek accuracy is not exact, do another seek to improve precision
+                    // But only if we haven't already tried recently (prevent infinite loops)
+                    if (seekAccuracy >= 0.001) {
+                        const now = Date.now();
+                        // Only seek again if we haven't tried in the last 100ms
+                        if (this.lastSeekTime === null || (now - this.lastSeekTime) > 100) {
+                            // Seek again to exact position for better precision
+                            this.seek(this.lastSkipTarget);
+                            this.lastSeekTime = now;
+                        } else {
+                            // Already tried recently, accept current accuracy
+                            this.lastSkipTarget = null;
+                            this.lastSeekTime = null;
+                        }
+                    } else {
+                        // Seek was accurate enough, clear the tracking
+                        this.lastSkipTarget = null;
+                        this.lastSeekTime = null;
+                    }
+                } else {
+                    // Too far from target, clear tracking (might be a different skip)
+                    this.lastSkipTarget = null;
+                    this.lastSeekTime = null;
+                }
+            }
         });
 
         // Duration change event
@@ -398,69 +443,23 @@ export class VideoPlayerService {
     }
 
     /**
-     * Calculate deleted segments from words array
-     * Includes margin before deleted segment (33% of previous word) to prevent audio spillover
-     * Plays 2/3 of the previous word before skipping
-     * @param words Array of words with states
-     * @returns Array of deleted time segments with pre-skip margin
+     * Get deleted segments from editor state service
+     * Uses fine-tuned handle positions stored in editor state
+     * These segments contain the exact deletion boundaries (including fine-tuned positions)
+     * @param words Array of words with states (unused, kept for compatibility)
+     * @returns Array of deleted time segments with exact boundaries
      */
     private calculateDeletedSegments(words: Word[]): Array<{ start: number; end: number }> {
-        const segments: Array<{ start: number; end: number }> = [];
-        let currentDeletedStart: number | null = null;
-        let deleteSegmentStartIndex: number | null = null;
-
-        for (let i = 0; i < words.length; i++) {
-            const word = words[i];
-
-            // Check all deleted states (including deleted+selected)
-            const isDeleted = word.state === WordState.DELETED ||
-                word.state === WordState.DELETED_SELECTED_START ||
-                word.state === WordState.DELETED_SELECTED_END ||
-                word.state === WordState.DELETED_SELECTED_RANGE;
-
-            if (isDeleted) {
-                // Start of deleted segment
-                if (currentDeletedStart === null) {
-                    deleteSegmentStartIndex = i;
-
-                    // Start skipping from 2/3 of the previous word (play 2/3, skip last 1/3)
-                    if (i > 0) {
-                        const prevWord = words[i - 1];
-                        const prevWordDuration = prevWord.end - prevWord.start;
-                        const prevWordSkipPoint = prevWord.start + (prevWordDuration * (2.0 / 3.0));
-                        currentDeletedStart = prevWordSkipPoint;
-                    } else {
-                        // First word is deleted - start from beginning
-                        currentDeletedStart = word.start;
-                    }
-                }
-            } else {
-                // End of deleted segment
-                if (currentDeletedStart !== null) {
-                    segments.push({
-                        start: currentDeletedStart,
-                        end: words[i - 1].end
-                    });
-                    currentDeletedStart = null;
-                    deleteSegmentStartIndex = null;
-                }
-            }
-        }
-
-        // Handle case where last word(s) are deleted
-        if (currentDeletedStart !== null) {
-            segments.push({
-                start: currentDeletedStart,
-                end: words[words.length - 1].end
-            });
-        }
-
-        return segments;
+        // Use deleted segments from editor state service
+        // These segments already contain fine-tuned handle positions
+        // No need to recalculate - just return the exact segments
+        return this.editorStateService.deletedSegments();
     }
 
     /**
      * Skip deleted segments during edited playback
-     * Deleted segments already include 33% pre-margin from previous word (play 2/3 of previous word)
+     * Uses exact deletion boundaries from editor state (including fine-tuned handle positions)
+     * Uses early detection and seek to ensure precise skipping at segment boundaries
      * If in preview mode with end time, ensure we don't skip past it
      */
     private skipDeletedSegments(): void {
@@ -470,8 +469,10 @@ export class VideoPlayerService {
 
         // Check if current time is within a deleted segment
         for (const segment of this.deletedSegments) {
-            if (currentTime >= segment.start && currentTime < segment.end) {
-                // Skip target is end of segment (no additional margin needed)
+            const isWithinSegment = currentTime >= segment.start && currentTime < segment.end;
+
+            if (isWithinSegment) {
+                // Skip target is end of segment (exact position)
                 let skipTarget = segment.end;
 
                 // If in preview mode, don't skip past the preview end time
@@ -491,8 +492,22 @@ export class VideoPlayerService {
                 // Clamp to video duration
                 skipTarget = Math.min(skipTarget, this._duration());
 
-                // Skip to end of deleted segment (or preview end, whichever is earlier)
+                // Log skip details for debugging
+                const timeDifference = skipTarget - currentTime;
+                console.log('[SKIP] Deleted segment skip - BEFORE:', {
+                    currentTime: currentTime.toFixed(6) + 's',
+                    skipTarget: skipTarget.toFixed(6) + 's',
+                    segmentStart: segment.start.toFixed(6) + 's',
+                    segmentEnd: segment.end.toFixed(6) + 's',
+                    timeDifference: timeDifference.toFixed(6) + 's',
+                    skipPrecision: Math.abs(timeDifference) < 0.001 ? 'EXACT' : 'APPROXIMATE'
+                });
+
+                // Seek to exact end of deleted segment for precise skipping
+                // Early detection is handled by frequent checks (16ms interval + timeupdate event)
+                this.lastSkipTarget = skipTarget; // Store for logging in timeupdate
                 this.seek(skipTarget);
+
                 break;
             }
         }
@@ -620,14 +635,16 @@ export class VideoPlayerService {
                     return;
                 }
 
-                // Complete selection - play from start word beginning to end word end (skipping deleted words)
-                // Always use 33% margin from end word to prevent spillover (play 2/3 of word)
-                const endWordDuration = selectionEnd.end - selectionEnd.start;
-                const margin = endWordDuration * (1.0 / 3.0);
+                // Complete selection - play from start to end (skipping deleted words)
+                // ALWAYS use fine-tuned handle positions for precise stopping
+                // If handles exist, use their exact positions; otherwise use word boundaries
+                const startHandle = this.timelineService.startHandle();
+                const endHandle = this.timelineService.endHandle();
 
-                // Play from start of first word to end of last word (with margin)
-                const playStart = selectionStart.start;
-                const playEnd = selectionEnd.end - margin;
+                // Use handle positions if available (fine-tuned), otherwise use word boundaries
+                // playSelectedSegment will stop exactly at playEnd using checkPreviewEnd()
+                const playStart = startHandle?.time ?? selectionStart.start;
+                const playEnd = endHandle?.time ?? selectionEnd.end;
 
                 this.playSelectedSegment(words, playStart, playEnd);
             } else if (selectionStart) {
