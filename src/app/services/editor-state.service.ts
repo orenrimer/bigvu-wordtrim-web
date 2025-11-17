@@ -437,10 +437,49 @@ export class EditorStateService {
     public updateCurrentPlaybackWord(currentTime: number): void {
         const words = this._words();
 
-        // Find word at current time
-        const currentWord = words.find(w =>
-            currentTime >= w.start && currentTime <= w.end
+        // Strategy: Find the word that best matches the current time
+        // Priority 1: Word where time is within the word (start <= time < end)
+        // Priority 2: Word where time is very close to start (within 50ms before start)
+        // This prevents selecting the previous word when starting playback at word.start
+
+        // First, try to find word where time is within the word boundaries
+        let currentWord = words.find(w =>
+            currentTime >= w.start && currentTime < w.end
         );
+
+        // If not found, check if we're very close to a word start (within 50ms before)
+        // This handles cases where seek is slightly before word.start due to precision issues
+        // Find the word with the smallest distance to its start
+        if (!currentWord) {
+            let closestWord: { word: typeof words[0]; distance: number } | null = null;
+
+            for (const word of words) {
+                const timeUntilStart = word.start - currentTime;
+                if (timeUntilStart >= 0 && timeUntilStart <= 0.05) { // Within 50ms before start
+                    if (!closestWord || timeUntilStart < closestWord.distance) {
+                        closestWord = { word, distance: timeUntilStart };
+                    }
+                }
+            }
+
+            if (closestWord) {
+                currentWord = closestWord.word;
+            }
+        }
+
+        // If still not found, check if time is exactly at word.end (within 10ms tolerance)
+        if (!currentWord) {
+            currentWord = words.find(w =>
+                Math.abs(currentTime - w.end) < 0.01 && currentTime >= w.start
+            );
+        }
+
+        // Final fallback: original logic (for edge cases)
+        if (!currentWord) {
+            currentWord = words.find(w =>
+                currentTime >= w.start && currentTime <= w.end
+            );
+        }
 
         if (currentWord) {
             this._currentPlaybackWordIndex.set(currentWord.index);

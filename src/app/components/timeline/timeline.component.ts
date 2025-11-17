@@ -157,7 +157,7 @@ export class TimelineComponent implements OnInit, OnDestroy {
         // Set up debounced handle drag updates
         // Debounce selection updates during drag for smoother UX
         this.handleDragSubject.pipe(
-            debounceTime(100), // Wait 100ms after last drag event
+            debounceTime(50), // Wait 100ms after last drag event
             takeUntil(this.destroy$)
         ).subscribe(() => {
             this.updateSelectionFromHandles();
