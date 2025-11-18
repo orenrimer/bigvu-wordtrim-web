@@ -487,7 +487,6 @@ export class VideoPlayerService {
             const timeAfterSegmentStart = currentTime - segment.start; // How much we've passed segment start
 
             // Early detection: anticipate segment start with frame-aware timing
-            // Use 8ms threshold to account for video frame timing (typical frame is ~16ms at 60fps, ~33ms at 30fps)
             // This allows skipping just before entering the segment, preventing any visible playback
             const isVeryCloseToSegmentStart = timeUntilSegmentStart >= 0 && timeUntilSegmentStart <= this.DELETED_SEGMENT_EARLY_DETECTION_MS;
 
@@ -523,16 +522,12 @@ export class VideoPlayerService {
                 skipTarget = Math.min(skipTarget, this._duration());
 
                 // Log skip details for debugging
-                const timeDifference = skipTarget - currentTime;
                 console.log('[SKIP] Deleted segment skip - BEFORE:', {
                     currentTime: currentTime.toFixed(6) + 's',
-                    skipTarget: skipTarget.toFixed(6) + 's',
                     segmentStart: segment.start.toFixed(6) + 's',
                     segmentEnd: segment.end.toFixed(6) + 's',
+                    skipTarget: skipTarget.toFixed(6) + 's',
                     seekAccuracy: currentTime - segment.start + 's',
-                    earlyDetection: (isVeryCloseToSegmentStart || justEnteredSegment || isVeryCloseToSegmentEnd) ? 'YES' : 'NO',
-                    earlyDetectionType: isVeryCloseToSegmentStart ? 'BEFORE_START' : justEnteredSegment ? 'JUST_ENTERED' : isVeryCloseToSegmentEnd ? 'NEAR_END' : 'NONE',
-                    timeAfterStart: timeAfterSegmentStart >= 0 ? timeAfterSegmentStart.toFixed(6) + 's' : 'N/A'
                 });
 
                 // Seek directly to end of deleted segment

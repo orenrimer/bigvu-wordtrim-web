@@ -1,13 +1,17 @@
 <div class="wordtrim-editor">
+    <!-- Main Heading (visually hidden but accessible) -->
+    <h1 class="sr-only">Video Editor - Word Selection Tool</h1>
+
     <!-- Main Content - Two Column Layout -->
     <!-- Show layout if video data is ready (even if segmentation failed) -->
     <div *ngIf="isVideoDataReady() && !isLoadingVideoData()" class="editor-layout">
         <!-- Left Column: Video Player + Timeline -->
-        <div class="editor-layout__video">
+        <div class="editor-layout__video" role="region" aria-label="Video player and timeline">
+            <h2 class="sr-only">Video Player and Timeline</h2>
             <!-- Video Player Error State - Show only when there's an error -->
-            <div *ngIf="hasVideoPlayerError()" class="video-error-section">
+            <div *ngIf="hasVideoPlayerError()" class="video-error-section" role="alert">
                 <div class="error-card">
-                    <h2>Failed to Load Video</h2>
+                    <h3>Failed to Load Video</h3>
                     <p class="error-message">{{ videoPlayerErrorMessage() }}</p>
                 </div>
             </div>
@@ -16,13 +20,29 @@
             <app-video-player *ngIf="!hasVideoPlayerError()"></app-video-player>
 
             <!-- Timeline (Always visible) -->
-            <div class="timeline-section">
+            <div class="timeline-section" role="region" aria-label="Timeline">
+                <h3 class="sr-only">Timeline</h3>
                 <app-timeline></app-timeline>
             </div>
         </div>
 
         <!-- Right Column: Transcript/Words Area -->
-        <div class="editor-layout__transcript">
+        <div class="editor-layout__transcript" role="region" aria-label="Transcript and word selection">
+            <h2 class="sr-only">Transcript and Word Selection</h2>
+            <!-- ARIA Live Region for Selection Changes -->
+            <div aria-live="polite" aria-atomic="true" class="sr-only">
+                <span *ngIf="hasSelection() && !hasCompleteSelection()">
+                    Start word selected: {{ selectionStart()?.word }}
+                </span>
+                <span *ngIf="hasCompleteSelection()">
+                    Selection: {{ selectedWords().length }} words from "{{ selectionStart()?.word }}" to "{{
+                    selectionEnd()?.word }}"
+                </span>
+                <span *ngIf="!hasSelection()">
+                    Selection cleared
+                </span>
+            </div>
+
             <!-- Selection Info Panel (for testing/debugging) -->
             <div class="selection-info" *ngIf="!isLoading() && hasWords() && hasSelection()">
                 <div class="selection-info-content">
@@ -50,9 +70,10 @@
                 <app-skeleton-loader *ngIf="isLoading()" [wordCount]="50"></app-skeleton-loader>
 
                 <!-- Error State - Show if segmentation failed (but not for empty data) -->
-                <div *ngIf="hasError() && !isLoading() && !isEmptySegmentationError()" class="transcript-error-section">
+                <div *ngIf="hasError() && !isLoading() && !isEmptySegmentationError()" class="transcript-error-section"
+                    role="alert">
                     <div class="error-card">
-                        <h2>Failed to Load Transcription</h2>
+                        <h3>Failed to Load Transcription</h3>
                         <p class="error-message">{{ error() || 'Unknown error loading segmentation data' }}</p>
                     </div>
                 </div>
@@ -64,9 +85,10 @@
                             {{ formatTimestamp(timestamp) }}
                         </span>
                     </div>
-                    <div class="words-container">
+                    <div class="words-container" role="group" aria-label="Word selection">
                         <app-word-chip *ngFor="let word of words()" [word]="word"
-                            [currentPlaybackWordIndex]="currentPlaybackWordIndex()" (wordClicked)="onWordClick($event)">
+                            [currentPlaybackWordIndex]="currentPlaybackWordIndex()" (wordClicked)="onWordClick($event)"
+                            (arrowKeyPressed)="onArrowKeyPressed(word, $event)">
                         </app-word-chip>
                     </div>
                 </div>
@@ -83,7 +105,7 @@
     </div>
 
     <!-- Error State (only show if video data failed to load) -->
-    <div *ngIf="hasVideoDataError()" class="error-section">
+    <div *ngIf="hasVideoDataError()" class="error-section" role="alert">
         <div class="error-card">
             <h2>Failed to Load Video Data</h2>
             <p class="error-message">{{ videoDataError() || 'Unknown error loading video data' }}</p>

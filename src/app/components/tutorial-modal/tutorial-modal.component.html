@@ -17,7 +17,7 @@
 
         <!-- Header with Info Icon -->
         <div class="modal-header">
-            <svg class="info-icon" width="24" height="24" viewBox="0 0 24 24" fill="none"
+            <svg class="info-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"
                 xmlns="http://www.w3.org/2000/svg">
                 <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
                 <path d="M12 16V12M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
@@ -31,7 +31,7 @@
         </p>
 
         <!-- Show Me How Button -->
-        <button class="show-me-button" (click)="showVideo()" type="button">
+        <button class="show-me-button" (click)="showVideo()" type="button" aria-label="Show tutorial video">
             Show Me How
         </button>
     </div>
@@ -58,9 +58,10 @@
             </video>
 
             <!-- Centered Play Button (when paused) -->
-            <div class="center-play-overlay" *ngIf="!isPlaying()" (click)="onTogglePlayPause()" title="Play">
+            <div class="center-play-overlay" *ngIf="!isPlaying()" (click)="onTogglePlayPause()" 
+                role="button" aria-label="Play tutorial video" tabindex="0" title="Play">
                 <div class="play-button-circle">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="white" aria-hidden="true">
                         <path d="M8 5v14l11-7z" />
                     </svg>
                 </div>

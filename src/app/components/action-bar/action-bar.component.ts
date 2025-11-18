@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ButtonComponent } from '../button/button.component';
 import { EditorStateService } from '../../services/editor-state.service';
@@ -33,6 +33,9 @@ export class ActionBarComponent {
     private readonly historyService = inject(HistoryService);
     private readonly timelineService = inject(TimelineService);
     private readonly outputGenerator = inject(OutputGeneratorService);
+
+    // Signal for ARIA live region announcements
+    public readonly actionAnnouncement = signal<string>('');
 
     // Computed signals for button states based on selection
 
@@ -157,6 +160,10 @@ export class ActionBarComponent {
         // deleteSelectedWords will save the fine-tuned segment internally
         this.editorState.deleteSelectedWords(fineTunedStart, fineTunedEnd);
         // Current state (after action) is NOT saved - it's the current viewing state
+
+        // Announce action for screen readers
+        const wordCount = this.selectedWords().length;
+        this.actionAnnouncement.set(`Removed ${wordCount} ${wordCount === 1 ? 'word' : 'words'} from selection`);
     }
 
     /**
@@ -182,6 +189,10 @@ export class ActionBarComponent {
         // Pass fine-tuned handle times if available to ensure correct deleted segments
         this.editorState.keepOnlySelectedWords(fineTunedStart, fineTunedEnd);
         // Current state (after action) is NOT saved - it's the current viewing state
+
+        // Announce action for screen readers
+        const wordCount = this.selectedWords().length;
+        this.actionAnnouncement.set(`Kept only ${wordCount} ${wordCount === 1 ? 'word' : 'words'}, removed all others`);
     }
 
     /**
@@ -208,6 +219,10 @@ export class ActionBarComponent {
         // Pass fine-tuned handle times to ensure correct deleted segments are removed
         this.editorState.restoreSelectedWords(fineTunedStart, fineTunedEnd);
         // Current state (after action) is NOT saved - it's the current viewing state
+
+        // Announce action for screen readers
+        const restoredCount = this.deletedWordsInSelection();
+        this.actionAnnouncement.set(`Restored ${restoredCount} ${restoredCount === 1 ? 'word' : 'words'}`);
     }
 
     /**
@@ -224,6 +239,9 @@ export class ActionBarComponent {
 
         this.editorState.clearSelection();
         // Current state (after action) is NOT saved - it's the current viewing state
+
+        // Announce action for screen readers
+        this.actionAnnouncement.set('Selection cleared');
     }
 
     // ========== Placeholder handlers for future features ==========
@@ -291,6 +309,7 @@ export class ActionBarComponent {
 
         if (previousState) {
             this.restoreState(previousState);
+            this.actionAnnouncement.set('Undo completed');
         }
     }
 
@@ -308,6 +327,7 @@ export class ActionBarComponent {
 
         if (nextState) {
             this.restoreState(nextState);
+            this.actionAnnouncement.set('Redo completed');
         }
     }
 

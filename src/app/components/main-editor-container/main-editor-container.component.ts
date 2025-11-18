@@ -36,6 +36,8 @@ import { Word } from '../../models';
   styleUrl: './main-editor-container.component.scss'
 })
 export class MainEditorContainerComponent implements OnInit {
+  // No need for ViewChildren - we'll use document.querySelector instead
+
   // Expose video data service signals to template
   videoDataLoadingState = this.videoDataService.loadingState;
   videoDataError = this.videoDataService.error;
@@ -255,6 +257,44 @@ export class MainEditorContainerComponent implements OnInit {
     this.segmentationService.reset();
     this.editorState.reset();
     this.loadVideoMetadata();
+  }
+
+  /**
+   * Handle arrow key navigation between words
+   * Moves focus to the next or previous word chip
+   * @param currentWord The word that currently has focus
+   * @param direction 'left' for previous word, 'right' for next word
+   */
+  onArrowKeyPressed(currentWord: Word, direction: 'left' | 'right'): void {
+    const words = this.words();
+    if (words.length === 0) return;
+
+    const currentIndex = currentWord.index;
+    let targetIndex: number;
+
+    if (direction === 'right') {
+      // Find next word (wrap to first if at end)
+      targetIndex = currentIndex + 1;
+      if (targetIndex >= words.length) {
+        targetIndex = 0; // Wrap to first word
+      }
+    } else {
+      // Find previous word (wrap to last if at start)
+      targetIndex = currentIndex - 1;
+      if (targetIndex < 0) {
+        targetIndex = words.length - 1; // Wrap to last word
+      }
+    }
+
+    // Find the corresponding word chip element and focus it
+    // Use setTimeout to ensure DOM is updated after Angular change detection
+    setTimeout(() => {
+      // Find the word chip element by data-index attribute
+      const targetElement = document.querySelector(`[data-index="${targetIndex}"].word-chip`) as HTMLElement;
+      if (targetElement) {
+        targetElement.focus();
+      }
+    }, 0);
   }
 
   /**

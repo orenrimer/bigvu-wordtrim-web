@@ -1,5 +1,16 @@
 <div class="action-bar" role="toolbar" aria-label="Segment actions">
-    <div class="action-bar-content">
+    <!-- ARIA Descriptions for Actions -->
+    <div id="action-bar-description" class="sr-only">
+        Use these actions to edit your video segments. Remove deletes selected words, Keep Only keeps selected words and
+        removes all others, Restore restores deleted words, and Unselect clears the selection.
+    </div>
+
+    <!-- ARIA Live Region for Action Announcements -->
+    <div aria-live="polite" aria-atomic="true" class="sr-only">
+        {{ actionAnnouncement() }}
+    </div>
+
+    <div class="action-bar-content" aria-describedby="action-bar-description">
         <!-- Action Bar Items -->
         <div class="action-bar-items">
 

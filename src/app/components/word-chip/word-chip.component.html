@@ -1,7 +1,15 @@
 <div class="word-chip" [attr.data-state]="word.state" [attr.data-index]="word.index"
     [class.current-playback]="isCurrentPlaybackWord"
     [attr.aria-label]="'Word: ' + word.word + (showTiming ? ', Time: ' + formattedTiming : '')" [attr.role]="'button'"
-    [attr.tabindex]="0" (click)="onClick()" (keydown.enter)="onClick()" (keydown.space)="onClick()">
+    [attr.aria-selected]="isSelected" [attr.aria-pressed]="isSelected" [attr.aria-describedby]="'word-chip-description'"
+    [attr.tabindex]="0" (click)="onClick()" (keydown.enter)="onClick()" (keydown.space)="onClick()"
+    (keydown)="onKeyDown($event)">
+
+    <!-- ARIA Description for Word Chips -->
+    <div id="word-chip-description" class="sr-only">
+        Click once to select a single word. Click start and end words to create a segment selection. Use arrow keys to
+        navigate between words.
+    </div>
 
     <span class="word-text">{{ word.word }}</span>
 

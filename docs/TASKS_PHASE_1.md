@@ -465,87 +465,120 @@
 
 ---
 
-## FEATURE 12: Edge Cases & Quality Assurance
+## FEATURE 12: Accessibility
+
+### Git Branch Setup
+- [ ] **feature12-git-1:** Create new Git branch for this feature — `git checkout -b feature/accessibility`
+
+### Keyboard Navigation
+- [ ] 12.1: Implement keyboard navigation for word selection (Arrow keys, Tab, Enter)
+- [ ] 12.2: Add keyboard support for timeline handle dragging (Arrow keys for fine-tuning)
+- [ ] 12.3: Implement keyboard shortcuts for segment actions (Remove, Keep Only, Restore, Unselect)
+- [ ] 12.4: Add keyboard shortcuts for undo/redo (Ctrl+Z, Ctrl+Y or Cmd+Z, Cmd+Y)
+- [ ] 12.5: Implement keyboard navigation for video player controls (Space for play/pause)
+- [ ] 12.6: Add keyboard support for tutorial modal (Escape to close, Tab to navigate)
+
+### ARIA Labels & Semantic HTML
+- [ ] 12.7: Add ARIA labels to all interactive elements (buttons, word chips, handles)
+- [ ] 12.8: Implement proper ARIA roles (button, region, slider, dialog)
+- [ ] 12.9: Add ARIA live regions for dynamic content updates (selection changes, actions)
+- [ ] 12.10: Ensure proper semantic HTML structure (use proper heading hierarchy)
+- [ ] 12.11: Add ARIA descriptions for complex interactions (timeline handles, fine-tuning)
+- [ ] 12.12: Implement ARIA states (aria-pressed, aria-selected, aria-disabled)
+
+### Focus Management
+- [ ] 12.13: Implement proper focus management for modal dialogs (trap focus, return focus on close)
+- [ ] 12.14: Ensure focus indicators are visible and meet WCAG contrast requirements
+- [ ] 12.15: Implement logical tab order throughout the application
+- [ ] 12.16: Ensure focus is properly managed during dynamic content updates
+
+### Testing Tasks
+- [ ] 12.17: Test keyboard navigation flow end-to-end
+- [ ] 12.18: Test with keyboard-only navigation (no mouse)
+- [ ] 12.19: Verify all interactive elements are reachable via keyboard
+- [ ] 12.20: Test focus management in modal dialogs
+- [ ] 12.21: Verify ARIA labels are properly announced
+
+### Git Branch Merge
+- [ ] **feature12-git-2:** Merge feature branch into main — `git checkout main && git merge feature/accessibility`
+
+---
+
+## FEATURE 13: Edge Cases & Quality Assurance
 
 ### Git Branch Setup
 - [ ] **qa-git-1:** Create new Git branch for this feature — `git checkout -b qa/edge-cases-testing`
 
 ### Edge Case Testing
-- [ ] 12.1: Test Scenario 1 - Fine-tuning across words (select 1-10, drag end to middle of 7, verify selection updates to 1-6)
-- [ ] 12.2: Test Scenario 2 - Selecting deleted words (verify deleted words 20-30 can be reselected)
-- [ ] 12.3: Test Scenario 3 - Keep Only on deleted selection (verify 15-25 with deleted 15-20 restores on Keep Only)
-- [ ] 12.4: Test Scenario 4 - Empty output error (delete all words, verify error shown)
-- [ ] 12.5: Test with short videos (<30 seconds)
-- [ ] 12.6: Test with long videos (>10 minutes)
-- [ ] 12.7: Test with hundreds of words (large transcripts)
-- [ ] 12.8: Test performance with large datasets
+- [ ] 13.1: Test Scenario 1 - Fine-tuning across words (select 1-10, drag end to middle of 7, verify selection updates to 1-6)
+- [ ] 13.2: Test Scenario 2 - Selecting deleted words (verify deleted words 20-30 can be reselected)
+- [ ] 13.3: Test Scenario 3 - Keep Only on deleted selection (verify 15-25 with deleted 15-20 restores on Keep Only)
+- [ ] 13.4: Test Scenario 4 - Empty output error (delete all words, verify error shown)
+- [ ] 13.5: Test with short videos (<30 seconds)
+- [ ] 13.6: Test with long videos (>10 minutes)
+- [ ] 13.7: Test with hundreds of words (large transcripts)
+- [ ] 13.8: Test performance with large datasets
 
 ### Multi-Language Testing
-- [ ] 12.9: Test with English content
-- [ ] 12.10: Test with RTL languages (Arabic, Hebrew)
-- [ ] 12.11: Test with CJK languages (Chinese, Japanese, Korean)
-- [ ] 12.12: Test with languages containing special characters
-- [ ] 12.13: Verify i18n compliance and accessibility
-
-### Accessibility Testing
-- [ ] 12.14: Implement keyboard navigation for word selection
-- [ ] 12.15: Add ARIA labels to interactive elements
-- [ ] 12.16: Test screen reader compatibility
-- [ ] 12.17: Ensure proper focus management
-- [ ] 12.18: Test keyboard shortcuts for undo/redo
+- [ ] 13.9: Test with English content
+- [ ] 13.10: Test with RTL languages (Arabic, Hebrew)
+- [ ] 13.11: Test with CJK languages (Chinese, Japanese, Korean)
+- [ ] 13.12: Test with languages containing special characters
+- [ ] 13.13: Verify i18n compliance
 
 ### Performance Optimization
-- [ ] 12.19: Optimize rendering for large word arrays
-- [ ] 12.20: Implement virtual scrolling if needed for long transcripts
-- [ ] 12.21: Optimize video player performance
-- [ ] 12.22: Test memory usage and cleanup
+- [ ] 13.14: Optimize rendering for large word arrays
+- [ ] 13.15: Implement virtual scrolling if needed for long transcripts
+- [ ] 13.16: Optimize video player performance
+- [ ] 13.17: Test memory usage and cleanup
 
 ### Git Branch Merge
 - [ ] **qa-git-2:** Merge feature branch into main — `git checkout main && git merge qa/edge-cases-testing`
 
 ---
 
-## FEATURE 13: Code Quality & Documentation
+## FEATURE 14: Code Quality & Documentation
 
 ### Git Branch Setup
 - [ ] **docs-git-1:** Create new Git branch for this feature — `git checkout -b docs/code-quality`
 
 ### Code Quality Tasks
-- [ ] 13.1: Review all components for Angular style guide compliance
-- [ ] 13.2: Ensure proper TypeScript typing throughout
-- [ ] 13.3: Add JSDoc comments to services and complex methods
-- [ ] 13.4: Implement proper error handling in all services
-- [ ] 13.5: Optimize RxJS subscriptions (unsubscribe, takeUntil patterns)
-- [ ] 13.6: Review and optimize Signal usage
-- [ ] 13.7: Ensure proper component lifecycle management
+- [ ] 14.1: Review all components for Angular style guide compliance
+- [ ] 14.2: Ensure proper TypeScript typing throughout
+- [ ] 14.3: Add JSDoc comments to services and complex methods
+- [ ] 14.4: Implement proper error handling in all services
+- [ ] 14.5: Optimize RxJS subscriptions (unsubscribe, takeUntil patterns)
+- [ ] 14.6: Review and optimize Signal usage
+- [ ] 14.7: Ensure proper component lifecycle management
 
 ### Documentation Tasks
-- [ ] 13.8: Document component interfaces and inputs/outputs
-- [ ] 13.9: Document service APIs and method signatures
-- [ ] 13.10: Create inline comments for complex logic
-- [ ] 13.11: Document state management patterns
-- [ ] 13.12: Create README with setup instructions
+- [ ] 14.8: Document component interfaces and inputs/outputs
+- [ ] 14.9: Document service APIs and method signatures
+- [ ] 14.10: Create inline comments for complex logic
+- [ ] 14.11: Document state management patterns
+- [ ] 14.12: Create README with setup instructions
 
 ### Git Branch Merge
 - [ ] **docs-git-2:** Merge feature branch into main — `git checkout main && git merge docs/code-quality`
 
 ---
 
-## FEATURE 14: Deployment & Integration Preparation
+## FEATURE 15: Deployment & Integration Preparation
 
 **Goal:** Prepare application for integration with existing BIGVU frontend infrastructure
 
-- [ ] 14.1: Create environment configuration for production
-- [ ] 14.2: Configure build settings for deployment
-- [ ] 14.3: Create environment variables for data URLs (segmentation, video)
-- [ ] 14.4: Test build process and output
-- [ ] 14.5: Verify all assets are properly bundled
-- [ ] 14.6: Test with production-like data URLs
-- [ ] 14.7: Create deployment checklist
-- [ ] 14.8: Document integration points with existing infrastructure
-- [ ] 14.9: Final cross-browser testing (Chrome, Firefox, Safari, Edge)
-- [ ] 14.10: Final responsive testing across devices
-- [ ] 14.11: Create final git tag for Phase 1 release
+- [ ] 15.1: Create environment configuration for production
+- [ ] 15.2: Configure build settings for deployment
+- [ ] 15.3: Create environment variables for data URLs (segmentation, video)
+- [ ] 15.4: Test build process and output
+- [ ] 15.5: Verify all assets are properly bundled
+- [ ] 15.6: Test with production-like data URLs
+- [ ] 15.7: Create deployment checklist
+- [ ] 15.8: Document integration points with existing infrastructure
+- [ ] 15.9: Final cross-browser testing (Chrome, Firefox, Safari, Edge)
+- [ ] 15.10: Final responsive testing across devices
+- [ ] 15.11: Final accessibility testing and verification
+- [ ] 15.12: Create final git tag for Phase 1 release
 
 ---
 
@@ -567,6 +600,6 @@
 - [ ] All edge cases handled and tested
 - [ ] Code follows Angular style guide and best practices
 - [ ] Works with multiple languages (LTR and RTL)
-- [ ] Accessibility requirements met (keyboard navigation, screen readers)
+- [ ] Accessibility requirements met (WCAG AA compliance, keyboard navigation, screen readers, ARIA labels)
 - [ ] Performance optimized for large transcripts
 
