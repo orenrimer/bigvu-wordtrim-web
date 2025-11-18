@@ -1,20 +1,9 @@
 import { Injectable, signal, computed, effect, inject } from '@angular/core';
 import Hls from 'hls.js';
-import { Word, WordState } from '../models';
+import { Word, WordState, VideoPlayerState } from '../models';
 import { EditorStateService } from './editor-state.service';
 import { TimelineService } from './timeline.service';
 import { HlsLoaderService } from './hls-loader.service';
-
-/**
- * Video Player State
- */
-export interface VideoPlayerState {
-    isPlaying: boolean;
-    currentTime: number;
-    duration: number;
-    isLoading: boolean;
-    error: string | null;
-}
 
 /**
  * Aspect Ratio Types
@@ -218,8 +207,7 @@ export class VideoPlayerService {
                     console.log('[SKIP] Deleted segment skip - AFTER:', {
                         actualTime: currentTime.toFixed(6) + 's',
                         expectedTime: this.lastSkipTarget.toFixed(6) + 's',
-                        seekAccuracy: seekAccuracy.toFixed(6) + 's',
-                        seekPrecision: seekAccuracy <= this.SEEK_ACCURACY_THRESHOLD_MS ? 'EXACT' : seekAccuracy < 0.01 ? 'GOOD' : 'APPROXIMATE'
+                        seekAccuracy: seekAccuracy.toFixed(6) + 's'
                     });
 
                     // If seek accuracy is not good enough and seeked event hasn't cleared the flag yet,
