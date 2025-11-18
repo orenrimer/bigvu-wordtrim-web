@@ -143,8 +143,6 @@ export class ActionBarComponent {
             // Use fine-tuned handle times (sub-word precision)
             fineTunedStart = startHandle.time;
             fineTunedEnd = endHandle.time;
-
-            console.log(`Deleted segment with fine-tuned times: [${fineTunedStart.toFixed(3)}s - ${fineTunedEnd.toFixed(3)}s]`);
         } else {
             // No handles - use word boundaries (fallback)
             const selected = this.editorState.selectedWords();

@@ -157,10 +157,36 @@ export class TimelineComponent implements OnInit, OnDestroy {
         // Set up debounced handle drag updates
         // Debounce selection updates during drag for smoother UX
         this.handleDragSubject.pipe(
-            debounceTime(50), // Wait 100ms after last drag event
+            debounceTime(50), // Wait 50ms after last drag event
             takeUntil(this.destroy$)
         ).subscribe(() => {
             this.updateSelectionFromHandles();
+        });
+    }
+
+    /**
+     * Validate thumbnail URL by attempting to load it
+     * @param url Thumbnail URL to validate
+     * @returns Promise that resolves to true if thumbnail loads successfully, false otherwise
+     */
+    private async validateThumbnailUrl(url: string): Promise<boolean> {
+        return new Promise((resolve) => {
+            const img = new Image();
+            const timeout = setTimeout(() => {
+                resolve(false);
+            }, 5000); // 5 second timeout
+
+            img.onload = () => {
+                clearTimeout(timeout);
+                resolve(true);
+            };
+
+            img.onerror = () => {
+                clearTimeout(timeout);
+                resolve(false);
+            };
+
+            img.src = url;
         });
     }
 
@@ -189,10 +215,29 @@ export class TimelineComponent implements OnInit, OnDestroy {
         let selectedThumbnailUrl: string | null = null;
         if (thumbnails && thumbnails.length > 0) {
             // Use VideoDataService to select appropriate thumbnail based on stream size
-            try {
-                selectedThumbnailUrl = this.videoDataService.selectThumbnail(thumbnails);
-            } catch (error) {
-                // Silently fail - will use gradient placeholder
+            // Returns null if no valid thumbnails are available (handles gracefully)
+            selectedThumbnailUrl = this.videoDataService.selectThumbnail(thumbnails);
+
+            // If thumbnail URL is selected, validate it can be loaded
+            if (selectedThumbnailUrl) {
+                // Pre-validate thumbnail URL (will fallback to gradient if invalid)
+                this.validateThumbnailUrl(selectedThumbnailUrl).then((isValid: boolean) => {
+                    if (!isValid) {
+                        // If thumbnail fails to load, remove it from frames
+                        this.videoFrames.forEach(frame => {
+                            if (frame.thumbnail === selectedThumbnailUrl) {
+                                frame.thumbnail = null;
+                            }
+                        });
+                    }
+                }).catch(() => {
+                    // If validation fails, remove thumbnail from frames
+                    this.videoFrames.forEach(frame => {
+                        if (frame.thumbnail === selectedThumbnailUrl) {
+                            frame.thumbnail = null;
+                        }
+                    });
+                });
             }
         }
 

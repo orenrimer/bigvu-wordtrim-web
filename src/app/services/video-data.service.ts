@@ -45,7 +45,7 @@ export class VideoDataService {
      */
     loadVideoMetadata(index: number = environment.videoDataIndex || 1): Observable<VideoMetadata> {
         // Validate index range
-        if (index < 1 || index > 20) {
+        if (index < 1 || index > 21) {
             const errorMsg = `Invalid video index: ${index}. Must be between 1 and 20.`;
             this._error.set(errorMsg);
             this._loadingState.set('error');
@@ -118,7 +118,8 @@ export class VideoDataService {
             17: 'video_17_68ea1f19d34c72b3d113d323.json',
             18: 'video_18_68d2b7cad7b7b6597f417c92.json',
             19: 'video_19_68bd7f973618d7dca4a072fa.json',
-            20: 'video_20_68b172ca92c2257b94a10c01.json'
+            20: 'video_20_68b172ca92c2257b94a10c01.json',
+            21: 'video_21_68563edbdf2c5f9ae19c116b copy.json'
         };
 
         return fileNames[index] || `video_${index}_unknown.json`;
@@ -151,16 +152,25 @@ export class VideoDataService {
         }
 
         // Extract thumbnails array from videos[0].thumbnails
-        if (!video.thumbnails || !Array.isArray(video.thumbnails) || video.thumbnails.length === 0) {
-            throw new Error('Missing thumbnails array in video data');
-        }
+        // Don't throw error if thumbnails are missing - use empty array instead
+        let thumbnails: Array<{ width: number; height: number; url: string }> = [];
 
-        // Map thumbnails to our format
-        const thumbnails = video.thumbnails.map((thumb: any) => ({
-            width: thumb.width,
-            height: thumb.height,
-            url: thumb.url
-        }));
+        if (video.thumbnails && Array.isArray(video.thumbnails) && video.thumbnails.length > 0) {
+            // Map thumbnails to our format and validate URLs
+            thumbnails = video.thumbnails
+                .map((thumb: any) => ({
+                    width: thumb.width || 0,
+                    height: thumb.height || 0,
+                    url: thumb.url || ''
+                }))
+                .filter((thumb: { width: number; height: number; url: string }) => {
+                    // Filter out thumbnails with invalid URLs
+                    return thumb.url &&
+                        typeof thumb.url === 'string' &&
+                        thumb.url.trim().length > 0 &&
+                        this.isValidUrl(thumb.url);
+                });
+        }
 
         const metadata: VideoMetadata = {
             hlsPlaylistUrl: video.hlsPlaylistUrl,
@@ -176,11 +186,23 @@ export class VideoDataService {
      * Select appropriate thumbnail based on stream size
      * Prefers thumbnail closest to 640x360 (timeline display size)
      * @param thumbnails Array of thumbnail objects
-     * @returns Selected thumbnail URL
+     * @returns Selected thumbnail URL or null if no valid thumbnails available
      */
-    selectThumbnail(thumbnails: Array<{ width: number; height: number; url: string }>): string {
-        if (thumbnails.length === 0) {
-            throw new Error('No thumbnails available');
+    selectThumbnail(thumbnails: Array<{ width: number; height: number; url: string }>): string | null {
+        if (!thumbnails || thumbnails.length === 0) {
+            return null;
+        }
+
+        // Filter out thumbnails with invalid URLs
+        const validThumbnails = thumbnails.filter(thumb =>
+            thumb.url &&
+            typeof thumb.url === 'string' &&
+            thumb.url.trim().length > 0 &&
+            this.isValidUrl(thumb.url)
+        );
+
+        if (validThumbnails.length === 0) {
+            return null;
         }
 
         // Target size for timeline (640x360)
@@ -188,10 +210,10 @@ export class VideoDataService {
         const targetHeight = 360;
 
         // Find thumbnail closest to target size
-        let closestThumbnail = thumbnails[0];
-        let minDistance = Math.abs(thumbnails[0].width - targetWidth) + Math.abs(thumbnails[0].height - targetHeight);
+        let closestThumbnail = validThumbnails[0];
+        let minDistance = Math.abs(validThumbnails[0].width - targetWidth) + Math.abs(validThumbnails[0].height - targetHeight);
 
-        for (const thumb of thumbnails) {
+        for (const thumb of validThumbnails) {
             const distance = Math.abs(thumb.width - targetWidth) + Math.abs(thumb.height - targetHeight);
             if (distance < minDistance) {
                 minDistance = distance;
@@ -200,6 +222,40 @@ export class VideoDataService {
         }
 
         return closestThumbnail.url;
+    }
+
+    /**
+     * Validate URL format
+     * Checks if URL is a valid HTTP/HTTPS URL or relative path
+     * @param url URL string to validate
+     * @returns true if URL is valid, false otherwise
+     */
+    private isValidUrl(url: string): boolean {
+        if (!url || typeof url !== 'string') {
+            return false;
+        }
+
+        try {
+            // Check if it's a valid absolute URL (http/https)
+            if (url.startsWith('http://') || url.startsWith('https://')) {
+                new URL(url);
+                return true;
+            }
+
+            // Check if it's a valid relative path (starts with / or ./)
+            if (url.startsWith('/') || url.startsWith('./') || url.startsWith('../')) {
+                return true;
+            }
+
+            // Check if it's a data URL
+            if (url.startsWith('data:')) {
+                return true;
+            }
+
+            return false;
+        } catch {
+            return false;
+        }
     }
 
     /**
