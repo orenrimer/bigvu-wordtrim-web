@@ -1,31 +1,6 @@
 import { Injectable, signal, computed } from '@angular/core';
-import { Word } from '../models';
-import { HandlePosition } from './timeline.service';
+import { EditorStateSnapshot } from '../models';
 import { environment } from '../../environments/environment';
-
-/**
- * Editor State Snapshot
- * Represents a complete snapshot of the editor state at a point in time
- * Used for undo/redo functionality
- */
-export interface EditorStateSnapshot {
-    /** Array of words with their current states */
-    words: Word[];
-    /** Current selection start word (or null) */
-    selectionStart: Word | null;
-    /** Current selection end word (or null) */
-    selectionEnd: Word | null;
-    /** Timeline start handle position (or null) */
-    startHandle: HandlePosition | null;
-    /** Timeline end handle position (or null) */
-    endHandle: HandlePosition | null;
-    /** Deleted segments with fine-tuned handle times */
-    deletedSegments: Array<{ start: number; end: number }>;
-    /** Flag indicating if this is the initial baseline state (first frame) */
-    isInitialState?: boolean;
-    /** Flag indicating if this snapshot was created after an action bar action (Remove, Keep Only, Restore, Unselect) */
-    isActionBarAction?: boolean;
-}
 
 /**
  * History Service
@@ -142,7 +117,7 @@ export class HistoryService {
 
         if (history.length === 0) {
             if (environment.enableDebugLogs) {
-            console.log('[HistoryService] undo() - No history, returning null');
+                console.log('[HistoryService] undo() - No history, returning null');
             }
             return null;
         }
@@ -161,7 +136,7 @@ export class HistoryService {
         // Check if we're restoring to the initial state
         const isRestoringToInitial = previousState.isInitialState ||
             (newHistoryStack.length === 0 && this._initialState &&
-                !previousState.selectionStart && !previousState.selectionEnd);
+                !previousState.selectionStartIndex && !previousState.selectionEndIndex);
 
         if (isRestoringToInitial) {
             // We're restoring to initial state - mark as at initial state
@@ -195,7 +170,7 @@ export class HistoryService {
 
         if (redo.length === 0) {
             if (environment.enableDebugLogs) {
-            console.log('[HistoryService] redo() - No redo available, returning null');
+                console.log('[HistoryService] redo() - No redo available, returning null');
             }
             return null;
         }
@@ -235,8 +210,24 @@ export class HistoryService {
      * Helper method to format state snapshot for logging
      */
     private formatState(state: EditorStateSnapshot): string {
-        const start = state.selectionStart ? `${state.selectionStart.word}(${state.selectionStart.index})` : 'null';
-        const end = state.selectionEnd ? `${state.selectionEnd.word}(${state.selectionEnd.index})` : 'null';
+        // Support both new and legacy formats
+        let start: string;
+        let end: string;
+
+        if (state.selectionStartIndex !== undefined && state.selectionStartIndex !== null) {
+            // New format: use index (we don't have word text, so just show index)
+            start = `index(${state.selectionStartIndex})`;
+        } else {
+            start = 'null';
+        }
+
+        if (state.selectionEndIndex !== undefined && state.selectionEndIndex !== null) {
+            // New format: use index
+            end = `index(${state.selectionEndIndex})`;
+        } else {
+            end = 'null';
+        }
+
         const initial = state.isInitialState ? ' [INITIAL]' : '';
         return `(${start} -> ${end})${initial}`;
     }
@@ -280,19 +271,17 @@ export class HistoryService {
      * @returns Deep copy of snapshot
      */
     private deepCopySnapshot(snapshot: EditorStateSnapshot): EditorStateSnapshot {
-        // Words are already deep copied in captureState(), but we need to copy array reference
-        // and ensure all properties are isolated
+        // OPTIMIZATION: Only copy word states array (much smaller than full words array)
         return {
-            words: snapshot.words.map(word => ({ ...word })),
-            selectionStart: snapshot.selectionStart ? { ...snapshot.selectionStart } : null,
-            selectionEnd: snapshot.selectionEnd ? { ...snapshot.selectionEnd } : null,
+            wordStates: snapshot.wordStates ? [...snapshot.wordStates] : [],
+            selectionStartIndex: snapshot.selectionStartIndex ?? null,
+            selectionEndIndex: snapshot.selectionEndIndex ?? null,
             startHandle: snapshot.startHandle ? { ...snapshot.startHandle } : null,
             endHandle: snapshot.endHandle ? { ...snapshot.endHandle } : null,
             deletedSegments: snapshot.deletedSegments ? snapshot.deletedSegments.map(seg => ({ ...seg })) : [],
-            // Preserve the isInitialState flag when copying
+            // Preserve flags
             isInitialState: snapshot.isInitialState,
-            // Preserve the isActionBarAction flag when copying
-            isActionBarAction: snapshot.isActionBarAction
+            isActionBarAction: snapshot.isActionBarAction,
         };
     }
 }

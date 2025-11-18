@@ -1,6 +1,5 @@
 import { Injectable, signal, computed, effect, inject } from '@angular/core';
-import { Word, WordState } from '../models';
-import { EditorStateSnapshot } from './history.service';
+import { Word, WordState, EditorStateSnapshot } from '../models';
 import { HandlePosition } from './timeline.service';
 
 /**
@@ -602,18 +601,20 @@ export class EditorStateService {
      * @returns Editor state snapshot (deep copy)
      */
     public captureState(startHandle: HandlePosition | null, endHandle: HandlePosition | null): EditorStateSnapshot {
-        // Create deep copy of words array to prevent reference issues
-        // This is done here instead of in HistoryService to avoid double copying
-        const snapshot = {
-            words: this._words().map(word => ({ ...word })),
-            selectionStart: this._selectionStart() ? { ...this._selectionStart()! } : null,
-            selectionEnd: this._selectionEnd() ? { ...this._selectionEnd()! } : null,
+        const words = this._words();
+
+        // OPTIMIZATION: Only store word states, not full word objects
+        // Word properties (text, start, end, confidence, index) never change
+        const wordStates = words.map(word => word.state);
+
+        return {
+            wordStates: wordStates,
+            selectionStartIndex: this._selectionStart()?.index ?? null,
+            selectionEndIndex: this._selectionEnd()?.index ?? null,
             startHandle: startHandle ? { ...startHandle } : null,
             endHandle: endHandle ? { ...endHandle } : null,
             deletedSegments: this._deletedSegments().map(seg => ({ ...seg }))
         };
-
-        return snapshot;
     }
 
     /**
@@ -622,14 +623,26 @@ export class EditorStateService {
      * @param snapshot State snapshot to restore
      */
     public restoreState(snapshot: EditorStateSnapshot): void {
+        // Get current words (word properties never change, only states)
+        const currentWords = this._words();
 
-        // Step 1: Restore words array (states are already set in snapshot)
-        // IMPORTANT: Word states in snapshot are already correct, so we restore them as-is
-        const restoredWords = snapshot.words.map(word => ({ ...word }));
+        // Step 1: Restore word states
+        let restoredWords: Word[];
+
+        if (snapshot.wordStates && snapshot.wordStates.length > 0) {
+            // New optimized format: only states array
+            restoredWords = currentWords.map((word, index) => ({
+                ...word,
+                state: snapshot.wordStates[index] ?? word.state
+            }));
+        } else {
+            // Fallback: use current words as-is
+            restoredWords = currentWords.map(word => ({ ...word }));
+        }
+
         this._words.set(restoredWords);
 
         // Step 2: Restore deleted segments with fine-tuned times
-        // Fallback to empty array for old snapshots that don't have deletedSegments
         const restoredDeletedSegments = (snapshot.deletedSegments || []).map(seg => ({ ...seg }));
         this._deletedSegments.set(restoredDeletedSegments);
 
@@ -637,22 +650,20 @@ export class EditorStateService {
         console.log('deletedSegments after UNDO:', this._deletedSegments());
 
         // Step 3: Restore selection AFTER words array is set
-        // Use Map for O(1) lookup instead of O(n) find operations
-        const wordsByIndex = new Map<number, Word>();
-        restoredWords.forEach(word => {
-            wordsByIndex.set(word.index, word);
-        });
+        // Support both new format (indices) and legacy format (Word objects)
+        let restoredStart: Word | null = null;
+        let restoredEnd: Word | null = null;
 
-        const restoredStart = snapshot.selectionStart
-            ? wordsByIndex.get(snapshot.selectionStart.index) || null
-            : null;
-        const restoredEnd = snapshot.selectionEnd
-            ? wordsByIndex.get(snapshot.selectionEnd.index) || null
-            : null;
-
+        if (snapshot.selectionStartIndex !== undefined && snapshot.selectionStartIndex !== null) {
+            // New format: use index
+            restoredStart = restoredWords.find(w => w.index === snapshot.selectionStartIndex!) ?? null;
+        }
+        if (snapshot.selectionEndIndex !== undefined && snapshot.selectionEndIndex !== null) {
+            // New format: use index
+            restoredEnd = restoredWords.find(w => w.index === snapshot.selectionEndIndex!) ?? null;
+        }
 
         // Step 4: Set selection signals - this will trigger timeline effect to update handles
-        // Set both signals in the same change detection cycle to avoid intermediate states
         this._selectionStart.set(restoredStart);
         this._selectionEnd.set(restoredEnd);
 

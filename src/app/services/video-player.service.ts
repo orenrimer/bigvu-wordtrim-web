@@ -196,13 +196,6 @@ export class VideoPlayerService {
         this.videoElement.addEventListener('pause', () => {
             this._isPlaying.set(false);
             this.stopPlaybackCheck();
-
-            // Clean up seeked listener on pause to prevent issues
-            if (this.seekedEventListener && this.videoElement) {
-                this.videoElement.removeEventListener('seeked', this.seekedEventListener);
-                this.seekedEventListener = null;
-            }
-            this.pendingSkipTarget = null;
         });
 
         // Time update event - update current time signal and check preview end
@@ -499,9 +492,14 @@ export class VideoPlayerService {
             const timeUntilSegmentEnd = segment.end - currentTime;
             const timeAfterSegmentStart = currentTime - segment.start; // How much we've passed segment start
 
-            // Early detection: skip if very close to segment start (within 10ms before)
-            // This allows us to catch the segment start before entering it
-            const isVeryCloseToSegmentStart = timeUntilSegmentStart >= 0 && timeUntilSegmentStart <= this.DELETED_SEGMENT_EARLY_DETECTION_MS;
+            // Early detection: skip if very close to segment start
+            // Use threshold that accounts for interval check frequency (16ms)
+            // If we're closer than the interval, skip now to avoid entering the segment
+            const earlyDetectionThreshold = Math.max(
+                this.DELETED_SEGMENT_EARLY_DETECTION_MS,
+                this.PLAYBACK_CHECK_INTERVAL_MS * 1 / 1000 // interval in seconds
+            );
+            const isVeryCloseToSegmentStart = timeUntilSegmentStart >= 0 && timeUntilSegmentStart <= earlyDetectionThreshold;
 
             // Early detection: skip if we just entered the segment (within 10ms after start)
             // This ensures we skip immediately when entering, improving consistency
@@ -541,78 +539,22 @@ export class VideoPlayerService {
                     skipTarget: skipTarget.toFixed(6) + 's',
                     segmentStart: segment.start.toFixed(6) + 's',
                     segmentEnd: segment.end.toFixed(6) + 's',
-                    timeDifference: timeDifference.toFixed(6) + 's',
                     skipPrecision: Math.abs(timeDifference) < 0.001 ? 'EXACT' : 'APPROXIMATE',
                     earlyDetection: (isVeryCloseToSegmentStart || justEnteredSegment || isVeryCloseToSegmentEnd) ? 'YES' : 'NO',
                     earlyDetectionType: isVeryCloseToSegmentStart ? 'BEFORE_START' : justEnteredSegment ? 'JUST_ENTERED' : isVeryCloseToSegmentEnd ? 'NEAR_END' : 'NONE',
                     timeAfterStart: timeAfterSegmentStart >= 0 ? timeAfterSegmentStart.toFixed(6) + 's' : 'N/A'
                 });
 
-                // If we're very close to segment start (before or just after), seek to start first for precision
-                // This ensures we're exactly at the segment boundary before skipping to end
-                if (isVeryCloseToSegmentStart || justEnteredSegment) {
-                    // Set flag to prevent recursive calls
-                    this.isSeekingToSkip = true;
-                    this.pendingSkipTarget = skipTarget;
+                // Seek directly to end of deleted segment
+                // Early detection is handled by frequent checks (16ms interval + timeupdate event)
+                this.isSeekingToSkip = true;
+                this.lastSkipTarget = skipTarget;
+                this.seek(skipTarget);
 
-                    // Remove previous seeked listener if exists
-                    if (this.seekedEventListener && this.videoElement) {
-                        this.videoElement.removeEventListener('seeked', this.seekedEventListener);
-                    }
-
-                    // Create new seeked listener for precise timing
-                    this.seekedEventListener = () => {
-                        if (this.videoElement && this.pendingSkipTarget !== null) {
-                            const now = Date.now();
-                            // Only seek if we haven't tried recently (prevent infinite loops)
-                            if (this.lastSeekTime === null || (now - this.lastSeekTime) > 50) {
-                                // Seek to exact end of deleted segment
-                                this.lastSkipTarget = this.pendingSkipTarget;
-                                this.lastSeekTime = now;
-                                this.seek(this.pendingSkipTarget);
-
-                                // Clear pending target after a short delay
-                                setTimeout(() => {
-                                    this.pendingSkipTarget = null;
-                                    this.isSeekingToSkip = false;
-                                    if (this.seekedEventListener && this.videoElement) {
-                                        this.videoElement.removeEventListener('seeked', this.seekedEventListener);
-                                        this.seekedEventListener = null;
-                                    }
-                                }, 100);
-                            } else {
-                                // Already tried recently, clear everything
-                                this.pendingSkipTarget = null;
-                                this.isSeekingToSkip = false;
-                                if (this.seekedEventListener && this.videoElement) {
-                                    this.videoElement.removeEventListener('seeked', this.seekedEventListener);
-                                    this.seekedEventListener = null;
-                                }
-                            }
-                        }
-                    };
-
-                    // Add seeked listener
-                    if (this.videoElement) {
-                        this.videoElement.addEventListener('seeked', this.seekedEventListener, { once: true });
-                    }
-
-                    // Seek to exact segment start first
-                    // The seeked event will trigger the skip to end
-                    this.seek(segment.start);
-                } else {
-                    // Seek directly to end of deleted segment for precise skipping
-                    // Early detection is handled by frequent checks (16ms interval + timeupdate event)
-                    // Store skip target before seeking to track accuracy
-                    this.isSeekingToSkip = true;
-                    this.lastSkipTarget = skipTarget;
-                    this.seek(skipTarget);
-
-                    // Clear flag after seek
-                    setTimeout(() => {
-                        this.isSeekingToSkip = false;
-                    }, 50); // Clear flag after 50ms
-                }
+                // Clear flag after seek
+                setTimeout(() => {
+                    this.isSeekingToSkip = false;
+                }, 50);
 
                 break;
             }
