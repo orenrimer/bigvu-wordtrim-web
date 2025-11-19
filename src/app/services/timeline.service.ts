@@ -45,9 +45,11 @@ export class TimelineService {
     private readonly _totalDuration = signal<number>(0);
     private readonly _words = signal<Word[]>([]);
     private readonly _isSingleWordMode = signal<boolean>(false); // Track if we're in single-word mode
+    private readonly _isRestoringHandles = signal<boolean>(false); // Flag to prevent effect from updating handles during restore
 
     // Public read-only signals
     public readonly startHandle = this._startHandle.asReadonly();
+    public readonly isRestoringHandles = this._isRestoringHandles.asReadonly();
     public readonly endHandle = this._endHandle.asReadonly();
     public readonly totalDuration = this._totalDuration.asReadonly();
     public readonly isSingleWordMode = this._isSingleWordMode.asReadonly();
@@ -367,12 +369,29 @@ export class TimelineService {
     /**
      * Restore handle positions from snapshot
      * Used by HistoryService for undo/redo
+     * Sets flag to prevent effect from updating handles during restore
      * @param startHandle Start handle position (or null)
      * @param endHandle End handle position (or null)
      */
     public restoreHandles(startHandle: HandlePosition | null, endHandle: HandlePosition | null): void {
+        // Set flag to prevent effect from updating handles
+        this._isRestoringHandles.set(true);
+        
+        // Restore handle positions
         this._startHandle.set(startHandle ? { ...startHandle } : null);
         this._endHandle.set(endHandle ? { ...endHandle } : null);
+        
+        // Update single word mode based on whether end handle exists
+        // If endHandle exists, we're in range selection mode (not single word mode)
+        this._isSingleWordMode.set(!endHandle);
+        
+        // Clear flag after Angular change detection completes
+        // Use requestAnimationFrame to ensure effect has run before clearing flag
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                this._isRestoringHandles.set(false);
+            });
+        });
     }
 }
 

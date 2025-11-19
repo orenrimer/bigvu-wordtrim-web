@@ -85,37 +85,40 @@ export class TimelineComponent implements OnInit, OnDestroy {
         effect(() => {
             const selectionStart = this.editorStateService.selectionStart();
             const selectionEnd = this.editorStateService.selectionEnd();
+            const isRestoringHandles = this.timelineService.isRestoringHandles();
 
             // Don't update handles during drag - allow free positioning
             if (this.isHandleDragging) return;
 
-            // Don't update handles while restoring fine-tuned position
+            // Don't update handles while restoring fine-tuned position (from undo/redo)
+            if (isRestoringHandles) return;
+
+            // Also check local flag for backward compatibility
             if (this.isRestoringHandlePosition) return;
 
             if (selectionStart) {
-                // Check if handles already exist and are within the selected words
-                // If so, preserve their fine-tuned positions (don't snap to word boundaries)
+                // Check if handles already exist
                 const existingStartHandle = this.timelineService.startHandle();
                 const existingEndHandle = this.timelineService.endHandle();
 
-                // Calculate selection range
-                const selectionStartTime = selectionStart.start;
-                const selectionEndTime = selectionEnd ? selectionEnd.end : selectionStart.end;
+                // If handles already exist, preserve them (they may have fine-tuning)
+                // Only update if handles don't exist or if selection changed significantly
+                const hasStartHandle = existingStartHandle !== null;
+                const hasEndHandle = existingEndHandle !== null;
+                const needsEndHandle = selectionEnd !== null;
 
-                // Check if existing handles are within the selection range
-                const startHandleInRange = existingStartHandle &&
-                    existingStartHandle.time >= selectionStartTime &&
-                    existingStartHandle.time <= selectionEndTime;
+                // Only update handles if:
+                // 1. Start handle doesn't exist but selection start exists
+                // 2. End handle doesn't exist but selection end exists (and we need it)
+                // 3. We have end selection but no end handle (or vice versa)
+                const needsUpdate = (!hasStartHandle && selectionStart) ||
+                    (needsEndHandle && !hasEndHandle) ||
+                    (!needsEndHandle && hasEndHandle);
 
-                const endHandleInRange = selectionEnd && existingEndHandle &&
-                    existingEndHandle.time >= selectionStartTime &&
-                    existingEndHandle.time <= selectionEndTime;
-
-                // Only update handles if they don't exist or are outside the selected range
-                // This preserves fine-tuned positions when selection changes but handles are still valid
-                if (!startHandleInRange || (selectionEnd && !endHandleInRange)) {
+                if (needsUpdate) {
                     this.timelineService.setHandlesFromSelection(selectionStart, selectionEnd);
                 }
+                // Otherwise, preserve existing handles (they may have fine-tuning from restore)
             } else {
                 this.timelineService.clearHandles();
             }
