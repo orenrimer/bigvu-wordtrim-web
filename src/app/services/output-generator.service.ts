@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { EditorStateService } from './editor-state.service';
 import { TimelineService } from './timeline.service';
+import { VideoPlayerService } from './video-player.service';
 import { OutputSegment } from '../models';
 import { WordState } from '../models';
 
@@ -22,6 +23,7 @@ import { WordState } from '../models';
 export class OutputGeneratorService {
     private readonly editorState = inject(EditorStateService);
     private readonly timelineService = inject(TimelineService);
+    private readonly videoPlayerService = inject(VideoPlayerService);
 
     /**
      * Generate output array of segments to keep
@@ -37,19 +39,28 @@ export class OutputGeneratorService {
      * @returns Array of output segments or null if empty (all words deleted)
      */
     public generateOutput(): OutputSegment[] | null {
-        // Step 1: Get all non-deleted words
+        // Step 1: Get video duration
+        const videoDuration = this.videoPlayerService.duration();
+        if (!videoDuration || videoDuration <= 0) {
+            return null; // Video not loaded or invalid duration
+        }
+
+        // Step 2: Get all non-deleted words
         const nonDeletedWords = this.editorState.getNonDeletedWords();
 
-        // Step 2: Validate - check if output is empty
+        // Step 3: Validate - check if output is empty
         if (nonDeletedWords.length === 0) {
             return null; // All words deleted - invalid state
         }
 
-        // Step 3: Collect segments from all non-deleted words
-        // Group consecutive words into segments (based on word boundaries)
-        let segments = this.collectSegments(nonDeletedWords);
+        // Step 4: Create initial segment from 0 to video duration
+        // This includes intro (before first word) and outro (after last word)
+        let segments: OutputSegment[] = [{
+            start: 0,
+            end: videoDuration
+        }];
 
-        // Step 4: Apply fine-tuned deleted segment cuts
+        // Step 5: Apply fine-tuned deleted segment cuts
         // According to PRD: "Use the fine-tuned times from timeline handles (not just word boundaries)"
         // When segments were deleted, we saved the fine-tuned handle times
         // Now we need to cut the remaining segments at those exact positions
@@ -61,7 +72,7 @@ export class OutputGeneratorService {
         segments = this.cutSegmentsAtDeletedBoundaries(segments, deletedSegments);
         console.log('generateOutput - segments after cutting:', segments);
 
-        // Step 5: Apply fine-tuned handle positions if there's a current selection
+        // Step 6: Apply fine-tuned handle positions if there's a current selection
         // Handles are always at word boundaries by default, so we simply use handle positions
         const startHandle = this.timelineService.startHandle();
         const endHandle = this.timelineService.endHandle();
@@ -116,11 +127,11 @@ export class OutputGeneratorService {
             }
         }
 
-        // Step 6: Sort chronologically by start time
+        // Step 7: Sort chronologically by start time
         const sortedSegments = this.sortChronologically(segments);
         console.log('generateOutput - segments after fine-tuning:', sortedSegments);
 
-        // Step 7: Validate output (no gaps, proper ordering)
+        // Step 8: Validate output (no gaps, proper ordering)
         this.validateOutput(sortedSegments);
         return sortedSegments;
     }
@@ -228,23 +239,6 @@ export class OutputGeneratorService {
         return result;
     }
 
-    /**
-     * Collect segments from non-deleted words
-     * Creates a single continuous segment from all non-deleted words
-     * Gaps between words are ignored - only deleted segments will cut this segment
-     * @param words Array of non-deleted words
-     * @returns Array of segments (usually one segment unless words array is empty)
-     */
-    private collectSegments(words: any[]): OutputSegment[] {
-        if (words.length === 0) return [];
-
-        // Create a single continuous segment from first word start to last word end
-        // Gaps between words don't matter - only deleted segments will cut this segment later
-        return [{
-            start: words[0].start,
-            end: words[words.length - 1].end
-        }];
-    }
 
 
     /**
