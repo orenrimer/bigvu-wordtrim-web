@@ -5,6 +5,7 @@
     padding: 0;
     display: flex;
     flex-direction: column;
+    overflow: hidden; // Prevent scrolling on main container
 
     // Error State Styling
     .error-section {

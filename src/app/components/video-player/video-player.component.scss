@@ -1,8 +1,15 @@
 // Video Player Container
 .video-player-container {
-    width: 100%;
+    // Width automatically adjusts based on aspect ratio
+    // aspect-ratio and height are set dynamically via [style.aspect-ratio] and [style.height] bindings in template
+    // Aspect ratio is calculated from thumbnails when metadata loads, BEFORE video src is set
     max-width: 832px; // Maximum width for video player
-    max-height: 625.78px; // Maximum height for video player
+    // Height is set dynamically based on aspect ratio:
+    // 16:9 → 468px
+    // 9:16 → 625.78px
+    // 1:1 → 468px
+    // Width will adjust automatically based on aspect-ratio
+    width: auto; // Width adjusts automatically based on aspect-ratio
     position: relative;
     background: #000;
     border-radius: var(--radius-3xl);
@@ -10,7 +17,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    // aspect-ratio is set dynamically via [style.aspect-ratio] binding in template
 
     video {
         width: 100%;
@@ -40,7 +46,8 @@
 @media (max-width: 768px) {
     .video-player-container {
         border-radius: var(--radius-xl);
-        aspect-ratio: 16 / 9; // Always 16:9 on mobile
+        // aspect-ratio is set dynamically via [style.aspect-ratio] binding in template
+        // On mobile, aspectRatioValue computed signal returns '16 / 9'
     }
 }
 

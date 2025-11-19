@@ -66,8 +66,8 @@
 
             <!-- Transcript Content with Timestamps -->
             <div class="transcript-content">
-                <!-- Skeleton Loader - Show while segmentation is loading -->
-                <app-skeleton-loader *ngIf="isLoading()" [wordCount]="50"></app-skeleton-loader>
+                <!-- Skeleton Loader - Show while segmentation is loading or video data is still loading-->
+                <app-skeleton-loader *ngIf="isLoading() || isLoadingVideoData()" [wordCount]="50"></app-skeleton-loader>
 
                 <!-- Error State - Show if segmentation failed (but not for empty data) -->
                 <div *ngIf="hasError() && !isLoading() && !isEmptySegmentationError()" class="transcript-error-section"
@@ -85,7 +85,7 @@
                             {{ formatTimestamp(timestamp) }}
                         </span>
                     </div>
-                    <div class="words-container" role="group" aria-label="Word selection">
+                    <div #wordsContainer class="words-container" role="group" aria-label="Word selection">
                         <app-word-chip *ngFor="let word of words()" [word]="word"
                             [currentPlaybackWordIndex]="currentPlaybackWordIndex()" (wordClicked)="onWordClick($event)"
                             (arrowKeyPressed)="onArrowKeyPressed(word, $event)">
@@ -99,10 +99,7 @@
         </div>
     </div>
 
-    <!-- Loading State (only show if video data is still loading) -->
-    <div *ngIf="isLoadingVideoData()" class="loading-section">
-        <app-skeleton-loader [wordCount]="50"></app-skeleton-loader>
-    </div>
+
 
     <!-- Error State (only show if video data failed to load) -->
     <div *ngIf="hasVideoDataError()" class="error-section" role="alert">
@@ -112,7 +109,8 @@
         </div>
     </div>
 
-    <!-- Tutorial Modal (Feature 7) -->
-    <app-tutorial-modal></app-tutorial-modal>
+    <!-- Tutorial Modal (Feature 7) - Show only when words are loaded and no error -->
+    <app-tutorial-modal
+        *ngIf="!isLoading() && !hasError() && hasWords() && !tutorialService.hasClickedWord()"></app-tutorial-modal>
 
 </div>

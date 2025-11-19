@@ -8,8 +8,8 @@
     }
 
     <!-- TIP MODE -->
-    @if (tutorialService.modalState() === 'tip') {
-    <div class="modal-content modal-tip" dir="auto" role="dialog" aria-modal="false" aria-label="Editing tip">
+    @if (tutorialService.modalState() === 'tip' && isPositionReady()) {
+    <div #tipModal class="modal-content modal-tip" dir="auto" role="dialog" aria-modal="false" aria-label="Editing tip">
         <!-- Close Button -->
         <button class="close-button" (click)="close()" aria-label="Close" type="button">
             <img src="assets/icons/Close.svg" alt="Close" />
@@ -58,8 +58,8 @@
             </video>
 
             <!-- Centered Play Button (when paused) -->
-            <div class="center-play-overlay" *ngIf="!isPlaying()" (click)="onTogglePlayPause()" 
-                role="button" aria-label="Play tutorial video" tabindex="0" title="Play">
+            <div class="center-play-overlay" *ngIf="!isPlaying()" (click)="onTogglePlayPause()" role="button"
+                aria-label="Play tutorial video" tabindex="0" title="Play">
                 <div class="play-button-circle">
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="white" aria-hidden="true">
                         <path d="M8 5v14l11-7z" />

@@ -20,6 +20,7 @@ export interface VideoMetadata {
     segmentationUrl: string;
     thumbnails: Array<{ width: number; height: number; url: string }>;
     duration?: number;
+    aspectRatio: '16:9' | '1:1' | '9:16'; // Aspect ratio calculated from thumbnails
 }
 
 @Injectable({
@@ -172,11 +173,39 @@ export class VideoDataService {
                 });
         }
 
+        // Calculate aspect ratio from thumbnails
+        let aspectRatio: '16:9' | '1:1' | '9:16' = '16:9'; // Default to 16:9
+
+        if (thumbnails && thumbnails.length > 0) {
+            // Use the largest thumbnail for better accuracy
+            const thumbnail = thumbnails.reduce((largest, current) => {
+                const largestSize = largest.width * largest.height;
+                const currentSize = current.width * current.height;
+                return currentSize > largestSize ? current : largest;
+            });
+
+            if (thumbnail.width > 0 && thumbnail.height > 0) {
+                const ratio = thumbnail.width / thumbnail.height;
+                const ratio9_16 = 9 / 16; // 0.5625
+                const ratio1_1 = 1; // 1.0
+                const ratio16_9 = 16 / 9; // 1.777...
+
+                if (Math.abs(ratio - ratio9_16) < 0.1) {
+                    aspectRatio = '9:16';
+                } else if (Math.abs(ratio - ratio1_1) < 0.1) {
+                    aspectRatio = '1:1';
+                } else if (Math.abs(ratio - ratio16_9) < 0.1) {
+                    aspectRatio = '16:9';
+                }
+            }
+        }
+
         const metadata: VideoMetadata = {
             hlsPlaylistUrl: video.hlsPlaylistUrl,
             segmentationUrl: segmentation.url,
             thumbnails: thumbnails,
-            duration: video.duration
+            duration: video.duration,
+            aspectRatio: aspectRatio
         };
 
         return metadata;

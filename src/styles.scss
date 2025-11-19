@@ -94,8 +94,8 @@
     --editor-video-gap: 10px;
     --editor-video-padding: 40px;
     --editor-video-padding-sm: 32px;
-
-
+    --editor-video-width-sm: 280px;
+    --editor-video-width-lg: 832px;
     /* Word Chip */
     --word-chip-padding-x: 5px;
     --word-chip-padding-y: 3px;
@@ -155,6 +155,14 @@
 /* ===== Global Styles ===== */
 * {
     box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body {
+    height: 100%;
+    overflow: hidden; // Prevent page-level scrolling
     margin: 0;
     padding: 0;
 }

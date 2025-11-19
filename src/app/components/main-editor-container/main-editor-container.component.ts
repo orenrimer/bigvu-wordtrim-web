@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, effect } from '@angular/core';
+import { Component, OnInit, computed, effect, AfterViewInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SegmentationLoaderService } from '../../services/segmentation-loader.service';
 import { EditorStateService } from '../../services/editor-state.service';
@@ -35,8 +35,12 @@ import { Word } from '../../models';
   templateUrl: './main-editor-container.component.html',
   styleUrl: './main-editor-container.component.scss'
 })
-export class MainEditorContainerComponent implements OnInit {
-  // No need for ViewChildren - we'll use document.querySelector instead
+export class MainEditorContainerComponent implements OnInit, AfterViewInit {
+  // ViewChild reference to words-container for CSS custom property positioning
+  @ViewChild('wordsContainer', { static: false }) wordsContainerRef!: ElementRef<HTMLElement>;
+
+  // Track if tip has been shown to prevent showing it multiple times
+  private tipShown = false;
 
   // Expose video data service signals to template
   videoDataLoadingState = this.videoDataService.loadingState;
@@ -159,9 +163,45 @@ export class MainEditorContainerComponent implements OnInit {
     private editorState: EditorStateService,
     private videoService: VideoPlayerService,
     public timelineService: TimelineService,
-    private tutorialService: TutorialService,
+    public tutorialService: TutorialService,
     private historyService: HistoryService
   ) {
+    // Update words-container position when words are loaded
+    effect(() => {
+      const words = this.words();
+      if (words.length > 0) {
+        // Words are loaded, update position immediately
+        this.updateWordsContainerPosition();
+      }
+    });
+
+    // Auto-show tutorial tip only after words are loaded (Feature 7)
+    effect(() => {
+      const words = this.words();
+      const loadingState = this.loadingState();
+      const hasError = this.hasError();
+
+      // Only show tip if:
+      // 1. Words are loaded (length > 0)
+      // 2. Loading is complete (success state)
+      // 3. No error occurred
+      // 4. User hasn't clicked a word before (first visit)
+      // 5. Tip hasn't been shown yet (prevent multiple shows)
+      if (words.length > 0 &&
+        loadingState === 'success' &&
+        !hasError &&
+        !this.tutorialService.hasClickedWord() &&
+        !this.tipShown) {
+        // Mark tip as shown to prevent showing it again
+        this.tipShown = true;
+        // Update position first, then show tip
+        this.updateWordsContainerPosition().then(() => {
+          // Position updated, show tip
+          // The modal will only display when position is ready (checked in TutorialModalComponent)
+          this.tutorialService.showTip();
+        });
+      }
+    });
     // Effect: Sync current playback word with video time
     // Always highlight current word during playback
     effect(() => {
@@ -186,16 +226,98 @@ export class MainEditorContainerComponent implements OnInit {
       if (modalState === 'video' && isPlaying) {
         this.videoService.pause();
       }
+
+      // Update words-container position when tip modal opens
+      if (modalState === 'tip') {
+        setTimeout(() => this.updateWordsContainerPosition(), 100);
+      }
     });
   }
 
   ngOnInit(): void {
     // STEP 1: Load video metadata JSON first (FEATURE 11)
     this.loadVideoMetadata();
-
-    // Auto-show tutorial tip on initial load (Feature 7)
-    this.tutorialService.autoShowOnInit();
   }
+
+  ngAfterViewInit(): void {
+    // Set CSS custom property for words-container left position
+    // This allows the tutorial modal to align with words-container using pure CSS
+    this.updateWordsContainerPosition();
+
+    // Update position on window resize
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', () => this.updateWordsContainerPosition());
+    }
+  }
+
+  private updateWordsContainerPosition(): Promise<boolean> {
+    return new Promise((resolve) => {
+      // Retry mechanism in case ViewChild isn't immediately available
+      let retryCount = 0;
+      const maxRetries = 30; // Max 30 retries (1500ms total) - increased for initial load
+
+      const tryUpdate = () => {
+        if (this.wordsContainerRef?.nativeElement) {
+          const rect = this.wordsContainerRef.nativeElement.getBoundingClientRect();
+
+          // Only update if element has valid dimensions
+          if (rect.width > 0 && rect.height > 0) {
+            // Set CSS custom property on :root for global access
+            document.documentElement.style.setProperty('--words-container-left', `${rect.left}px`);
+
+            // Calculate top position based on first word chip element
+            const firstWordChip = this.wordsContainerRef.nativeElement.querySelector('app-word-chip');
+            if (firstWordChip) {
+              const firstChipRect = firstWordChip.getBoundingClientRect();
+              if (firstChipRect.width > 0 && firstChipRect.height > 0) {
+                const lineHeight = parseFloat(getComputedStyle(this.wordsContainerRef.nativeElement).lineHeight) ||
+                  parseFloat(getComputedStyle(firstWordChip).lineHeight) ||
+                  (window.innerWidth <= 768 ? 1.75 * 16 : 2.5 * 16); // fallback based on screen size
+                const spacing = 16; // var(--spacing-4)
+                const topPosition = firstChipRect.top + lineHeight + spacing;
+                document.documentElement.style.setProperty('--words-container-top', `${topPosition}px`);
+
+                // Set transform to none when using custom property (for responsive breakpoints)
+                document.documentElement.style.setProperty('--words-container-transform', 'none');
+
+                // Position successfully updated
+                resolve(true);
+                return;
+              }
+            } else {
+              // Fallback: use container top + line height + spacing
+              const lineHeight = parseFloat(getComputedStyle(this.wordsContainerRef.nativeElement).lineHeight) ||
+                (window.innerWidth <= 768 ? 1.75 * 16 : 2.5 * 16);
+              const spacing = 16;
+              const topPosition = rect.top + lineHeight + spacing;
+              document.documentElement.style.setProperty('--words-container-top', `${topPosition}px`);
+
+              // Set transform to none when using custom property (for responsive breakpoints)
+              document.documentElement.style.setProperty('--words-container-transform', 'none');
+
+              // Position successfully updated
+              resolve(true);
+              return;
+            }
+          }
+        }
+
+        // Element not ready yet, retry
+        if (retryCount < maxRetries) {
+          retryCount++;
+          setTimeout(tryUpdate, 50);
+        } else {
+          // If element not found after retries, reset to fallback (centered)
+          document.documentElement.style.removeProperty('--words-container-left');
+          document.documentElement.style.removeProperty('--words-container-top');
+          document.documentElement.style.removeProperty('--words-container-transform');
+          resolve(false);
+        }
+      };
+      setTimeout(tryUpdate, 0);
+    });
+  }
+
 
   /**
    * Load video metadata JSON file

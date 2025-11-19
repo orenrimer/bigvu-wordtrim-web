@@ -25,6 +25,9 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
     // Video element reference
     @ViewChild('tutorialVideo', { static: false }) videoElementRef!: ElementRef<HTMLVideoElement>;
 
+    // Tip modal element reference
+    @ViewChild('tipModal', { static: false }) tipModalRef!: ElementRef<HTMLElement>;
+
     // Tutorial video URL from environment
     protected readonly tutorialVideoUrl = environment.tutorialVideoUrl;
 
@@ -33,6 +36,9 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
 
     // Video playback state
     protected readonly isPlaying = signal<boolean>(false);
+
+    // Track if position is ready (CSS custom properties are set)
+    protected readonly isPositionReady = signal<boolean>(false);
 
     constructor() {
         // Watch for modal state changes and initialize video when switching to video mode
@@ -59,6 +65,49 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
                 this.destroyHls();
             }
         });
+
+        // Watch for tip mode and check if position is ready
+        effect(() => {
+            const modalState = this.tutorialService.modalState();
+            if (modalState === 'tip') {
+                // Reset position ready state
+                this.isPositionReady.set(false);
+
+                // Check if CSS custom properties are set (position has been calculated)
+                const checkPosition = () => {
+                    const leftValue = getComputedStyle(document.documentElement).getPropertyValue('--words-container-left').trim();
+                    const topValue = getComputedStyle(document.documentElement).getPropertyValue('--words-container-top').trim();
+
+                    if (leftValue && topValue && leftValue !== '' && topValue !== '' && leftValue !== '0px' && topValue !== '0px') {
+                        // Position is ready, show tip
+                        this.isPositionReady.set(true);
+                        return true;
+                    }
+                    return false;
+                };
+
+                // Check immediately first (properties might already be set)
+                if (!checkPosition()) {
+                    // Properties not set yet, retry
+                    let retryCount = 0;
+                    const maxRetries = 60; // Max 60 retries (3000ms total)
+                    const retryCheck = () => {
+                        if (checkPosition()) {
+                            return; // Found, stop retrying
+                        }
+                        if (retryCount < maxRetries) {
+                            retryCount++;
+                            setTimeout(retryCheck, 50);
+                        }
+                        // If max retries reached, don't show tip (no fallback)
+                    };
+                    setTimeout(retryCheck, 50);
+                }
+            } else {
+                // Reset when not in tip mode
+                this.isPositionReady.set(false);
+            }
+        }, { allowSignalWrites: true });
     }
 
     /**

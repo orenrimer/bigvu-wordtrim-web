@@ -4,6 +4,7 @@ import { Word, WordState, VideoPlayerState } from '../models';
 import { EditorStateService } from './editor-state.service';
 import { TimelineService } from './timeline.service';
 import { HlsLoaderService } from './hls-loader.service';
+import { VideoDataService } from './video-data.service';
 
 /**
  * Aspect Ratio Types
@@ -31,6 +32,7 @@ export class VideoPlayerService {
     private editorStateService = inject(EditorStateService);
     private timelineService = inject(TimelineService);
     private hlsLoaderService = inject(HlsLoaderService);
+    private videoDataService = inject(VideoDataService);
 
     // HLS.js instance
     private hls: Hls | null = null;
@@ -44,6 +46,29 @@ export class VideoPlayerService {
     private readonly _error = signal<string | null>(null);
     private readonly _aspectRatio = signal<AspectRatio>('16:9');
     private readonly _videoUrl = signal<string | null>(null);
+
+    constructor() {
+        // Effect: Set aspect ratio IMMEDIATELY when metadata is loaded
+        // This happens BEFORE the video player component is displayed, so the container has correct size
+        effect(() => {
+            const metadata = this.videoDataService.metadata();
+            if (metadata && metadata.aspectRatio) {
+                // Only update if the aspect ratio actually changed to avoid unnecessary updates
+                const currentAspectRatio = this._aspectRatio();
+                if (currentAspectRatio !== metadata.aspectRatio) {
+                    // Set aspect ratio immediately - this happens as soon as metadata is loaded
+                    // The player container will use this aspect ratio to determine its size
+                    this._aspectRatio.set(metadata.aspectRatio);
+                }
+            } else if (!metadata) {
+                // Reset to default when metadata is cleared
+                const currentAspectRatio = this._aspectRatio();
+                if (currentAspectRatio !== '16:9') {
+                    this._aspectRatio.set('16:9');
+                }
+            }
+        }, { allowSignalWrites: true });
+    }
 
     // Public read-only signals
     public readonly isPlaying = this._isPlaying.asReadonly();
@@ -88,6 +113,20 @@ export class VideoPlayerService {
         if (this.loadingTimeout !== null) {
             clearTimeout(this.loadingTimeout);
             this.loadingTimeout = null;
+        }
+    }
+
+    /**
+     * Set aspect ratio from metadata
+     * This allows us to set the aspect ratio before video loads
+     * @param aspectRatio Aspect ratio from metadata ('16:9' | '1:1' | '9:16')
+     */
+    public setAspectRatioFromMetadata(aspectRatio: '16:9' | '1:1' | '9:16' | undefined): void {
+        if (aspectRatio) {
+            this._aspectRatio.set(aspectRatio);
+        } else {
+            // Default to 16:9 if not provided
+            this._aspectRatio.set('16:9');
         }
     }
 
@@ -204,11 +243,11 @@ export class VideoPlayerService {
                 const seekAccuracy = Math.abs(currentTime - this.lastSkipTarget);
                 // Only log if we're close to the skip target (within 0.1s) to avoid false positives
                 if (seekAccuracy < 0.1) {
-                    console.log('[SKIP] Deleted segment skip - AFTER:', {
-                        actualTime: currentTime.toFixed(6) + 's',
-                        expectedTime: this.lastSkipTarget.toFixed(6) + 's',
-                        seekAccuracy: seekAccuracy.toFixed(6) + 's'
-                    });
+                    // console.log('[SKIP] Deleted segment skip - AFTER:', {
+                    //     actualTime: currentTime.toFixed(6) + 's',
+                    //     expectedTime: this.lastSkipTarget.toFixed(6) + 's',
+                    //     seekAccuracy: seekAccuracy.toFixed(6) + 's'
+                    // });
 
                     // If seek accuracy is not good enough and seeked event hasn't cleared the flag yet,
                     // do another seek to improve precision (but only once, to prevent loops)
@@ -479,7 +518,11 @@ export class VideoPlayerService {
 
         const currentTime = this.videoElement.currentTime;
 
-        // Check if current time is within or very close to a deleted segment
+        // Find all consecutive deleted segments starting from current time
+        // This handles cases where multiple deleted segments are adjacent
+        let skipTarget: number | null = null;
+        const threshold = 0.01; // 10ms threshold for considering segments as consecutive
+
         for (const segment of this.deletedSegments) {
             const isWithinSegment = currentTime >= segment.start && currentTime < segment.end;
             const timeUntilSegmentStart = segment.start - currentTime;
@@ -500,56 +543,73 @@ export class VideoPlayerService {
             const isVeryCloseToSegmentEnd = isWithinSegment && timeUntilSegmentEnd >= 0 && timeUntilSegmentEnd <= this.DELETED_SEGMENT_SKIP_THRESHOLD_MS;
 
             if (isWithinSegment || isVeryCloseToSegmentStart || justEnteredSegment || isVeryCloseToSegmentEnd) {
-                // Skip target is end of current segment (exact position)
-                // Skip segment by segment for maximum precision
-                let skipTarget = segment.end;
+                // Found a segment to skip - start with its end time
+                skipTarget = segment.end;
 
-                // If in preview mode, don't skip past the preview end time
-                if (this.isPreviewMode && this.previewEndTime !== null) {
-                    skipTarget = Math.min(skipTarget, this.previewEndTime);
-
-                    // If the skip target equals or exceeds preview end, just pause
-                    if (skipTarget >= this.previewEndTime) {
-                        this.pause();
-                        this.isPreviewMode = false;
-                        this.previewEndTime = null;
-                        this.isEditedPlaybackMode = false;
-                        return;
+                // Check for consecutive deleted segments after this one
+                // Keep checking until we find no more consecutive segments
+                let foundMoreSegments = true;
+                while (foundMoreSegments) {
+                    foundMoreSegments = false;
+                    for (const nextSegment of this.deletedSegments) {
+                        // Check if next segment is consecutive (starts within threshold of current skip target)
+                        const gapBetweenSegments = nextSegment.start - skipTarget;
+                        if (gapBetweenSegments >= -threshold && gapBetweenSegments <= threshold) {
+                            // Segments are consecutive or overlapping - extend skip target to end of next segment
+                            skipTarget = Math.max(skipTarget, nextSegment.end);
+                            foundMoreSegments = true;
+                            // Break to restart the search from the new skipTarget
+                            break;
+                        }
                     }
                 }
 
-                // Clamp to video duration
-                skipTarget = Math.min(skipTarget, this._duration());
-
-                // Log skip details for debugging
-                console.log('[SKIP] Deleted segment skip - BEFORE:', {
-                    currentTime: currentTime.toFixed(6) + 's',
-                    segmentStart: segment.start.toFixed(6) + 's',
-                    segmentEnd: segment.end.toFixed(6) + 's',
-                    skipTarget: skipTarget.toFixed(6) + 's',
-                    seekAccuracy: currentTime - segment.start + 's',
-                });
-
-                // Seek directly to end of deleted segment
-                // Early detection is handled by frequent checks (requestAnimationFrame + timeupdate event)
-                this.isSeekingToSkip = true;
-                this.lastSkipTarget = skipTarget;
-                this.lastSeekTime = Date.now();
-                this.seek(skipTarget);
-
-                // Flag will be cleared by 'seeked' event listener (more accurate)
-                // Fallback timeout in case seeked event doesn't fire (shouldn't happen, but safety net)
-                setTimeout(() => {
-                    if (this.isSeekingToSkip) {
-                        // Seeked event didn't fire or wasn't accurate enough, clear manually
-                        this.isSeekingToSkip = false;
-                        this.lastSkipTarget = null;
-                        this.lastSeekTime = null;
-                    }
-                }, 200);
-
-                break;
+                break; // Found the segment(s) to skip, no need to check further
             }
+        }
+
+        // If we found segments to skip, perform the skip
+        if (skipTarget !== null) {
+            // If in preview mode, don't skip past the preview end time
+            if (this.isPreviewMode && this.previewEndTime !== null) {
+                skipTarget = Math.min(skipTarget, this.previewEndTime);
+
+                // If the skip target equals or exceeds preview end, just pause
+                if (skipTarget >= this.previewEndTime) {
+                    this.pause();
+                    this.isPreviewMode = false;
+                    this.previewEndTime = null;
+                    this.isEditedPlaybackMode = false;
+                    return;
+                }
+            }
+
+            // Clamp to video duration
+            skipTarget = Math.min(skipTarget, this._duration());
+
+            // Log skip details for debugging
+            // console.log('[SKIP] Deleted segment skip - BEFORE:', {
+            //     currentTime: currentTime.toFixed(6) + 's',
+            //     skipTarget: skipTarget.toFixed(6) + 's',
+            // });
+
+            // Seek directly to end of deleted segment(s)
+            // Early detection is handled by frequent checks (requestAnimationFrame + timeupdate event)
+            this.isSeekingToSkip = true;
+            this.lastSkipTarget = skipTarget;
+            this.lastSeekTime = Date.now();
+            this.seek(skipTarget);
+
+            // Flag will be cleared by 'seeked' event listener (more accurate)
+            // Fallback timeout in case seeked event doesn't fire (shouldn't happen, but safety net)
+            setTimeout(() => {
+                if (this.isSeekingToSkip) {
+                    // Seeked event didn't fire or wasn't accurate enough, clear manually
+                    this.isSeekingToSkip = false;
+                    this.lastSkipTarget = null;
+                    this.lastSeekTime = null;
+                }
+            }, 200);
         }
     }
 
