@@ -39,8 +39,8 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
   // ViewChild reference to words-container for CSS custom property positioning
   @ViewChild('wordsContainer', { static: false }) wordsContainerRef!: ElementRef<HTMLElement>;
 
-  // Track if tip has been shown to prevent showing it multiple times
-  private tipShown = false;
+  // Track if position calculation is in progress to prevent multiple simultaneous calls
+  private isPositionCalculating = false;
 
   // Expose video data service signals to template
   videoDataLoadingState = this.videoDataService.loadingState;
@@ -166,39 +166,30 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
     public tutorialService: TutorialService,
     private historyService: HistoryService
   ) {
-    // Update words-container position when words are loaded
-    effect(() => {
-      const words = this.words();
-      if (words.length > 0) {
-        // Words are loaded, update position immediately
-        this.updateWordsContainerPosition();
-      }
-    });
-
-    // Auto-show tutorial tip only after words are loaded (Feature 7)
+    // Update words-container position when words are loaded AND auto-show tip modal
+    // Combined effect to ensure proper sequencing: position calculation -> tip modal display
     effect(() => {
       const words = this.words();
       const loadingState = this.loadingState();
       const hasError = this.hasError();
 
-      // Only show tip if:
-      // 1. Words are loaded (length > 0)
-      // 2. Loading is complete (success state)
-      // 3. No error occurred
-      // 4. User hasn't clicked a word before (first visit)
-      // 5. Tip hasn't been shown yet (prevent multiple shows)
-      if (words.length > 0 &&
-        loadingState === 'success' &&
-        !hasError &&
-        !this.tutorialService.hasClickedWord() &&
-        !this.tipShown) {
-        // Mark tip as shown to prevent showing it again
-        this.tipShown = true;
-        // Update position first, then show tip
-        this.updateWordsContainerPosition().then(() => {
-          // Position updated, show tip
-          // The modal will only display when position is ready (checked in TutorialModalComponent)
-          this.tutorialService.showTip();
+      // Only proceed if words are loaded and loading is complete
+      if (words.length > 0 && loadingState === 'success') {
+        // First, update position
+        // Use requestAnimationFrame to ensure DOM is updated after Angular change detection
+        requestAnimationFrame(() => {
+          this.updateWordsContainerPosition().then((positionSuccess) => {
+            // Only show tip modal if:
+            // 1. Position was calculated successfully
+            // 2. No error occurred
+            // 3. User hasn't clicked a word before (first visit)
+            if (positionSuccess &&
+              !hasError &&
+              !this.tutorialService.hasClickedWord()) {
+              // Show modal immediately - position is already calculated and set
+              this.tutorialService.showTip();
+            }
+          });
         });
       }
     });
@@ -227,10 +218,8 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
         this.videoService.pause();
       }
 
-      // Update words-container position when tip modal opens
-      if (modalState === 'tip') {
-        setTimeout(() => this.updateWordsContainerPosition(), 100);
-      }
+      // Note: Position is already calculated by the words loading effect above
+      // No need to recalculate when tip modal opens - it causes unnecessary jumps
     });
   }
 
@@ -240,21 +229,41 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    // Set CSS custom property for words-container left position
-    // This allows the tutorial modal to align with words-container using pure CSS
-    this.updateWordsContainerPosition();
+    // Note: Position calculation is handled by the effect in constructor
+    // which waits for words to be loaded. No need to call it here immediately.
+    // The effect will handle initial position calculation when words are ready.
 
     // Update position on window resize
     if (typeof window !== 'undefined') {
-      window.addEventListener('resize', () => this.updateWordsContainerPosition());
+      window.addEventListener('resize', () => {
+        this.updateWordsContainerPosition();
+      });
     }
   }
 
   private updateWordsContainerPosition(): Promise<boolean> {
+    // Prevent multiple simultaneous position calculations
+    if (this.isPositionCalculating) {
+      // Return a promise that resolves when current calculation completes
+      return new Promise((resolve) => {
+        // Poll until calculation is done
+        const checkDone = () => {
+          if (!this.isPositionCalculating) {
+            resolve(true);
+          } else {
+            setTimeout(checkDone, 50);
+          }
+        };
+        setTimeout(checkDone, 50);
+      });
+    }
+
+    this.isPositionCalculating = true;
     return new Promise((resolve) => {
       // Retry mechanism in case ViewChild isn't immediately available
+      // Also wait for word chips to be rendered in DOM
       let retryCount = 0;
-      const maxRetries = 30; // Max 30 retries (1500ms total) - increased for initial load
+      const maxRetries = 40; // Max 40 retries (2000ms total) - increased to wait for word chips rendering
 
       const tryUpdate = () => {
         if (this.wordsContainerRef?.nativeElement) {
@@ -262,42 +271,91 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
 
           // Only update if element has valid dimensions
           if (rect.width > 0 && rect.height > 0) {
-            // Set CSS custom property on :root for global access
-            document.documentElement.style.setProperty('--words-container-left', `${rect.left}px`);
+            // Check if word chips are actually rendered
+            const wordChips = this.wordsContainerRef.nativeElement.querySelectorAll('app-word-chip');
 
-            // Calculate top position based on first word chip element
-            const firstWordChip = this.wordsContainerRef.nativeElement.querySelector('app-word-chip');
+
+            // If we have words in the signal but no chips rendered yet, wait a bit more
+            if (this.words().length > 0 && wordChips.length === 0 && retryCount < maxRetries - 10) {
+              retryCount++;
+              setTimeout(tryUpdate, 50);
+              return;
+            }
+
+            // Calculate position based on first word chip element (not container)
+            // This ensures the modal aligns with the actual first word, not the container edge
+            const firstWordChip = wordChips.length > 0 ? wordChips[0] as HTMLElement : null;
             if (firstWordChip) {
-              const firstChipRect = firstWordChip.getBoundingClientRect();
-              if (firstChipRect.width > 0 && firstChipRect.height > 0) {
+              // Use single requestAnimationFrame to ensure layout is stable
+              requestAnimationFrame(() => {
+                const firstChipRect = firstWordChip.getBoundingClientRect();
+
+                // Verify the chip has valid dimensions and is actually visible
+                if (firstChipRect.width > 0 && firstChipRect.height > 0 && firstChipRect.left > 0) {
+                  // Use first chip's left position for horizontal alignment
+                  // This aligns the modal with the first word, not the container edge
+                  const leftPosition = firstChipRect.left;
+                  document.documentElement.style.setProperty('--words-container-left', `${leftPosition}px`);
+
+                  // Calculate top position based on first word chip element
+                  const lineHeight = parseFloat(getComputedStyle(this.wordsContainerRef.nativeElement).lineHeight) ||
+                    parseFloat(getComputedStyle(firstWordChip).lineHeight) ||
+                    (window.innerWidth <= 768 ? 1.75 * 16 : 2.5 * 16); // fallback based on screen size
+                  const spacing = 16; // var(--spacing-4)
+                  const topPosition = firstChipRect.top + lineHeight + spacing;
+                  document.documentElement.style.setProperty('--words-container-top', `${topPosition}px`);
+
+                  // Set transform to none when using custom property (for responsive breakpoints)
+                  document.documentElement.style.setProperty('--words-container-transform', 'none');
+                  // Set animation name based on whether we're using custom positioning
+                  document.documentElement.style.setProperty('--tip-modal-animation', 'slideInFromBelowNoTransform');
+
+                  // Position successfully updated
+                  this.isPositionCalculating = false;
+                  resolve(true);
+                } else {
+                  // Retry if chip dimensions are invalid
+                  if (retryCount < maxRetries) {
+                    retryCount++;
+                    setTimeout(tryUpdate, 50);
+                  } else {
+                    this.isPositionCalculating = false;
+                    resolve(false);
+                  }
+                }
+              });
+              return; // Exit early, will resolve in requestAnimationFrame
+            } else {
+              // Fallback: use container position
+              // Only use fallback if we don't have words (empty state)
+              if (this.words().length === 0) {
+                // Use container position as fallback when no words are available
+                document.documentElement.style.setProperty('--words-container-left', `${rect.left}px`);
+
                 const lineHeight = parseFloat(getComputedStyle(this.wordsContainerRef.nativeElement).lineHeight) ||
-                  parseFloat(getComputedStyle(firstWordChip).lineHeight) ||
-                  (window.innerWidth <= 768 ? 1.75 * 16 : 2.5 * 16); // fallback based on screen size
-                const spacing = 16; // var(--spacing-4)
-                const topPosition = firstChipRect.top + lineHeight + spacing;
+                  (window.innerWidth <= 768 ? 1.75 * 16 : 2.5 * 16);
+                const spacing = 16;
+                const topPosition = rect.top + lineHeight + spacing;
                 document.documentElement.style.setProperty('--words-container-top', `${topPosition}px`);
 
                 // Set transform to none when using custom property (for responsive breakpoints)
                 document.documentElement.style.setProperty('--words-container-transform', 'none');
+                // Set animation name based on whether we're using custom positioning
+                document.documentElement.style.setProperty('--tip-modal-animation', 'slideInFromBelowNoTransform');
+
 
                 // Position successfully updated
+                this.isPositionCalculating = false;
                 resolve(true);
                 return;
+              } else {
+                // We have words but chips aren't rendered yet, retry
+                if (retryCount < maxRetries) {
+                  retryCount++;
+                  setTimeout(tryUpdate, 50);
+                  return;
+                }
               }
-            } else {
-              // Fallback: use container top + line height + spacing
-              const lineHeight = parseFloat(getComputedStyle(this.wordsContainerRef.nativeElement).lineHeight) ||
-                (window.innerWidth <= 768 ? 1.75 * 16 : 2.5 * 16);
-              const spacing = 16;
-              const topPosition = rect.top + lineHeight + spacing;
-              document.documentElement.style.setProperty('--words-container-top', `${topPosition}px`);
-
-              // Set transform to none when using custom property (for responsive breakpoints)
-              document.documentElement.style.setProperty('--words-container-transform', 'none');
-
-              // Position successfully updated
-              resolve(true);
-              return;
             }
           }
         }
@@ -311,6 +369,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
           document.documentElement.style.removeProperty('--words-container-left');
           document.documentElement.style.removeProperty('--words-container-top');
           document.documentElement.style.removeProperty('--words-container-transform');
+          this.isPositionCalculating = false;
           resolve(false);
         }
       };

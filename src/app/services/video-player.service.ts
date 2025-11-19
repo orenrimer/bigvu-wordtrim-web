@@ -117,20 +117,6 @@ export class VideoPlayerService {
     }
 
     /**
-     * Set aspect ratio from metadata
-     * This allows us to set the aspect ratio before video loads
-     * @param aspectRatio Aspect ratio from metadata ('16:9' | '1:1' | '9:16')
-     */
-    public setAspectRatioFromMetadata(aspectRatio: '16:9' | '1:1' | '9:16' | undefined): void {
-        if (aspectRatio) {
-            this._aspectRatio.set(aspectRatio);
-        } else {
-            // Default to 16:9 if not provided
-            this._aspectRatio.set('16:9');
-        }
-    }
-
-    /**
      * Initialize video player with HTML video element and video URL
      * @param videoElement HTML video element reference
      * @param videoUrl HLS video URL (m3u8)
@@ -288,7 +274,7 @@ export class VideoPlayerService {
         this.videoElement.addEventListener('loadedmetadata', () => {
             if (!this.videoElement) return;
             this._duration.set(this.videoElement.duration);
-            this.detectAspectRatio();
+            // Aspect ratio is already set from metadata before video loads (via effect in constructor)
         });
 
         // Ended event
@@ -333,40 +319,6 @@ export class VideoPlayerService {
             this._error.set(errorMessage);
             this._isLoading.set(false);
         });
-    }
-
-    /**
-     * Detect aspect ratio from video dimensions
-     * Supports: 16:9, 1:1, 9:16
-     */
-    private detectAspectRatio(): void {
-        if (!this.videoElement) return;
-
-        const width = this.videoElement.videoWidth;
-        const height = this.videoElement.videoHeight;
-
-        if (width === 0 || height === 0) {
-            return;
-        }
-
-        const ratio = width / height;
-
-        // Determine aspect ratio with tolerance
-        // Check ratios in order: 9:16 (vertical), 1:1 (square), 16:9 (horizontal)
-        const ratio9_16 = 9 / 16; // 0.5625
-        const ratio1_1 = 1; // 1.0
-        const ratio16_9 = 16 / 9; // 1.777...
-
-        if (Math.abs(ratio - ratio9_16) < 0.1) {
-            this._aspectRatio.set('9:16');
-        } else if (Math.abs(ratio - ratio1_1) < 0.1) {
-            this._aspectRatio.set('1:1');
-        } else if (Math.abs(ratio - ratio16_9) < 0.1) {
-            this._aspectRatio.set('16:9');
-        } else {
-            // Default to 16:9 for unknown ratios
-            this._aspectRatio.set('16:9');
-        }
     }
 
     /**

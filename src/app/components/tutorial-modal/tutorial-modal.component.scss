@@ -39,13 +39,14 @@
     // Position below first row of words
     // Uses CSS custom property --words-container-top set by main-editor-container component
     // Fallback: transcript padding (40px) + first row height (~40px) + spacing (16px) = ~96px
-    top: var(--words-container-top, calc(var(--editor-content-padding-y) + 2.5rem + var(--spacing-4)));
+    top: var(--words-container-top);
     // Position horizontally aligned with start of words-container
     // Uses CSS custom property --words-container-left set by main-editor-container component
     // If --words-container-left is set, use it; otherwise use fallback calculation
-    left: var(--words-container-left, calc(352px + var(--editor-content-padding-x) + var(--timestamp-container-width) + var(--timestamp-container-padding-x) + var(--spacing-8) + var(--spacing-8)));
-    // Only apply transform if --words-container-left is not set (fallback mode)
-    transform: none;
+    left: var(--words-container-left);
+    // Use transform from custom property if set, otherwise none (for custom positioning)
+    // When --words-container-left is set, we don't want translateX(-50%) which would center it
+    transform: var(--words-container-transform, none);
 
     width: var(--tip-modal-width);
     height: auto;
@@ -55,7 +56,7 @@
     padding: var(--spacing-4);
     border: 1px solid var(--color-primary);
     border-radius: var(--radius-lg);
-    animation: slideInFromBelow var(--transition-normal);
+    // No animation - modal appears instantly
     gap: var(--spacing-4);
 
     .close-button {
@@ -330,12 +331,40 @@
     }
 }
 
+// Animation for tip modal when custom positioning is used
+// This animation only changes opacity and translateY, preserving any existing transform (like translateX)
+@keyframes slideInFromBelowNoTransform {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+// Animation that preserves translateX if it exists
+// Used when transform includes translateX(-50%) for centering
+@keyframes slideInFromBelowWithTranslateX {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
 // ===== RESPONSIVE =====
 // Tablet (1024px and below)
 @media (max-width: 1024px) {
     .modal-tip {
-        width: calc(100vw - var(--spacing-8));
-        max-width: var(--tip-modal-width);
+        width: calc(100vw - var(--spacing-9));
+        max-width: calc(var(--tip-modal-width) * 0.75);
         // Position below first row - use CSS custom property if available, otherwise calculate
         top: var(--words-container-top, calc(var(--spacing-8) + 2rem + var(--spacing-4)));
         // Use CSS custom property for alignment with words-container, fallback to centered if not available
@@ -343,7 +372,21 @@
         // Use transform from custom property if set, otherwise center with translateX
         transform: var(--words-container-transform, translateX(-50%));
         padding: var(--spacing-3);
-        animation: slideInFromBelow var(--transition-normal);
+
+        .modal-header {
+            gap: var(--spacing-1);
+            margin-bottom: var(--spacing-3);
+
+            .info-icon {
+                width: 20px;
+                height: 20px;
+            }
+
+        }
+
+        .modal-text {
+            margin: 0 0 var(--spacing-4) 0;
+        }
     }
 
     .modal-video {
@@ -374,7 +417,7 @@
         left: var(--words-container-left, 50%);
         // Use transform from custom property if set, otherwise center with translateX
         transform: var(--words-container-transform, translateX(-50%));
-        animation: slideInFromBelow var(--transition-normal);
+        // No animation - modal appears instantly
 
         .modal-header {
             gap: var(--spacing-1);

@@ -141,7 +141,12 @@
                 align-items: center; // Center video player horizontally
                 justify-content: flex-start; // Align to top
             }
+
+            &__transcript {
+                gap: var(--editor-content-gap);
+            }
         }
+
     }
 
     // Responsive: Tablet Small (768px - 1024px)

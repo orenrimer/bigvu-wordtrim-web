@@ -67,6 +67,10 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
         });
 
         // Watch for tip mode and check if position is ready
+        // The modal should only show when:
+        // 1. Modal state is 'tip'
+        // 2. Words container position has been calculated (CSS custom properties are set)
+        // 3. Words are actually rendered in the DOM
         effect(() => {
             const modalState = this.tutorialService.modalState();
             if (modalState === 'tip') {
@@ -74,21 +78,49 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
                 this.isPositionReady.set(false);
 
                 // Check if CSS custom properties are set (position has been calculated)
+                // AND if words container actually exists in DOM with words
                 const checkPosition = () => {
                     const leftValue = getComputedStyle(document.documentElement).getPropertyValue('--words-container-left').trim();
                     const topValue = getComputedStyle(document.documentElement).getPropertyValue('--words-container-top').trim();
 
-                    if (leftValue && topValue && leftValue !== '' && topValue !== '' && leftValue !== '0px' && topValue !== '0px') {
-                        // Position is ready, show tip
-                        this.isPositionReady.set(true);
-                        return true;
+                    // Check if CSS custom properties are set and valid
+                    if (!leftValue || !topValue || leftValue === '' || topValue === '' || leftValue === '0px' || topValue === '0px') {
+                        return false;
                     }
-                    return false;
+
+                    // Also verify that words container exists and has word chips rendered
+                    const wordsContainer = document.querySelector('.words-container');
+                    if (!wordsContainer) {
+                        return false;
+                    }
+
+                    // Check if there are actual word chips rendered (not just empty container)
+                    const wordChips = wordsContainer.querySelectorAll('app-word-chip');
+                    if (wordChips.length === 0) {
+                        return false;
+                    }
+
+                    // All conditions met - position is ready
+                    this.isPositionReady.set(true);
+
+                    // After showing modal, verify position doesn't change due to layout shifts
+                    // Check position again after a short delay to catch any layout shifts
+                    setTimeout(() => {
+                        const newLeft = getComputedStyle(document.documentElement).getPropertyValue('--words-container-left').trim();
+                        const newTop = getComputedStyle(document.documentElement).getPropertyValue('--words-container-top').trim();
+
+                        if (newLeft !== leftValue || newTop !== topValue) {
+                            // Position changed, trigger position recalculation
+                            // This will be handled by the main component's effect
+                        }
+                    }, 200);
+
+                    return true;
                 };
 
                 // Check immediately first (properties might already be set)
                 if (!checkPosition()) {
-                    // Properties not set yet, retry
+                    // Properties not set yet or words not rendered, retry
                     let retryCount = 0;
                     const maxRetries = 60; // Max 60 retries (3000ms total)
                     const retryCheck = () => {
@@ -102,6 +134,9 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
                         // If max retries reached, don't show tip (no fallback)
                     };
                     setTimeout(retryCheck, 50);
+                } else {
+                    // Position was already ready, set it immediately
+                    this.isPositionReady.set(true);
                 }
             } else {
                 // Reset when not in tip mode
