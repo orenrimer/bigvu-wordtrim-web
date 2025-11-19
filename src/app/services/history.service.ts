@@ -66,15 +66,11 @@ export class HistoryService {
      * Save previous state to history (before a new action)
      * This is called BEFORE an action is performed, to save the state that existed before the action
      * @param previousSnapshot The state that existed BEFORE the action (to be saved to history)
-     * @param isActionBarAction Whether this snapshot was created after an action bar action (default: false)
      */
-    public pushState(previousSnapshot: EditorStateSnapshot, isActionBarAction: boolean = false): void {
+    public pushState(previousSnapshot: EditorStateSnapshot): void {
 
         // Create deep copy of snapshot to avoid reference issues
         const stateCopy = this.deepCopySnapshot(previousSnapshot);
-
-        // Mark if this is an action bar action
-        stateCopy.isActionBarAction = isActionBarAction;
 
         // Don't mark as initial state when pushing (initial state is already pushed above if needed)
         stateCopy.isInitialState = false;
@@ -143,12 +139,6 @@ export class HistoryService {
             this._isAtInitialState.set(true);
         } else {
             this._isAtInitialState.set(false);
-        }
-
-        // Check if the previous state (the one we're restoring to) was an action bar action
-        // If yes, clear the redo stack to disable redo after undo of action bar actions
-        if (previousState.isActionBarAction) {
-            this._redoStack.set([]);
         }
 
         this.logStacks('After UNDO');
@@ -281,7 +271,6 @@ export class HistoryService {
             deletedSegments: snapshot.deletedSegments ? snapshot.deletedSegments.map(seg => ({ ...seg })) : [],
             // Preserve flags
             isInitialState: snapshot.isInitialState,
-            isActionBarAction: snapshot.isActionBarAction,
         };
     }
 }

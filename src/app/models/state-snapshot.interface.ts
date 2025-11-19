@@ -27,7 +27,5 @@ export interface EditorStateSnapshot {
     deletedSegments: Array<{ start: number; end: number }>;
     /** Flag indicating if this is the initial baseline state (first frame) */
     isInitialState?: boolean;
-    /** Flag indicating if this snapshot was created after an action bar action (Remove, Keep Only, Restore, Unselect) */
-    isActionBarAction?: boolean;
 }
 

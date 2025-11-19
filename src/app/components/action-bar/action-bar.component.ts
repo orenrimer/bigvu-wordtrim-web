@@ -284,15 +284,13 @@ export class ActionBarComponent {
     /**
      * Capture previous editor state snapshot (before action)
      * Called BEFORE segment actions to save the state that existed before the action
-     * Marks the snapshot as an action bar action
      */
     private capturePreviousState(): void {
         const previousSnapshot = this.editorState.captureState(
             this.timelineService.startHandle(),
             this.timelineService.endHandle()
         );
-        // Mark as action bar action - this will be checked in undo to clear redo stack
-        this.historyService.pushState(previousSnapshot, true);
+        this.historyService.pushState(previousSnapshot);
     }
 
     /**
