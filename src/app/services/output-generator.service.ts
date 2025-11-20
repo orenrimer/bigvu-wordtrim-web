@@ -1,9 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { EditorStateService } from './editor-state.service';
-import { TimelineService } from './timeline.service';
 import { VideoPlayerService } from './video-player.service';
 import { OutputSegment } from '../models';
-import { WordState } from '../models';
 
 /**
  * Output Generator Service
@@ -12,7 +10,7 @@ import { WordState } from '../models';
  * 
  * Features:
  * - Collects non-deleted segments
- * - Applies fine-tuned handle positions
+ * - Uses fine-tuned handle positions from deleted segments (already stored when segments were deleted)
  * - Sorts chronologically
  * - Validates output (no gaps, proper ordering)
  * - Handles empty output error
@@ -22,7 +20,6 @@ import { WordState } from '../models';
 })
 export class OutputGeneratorService {
     private readonly editorState = inject(EditorStateService);
-    private readonly timelineService = inject(TimelineService);
     private readonly videoPlayerService = inject(VideoPlayerService);
 
     /**
@@ -32,7 +29,7 @@ export class OutputGeneratorService {
      * Format: [{start: number, end: number}, ...]
      * Rules:
      * - Include only non-deleted segments
-     * - Use fine-tuned handle positions (if available)
+     * - Use fine-tuned handle positions from deleted segments (already stored when segments were deleted)
      * - Sorted chronologically
      * - No gaps
      * 
@@ -69,69 +66,16 @@ export class OutputGeneratorService {
         console.log('generateOutput - segments before cutting:', segments);
 
         // Cut segments at deleted segment boundaries
+        // The deleted segments already contain fine-tuned handle times from when segments were deleted
+        // So after cutting, the remaining segments are already correct - no need for additional fine-tuning
         segments = this.cutSegmentsAtDeletedBoundaries(segments, deletedSegments);
         console.log('generateOutput - segments after cutting:', segments);
 
-        // Step 6: Apply fine-tuned handle positions if there's a current selection
-        // Handles are always at word boundaries by default, so we simply use handle positions
-        const startHandle = this.timelineService.startHandle();
-        const endHandle = this.timelineService.endHandle();
-
-        if (startHandle && endHandle) {
-            const selectedWords = this.editorState.selectedWords();
-
-            // Skip fine-tuning if no selection (handles from snapshot are not relevant after undo)
-            if (selectedWords.length === 0) {
-                console.log('Skipping fine-tuning - no selection (handles from snapshot are not relevant)');
-            } else {
-                // Check if all selected words are deleted or handles match a deleted segment
-                const allSelectedWordsDeleted = selectedWords.every(word =>
-                    word.state === WordState.DELETED ||
-                    word.state === WordState.DELETED_SELECTED_START ||
-                    word.state === WordState.DELETED_SELECTED_END ||
-                    word.state === WordState.DELETED_SELECTED_RANGE
-                );
-
-                const deletedSegments = this.editorState.getDeletedSegments();
-                const handlesMatchDeletedSegment = deletedSegments.some(deleted =>
-                    Math.abs(deleted.start - startHandle.time) < 0.01 &&
-                    Math.abs(deleted.end - endHandle.time) < 0.01
-                );
-                const noDeletedSegments = deletedSegments.length === 0;
-
-                // Skip fine-tuning if handles are not relevant
-                if (!allSelectedWordsDeleted && !handlesMatchDeletedSegment && !noDeletedSegments) {
-                    // Apply fine-tuned handle positions to segments that overlap with handles
-                    segments = segments.map(segment => {
-                        // Check if handles overlap with this segment
-                        const handlesOverlap = startHandle.time < segment.end && endHandle.time > segment.start;
-
-                        if (handlesOverlap) {
-                            // Handles overlap - use handle times, clipped to segment boundaries
-                            const fineTunedStart = Math.max(segment.start, startHandle.time);
-                            const fineTunedEnd = Math.min(segment.end, endHandle.time);
-
-                            // Only update if valid (start < end)
-                            if (fineTunedStart < fineTunedEnd) {
-                                return {
-                                    start: fineTunedStart,
-                                    end: fineTunedEnd
-                                };
-                            }
-                        }
-
-                        // No fine-tuning applied - keep segment as-is
-                        return segment;
-                    });
-                }
-            }
-        }
-
-        // Step 7: Sort chronologically by start time
+        // Step 6: Sort chronologically by start time
         const sortedSegments = this.sortChronologically(segments);
-        console.log('generateOutput - segments after fine-tuning:', sortedSegments);
+        console.log('generateOutput - segments after sorting:', sortedSegments);
 
-        // Step 8: Validate output (no gaps, proper ordering)
+        // Step 7: Validate output (proper ordering, valid ranges)
         this.validateOutput(sortedSegments);
         return sortedSegments;
     }
@@ -169,42 +113,8 @@ export class OutputGeneratorService {
             });
 
             if (overlappingDeleted.length === 0) {
-                // No overlapping deleted segments - check if we should adjust start/end based on nearby deleted segments
-                // Increased threshold to handle cases where user moved handles, creating gaps between segments
-                const threshold = 1.0; // 1 second threshold (same as merge threshold)
-
-                // Find deleted segments that end just before this segment starts (within threshold)
-                // Exclude cases where deleted.end == segment.start (they touch but don't overlap)
-                const deletedEndingBefore = deletedSegments.filter(deleted => {
-                    const endsJustBefore = deleted.end < segment.start && deleted.end >= segment.start - threshold;
-                    return endsJustBefore;
-                });
-
-                // Find deleted segments that start just after this segment ends (within threshold)
-                // Exclude cases where deleted.start == segment.end (they touch but don't overlap)
-                const deletedStartingAfter = deletedSegments.filter(deleted => {
-                    const startsJustAfter = deleted.start > segment.end && deleted.start <= segment.end + threshold;
-                    return startsJustAfter;
-                });
-
-                if (deletedEndingBefore.length > 0) {
-                    // Find the latest deleted segment that ends just before this segment starts
-                    const latestDeletedEnd = Math.max(...deletedEndingBefore.map(d => d.end));
-                    result.push({
-                        start: latestDeletedEnd,
-                        end: segment.end
-                    });
-                } else if (deletedStartingAfter.length > 0) {
-                    // Found deleted segment starting just after this segment ends
-                    const earliestDeletedStart = Math.min(...deletedStartingAfter.map(d => d.start));
-                    result.push({
-                        start: segment.start,
-                        end: earliestDeletedStart
-                    });
-                } else {
-                    // No relevant deleted segments - keep segment as-is
-                    result.push(segment);
-                }
+                // No overlapping deleted segments - keep segment as-is
+                result.push(segment);
                 continue;
             }
 
@@ -253,7 +163,6 @@ export class OutputGeneratorService {
     /**
      * Validate output segments
      * Ensures:
-     * - No gaps between segments
      * - Proper time ordering
      * - Valid time ranges (start < end)
      * @param segments Array of segments to validate
@@ -273,13 +182,12 @@ export class OutputGeneratorService {
                 throw new Error(`Invalid segment at index ${i}: start (${segment.start}) >= end (${segment.end})`);
             }
 
-            // Check for gaps (except between segments)
+            // Check proper ordering (segments should be sorted by start time)
             if (i > 0) {
                 const previousSegment = segments[i - 1];
-                const gap = segment.start - previousSegment.end;
-
-                // Small gaps (< 0.1s) are acceptable
-                // Larger gaps are expected when segments are deleted
+                if (segment.start < previousSegment.start) {
+                    throw new Error(`Segments not properly ordered: segment at index ${i} starts before previous segment`);
+                }
             }
         }
     }

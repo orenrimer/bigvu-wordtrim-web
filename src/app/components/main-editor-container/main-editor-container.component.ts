@@ -220,7 +220,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
 
       // Note: Position is already calculated by the words loading effect above
       // No need to recalculate when tip modal opens - it causes unnecessary jumps
-    });
+    }, { allowSignalWrites: true });
   }
 
   ngOnInit(): void {

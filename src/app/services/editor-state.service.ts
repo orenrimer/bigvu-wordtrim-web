@@ -330,11 +330,46 @@ export class EditorStateService {
         const selectedIndices = new Set(selected.map(w => w.index));
 
         // Get selection boundaries - use handles if available, otherwise use word boundaries
-        // Handles are always at word boundaries by default, so this simplifies the logic
         const selectedFirstWord = selected[0];
         const selectedLastWord = selected[selected.length - 1];
-        const selectionStart = fineTunedStart !== undefined ? fineTunedStart : selectedFirstWord.start;
-        const selectionEnd = fineTunedEnd !== undefined ? fineTunedEnd : selectedLastWord.end;
+
+        // Calculate selection start using same logic as restore
+        // If fine-tuned start is provided, use it
+        // Otherwise, if first selected word is the first word in video, start from 0
+        // Otherwise, start from the end of the word before the first selected word
+        let selectionStart: number;
+        if (fineTunedStart !== undefined) {
+            selectionStart = fineTunedStart;
+        } else {
+            const firstWordIndex = currentWords[0]?.index ?? -1;
+            if (selectedFirstWord.index === firstWordIndex) {
+                // First selected word is the first word - start from 0 to preserve intro
+                selectionStart = 0;
+            } else {
+                // Find the word before the first selected word
+                const wordBefore = currentWords.find(w => w.index === selectedFirstWord.index - 1);
+                selectionStart = wordBefore ? wordBefore.end : selectedFirstWord.start;
+            }
+        }
+
+        // Calculate selection end using similar logic
+        // If fine-tuned end is provided, use it
+        // Otherwise, if last selected word is the last word in video, use its end
+        // Otherwise, use the start of the word after the last selected word
+        let selectionEnd: number;
+        if (fineTunedEnd !== undefined) {
+            selectionEnd = fineTunedEnd;
+        } else {
+            const lastWordIndex = currentWords[currentWords.length - 1]?.index ?? -1;
+            if (selectedLastWord.index === lastWordIndex) {
+                // Last selected word is the last word - use its end
+                selectionEnd = selectedLastWord.end;
+            } else {
+                // Find the word after the last selected word
+                const wordAfter = currentWords.find(w => w.index === selectedLastWord.index + 1);
+                selectionEnd = wordAfter ? wordAfter.start : selectedLastWord.end;
+            }
+        }
 
         // Create deleted segments for all non-selected words
         // Split into two segments: before selection and after selection
@@ -378,9 +413,6 @@ export class EditorStateService {
         this._words.set(updatedWords);
         this.clearSelection();
 
-        // Log deleted segments after keep only operation
-        console.log('deletedSegments after KEEP ONLY:', this._deletedSegments());
-
         return true;
     }
 
@@ -402,7 +434,27 @@ export class EditorStateService {
         // Use fine-tuned handle times if provided, otherwise use word boundaries
         const firstWord = selected[0];
         const lastWord = selected[selected.length - 1];
-        const restoredStart = fineTunedStart !== undefined ? fineTunedStart : firstWord.start;
+
+        // If fine-tuned start is provided, use it
+        // Otherwise, if first selected word is the first word in video, start from 0
+        // Otherwise, start from the end of the word before the first selected word
+        let restoredStart: number;
+        if (fineTunedStart !== undefined) {
+            restoredStart = fineTunedStart;
+        } else {
+            const firstWordIndex = currentWords[0]?.index ?? -1;
+            if (firstWord.index === firstWordIndex) {
+                // First selected word is the first word - start from 0 to preserve intro
+                restoredStart = 0;
+            } else {
+                // Find the word before the first selected word
+                const wordBefore = currentWords.find(w => w.index === firstWord.index - 1);
+                restoredStart = wordBefore ? wordBefore.end : firstWord.start;
+            }
+        }
+
+        // If fine-tuned end is provided, use it
+        // Otherwise, use the end of the last selected word
         const restoredEnd = fineTunedEnd !== undefined ? fineTunedEnd : lastWord.end;
 
         // Remove deleted segments that overlap with restored range
@@ -576,10 +628,27 @@ export class EditorStateService {
         // Sort by start time
         resultSegments.sort((a, b) => a.start - b.start);
 
-        this._deletedSegments.set(resultSegments);
+        // Merge adjacent segments (segments that touch or overlap)
+        const mergedSegments: Array<{ start: number; end: number }> = [];
+        for (const segment of resultSegments) {
+            if (mergedSegments.length === 0) {
+                mergedSegments.push(segment);
+                continue;
+            }
 
-        // Log deleted segments after restore operation
-        console.log('deletedSegments after RESTORE:', this._deletedSegments());
+            const lastSegment = mergedSegments[mergedSegments.length - 1];
+            // Check if segments are adjacent (touch) or overlap
+            // Adjacent: lastSegment.end >= segment.start (they touch or overlap)
+            if (lastSegment.end >= segment.start) {
+                // Merge: extend the last segment to cover both
+                lastSegment.end = Math.max(lastSegment.end, segment.end);
+            } else {
+                // Not adjacent - add as new segment
+                mergedSegments.push(segment);
+            }
+        }
+
+        this._deletedSegments.set(mergedSegments);
     }
 
     /**
