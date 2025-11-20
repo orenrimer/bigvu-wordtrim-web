@@ -2,28 +2,32 @@
 <div class="timeline-container">
     <!-- ARIA Descriptions for Timeline Handles -->
     <div id="timeline-handle-description" class="sr-only">
-        Timeline handles allow fine-tuning of segment selection. Drag handles horizontally to adjust start and end times with sub-word precision.
+        Timeline handles allow fine-tuning of segment selection. Drag handles horizontally to adjust start and end times
+        with sub-word precision.
     </div>
     <div id="timeline-handle-start-description" class="sr-only">
-        Start handle controls the beginning of the selected segment. Drag left or right to adjust, or use arrow keys for fine adjustments.
+        Start handle controls the beginning of the selected segment. Drag left or right to adjust, or use arrow keys for
+        fine adjustments.
     </div>
     <div id="timeline-handle-end-description" class="sr-only">
-        End handle controls the end of the selected segment. Drag left or right to adjust, or use arrow keys for fine adjustments.
+        End handle controls the end of the selected segment. Drag left or right to adjust, or use arrow keys for fine
+        adjustments.
     </div>
-    
+
     <!-- Time Indicator (play icon + time display above timeline) -->
     <!-- Show current playback time -->
     <div class="timeline-time-indicator">
         <div class="time-indicator-content">
             <img src="assets/icons/Play.svg" alt="Play" class="play-icon" aria-hidden="true">
             <span class="time-text">
-                {{ formatTimeWithMs(currentTime()) }}
+                {{ formatTime(currentTime()) }}
             </span>
         </div>
     </div>
 
     <!-- Timeline Track -->
-    <div class="timeline-track" #timelineTrack role="slider" aria-label="Timeline track" aria-describedby="timeline-handle-description">
+    <div class="timeline-track" #timelineTrack role="slider" aria-label="Timeline track"
+        aria-describedby="timeline-handle-description">
         <!-- Video Frames Background -->
         <div class="timeline-frames">
             <!-- Generate frame thumbnails (gradient placeholders until server thumbnails ready) -->
@@ -50,58 +54,46 @@
         <!-- Single Handle (when only start word is selected) -->
         <div *ngIf="timelineService.isSingleWordMode() && timelineService.startHandle()"
             class="timeline-handle timeline-handle--single" [style.left.%]="timelineService.startHandle()!.percentage"
-            #startHandle 
-            role="slider"
+            #startHandle role="slider"
             [attr.aria-label]="'Start handle, ' + formatTimeWithMs(timelineService.startHandle()!.time)"
             [attr.aria-describedby]="'timeline-handle-description timeline-handle-start-description'"
-            [attr.aria-valuemin]="0"
-            [attr.aria-valuemax]="timelineService.totalDuration()"
+            [attr.aria-valuemin]="0" [attr.aria-valuemax]="timelineService.totalDuration()"
             [attr.aria-valuenow]="timelineService.startHandle()!.time"
-            [attr.aria-valuetext]="formatTimeWithMs(timelineService.startHandle()!.time)"
-            [attr.tabindex]="0"
-            (mousedown)="onStartHandleMouseDown($event)" 
-            [class.dragging]="isDraggingStart">
+            [attr.aria-valuetext]="formatTimeWithMs(timelineService.startHandle()!.time)" [attr.tabindex]="0"
+            (mousedown)="onStartHandleMouseDown($event)" [class.dragging]="isDraggingStart">
             <div class="handle-grip" aria-hidden="true"></div>
         </div>
 
         <!-- Start Handle (range selection mode) -->
         <div *ngIf="!timelineService.isSingleWordMode() && timelineService.startHandle()"
             class="timeline-handle timeline-handle--start" [style.left.%]="timelineService.startHandle()!.percentage"
-            #startHandle 
-            role="slider"
+            #startHandle role="slider"
             [attr.aria-label]="'Start handle, ' + formatTimeWithMs(timelineService.startHandle()!.time)"
             [attr.aria-describedby]="'timeline-handle-description timeline-handle-start-description'"
-            [attr.aria-valuemin]="0"
-            [attr.aria-valuemax]="timelineService.totalDuration()"
+            [attr.aria-valuemin]="0" [attr.aria-valuemax]="timelineService.totalDuration()"
             [attr.aria-valuenow]="timelineService.startHandle()!.time"
-            [attr.aria-valuetext]="formatTimeWithMs(timelineService.startHandle()!.time)"
-            [attr.tabindex]="0"
-            (mousedown)="onStartHandleMouseDown($event)" 
-            [class.dragging]="isDraggingStart">
+            [attr.aria-valuetext]="formatTimeWithMs(timelineService.startHandle()!.time)" [attr.tabindex]="0"
+            (mousedown)="onStartHandleMouseDown($event)" [class.dragging]="isDraggingStart">
             <div class="handle-grip" aria-hidden="true"></div>
         </div>
 
         <!-- End Handle (range selection mode) -->
         <div *ngIf="!timelineService.isSingleWordMode() && timelineService.endHandle()"
             class="timeline-handle timeline-handle--end" [style.left.%]="timelineService.endHandle()!.percentage"
-            #endHandle 
-            role="slider"
+            #endHandle role="slider"
             [attr.aria-label]="'End handle, ' + formatTimeWithMs(timelineService.endHandle()!.time)"
             [attr.aria-describedby]="'timeline-handle-description timeline-handle-end-description'"
-            [attr.aria-valuemin]="0"
-            [attr.aria-valuemax]="timelineService.totalDuration()"
+            [attr.aria-valuemin]="0" [attr.aria-valuemax]="timelineService.totalDuration()"
             [attr.aria-valuenow]="timelineService.endHandle()!.time"
-            [attr.aria-valuetext]="formatTimeWithMs(timelineService.endHandle()!.time)"
-            [attr.tabindex]="0"
-            (mousedown)="onEndHandleMouseDown($event)" 
-            [class.dragging]="isDraggingEnd">
+            [attr.aria-valuetext]="formatTimeWithMs(timelineService.endHandle()!.time)" [attr.tabindex]="0"
+            (mousedown)="onEndHandleMouseDown($event)" [class.dragging]="isDraggingEnd">
             <div class="handle-grip" aria-hidden="true"></div>
         </div>
 
     </div>
 
     <!-- Debug Info Panel (below timeline) -->
-    <div *ngIf="timelineService.startHandle() || timelineService.endHandle()" class="timeline-debug-panel" role="group" aria-label="Fine-tune segment timing">
+    <!-- <div *ngIf="timelineService.startHandle() || timelineService.endHandle()" class="timeline-debug-panel" role="group" aria-label="Fine-tune segment timing">
         <div class="debug-row">
             <label for="start-time-input" class="debug-label">Start:</label>
             <span class="debug-value" *ngIf="timelineService.startHandle()" aria-live="polite">
@@ -135,5 +127,5 @@
                 Enter time in MM:SS.mmm format to fine-tune the end of the selected segment
             </div>
         </div>
-    </div>
+    </div> -->
 </div>

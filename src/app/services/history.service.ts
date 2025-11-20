@@ -1,6 +1,5 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { EditorStateSnapshot } from '../models';
-import { environment } from '../../environments/environment';
 
 /**
  * History Service
@@ -59,7 +58,6 @@ export class HistoryService {
         stateCopy.isInitialState = true;
         this._initialState = stateCopy;
         this._isAtInitialState.set(true);
-        this.logStacks('Initial State Set');
     }
 
     /**
@@ -89,8 +87,6 @@ export class HistoryService {
 
         // Clear redo stack when new action is performed
         this._redoStack.set([]);
-
-        this.logStacks('After pushState');
     }
 
     /**
@@ -112,9 +108,6 @@ export class HistoryService {
         const history = this._historyStack();
 
         if (history.length === 0) {
-            if (environment.enableDebugLogs) {
-                console.log('[HistoryService] undo() - No history, returning null');
-            }
             return null;
         }
 
@@ -141,11 +134,6 @@ export class HistoryService {
             this._isAtInitialState.set(false);
         }
 
-        this.logStacks('After UNDO');
-        if (environment.enableDebugLogs) {
-            console.log(`Restoring to: ${this.formatState(previousState)}`);
-        }
-
         return previousState;
     }
 
@@ -159,9 +147,6 @@ export class HistoryService {
         const redo = this._redoStack();
 
         if (redo.length === 0) {
-            if (environment.enableDebugLogs) {
-                console.log('[HistoryService] redo() - No redo available, returning null');
-            }
             return null;
         }
 
@@ -178,11 +163,6 @@ export class HistoryService {
         // After redo, we're no longer at initial state (we've moved forward)
         this._isAtInitialState.set(false);
 
-        this.logStacks('After REDO');
-        if (environment.enableDebugLogs) {
-            console.log(`Restoring to: ${this.formatState(nextState)}`);
-        }
-
         return nextState;
     }
 
@@ -194,63 +174,6 @@ export class HistoryService {
         this._redoStack.set([]);
         this._initialState = null;
         this._isAtInitialState.set(true);
-    }
-
-    /**
-     * Helper method to format state snapshot for logging
-     */
-    private formatState(state: EditorStateSnapshot): string {
-        // Support both new and legacy formats
-        let start: string;
-        let end: string;
-
-        if (state.selectionStartIndex !== undefined && state.selectionStartIndex !== null) {
-            // New format: use index (we don't have word text, so just show index)
-            start = `index(${state.selectionStartIndex})`;
-        } else {
-            start = 'null';
-        }
-
-        if (state.selectionEndIndex !== undefined && state.selectionEndIndex !== null) {
-            // New format: use index
-            end = `index(${state.selectionEndIndex})`;
-        } else {
-            end = 'null';
-        }
-
-        const initial = state.isInitialState ? ' [INITIAL]' : '';
-        return `(${start} -> ${end})${initial}`;
-    }
-
-    /**
-     * Helper method to log stacks in a clear format
-     * Only logs in development mode to avoid performance impact in production
-     */
-    private logStacks(operation: string): void {
-        if (!environment.enableDebugLogs) return;
-
-        const undoStack = this._historyStack();
-        const redoStack = this._redoStack();
-
-        console.groupCollapsed(`========== ${operation} ==========`);
-        console.log('UNDO Stack (bottom to top):');
-        if (undoStack.length === 0) {
-            console.log('  [empty]');
-        } else {
-            undoStack.forEach((state, index) => {
-                console.log(`  [${index}] ${this.formatState(state)}`);
-            });
-        }
-
-        console.log('\nREDO Stack (bottom to top):');
-        if (redoStack.length === 0) {
-            console.log('  [empty]');
-        } else {
-            redoStack.forEach((state, index) => {
-                console.log(`  [${index}] ${this.formatState(state)}`);
-            });
-        }
-        console.groupEnd();
     }
 
     /**
