@@ -109,8 +109,8 @@
         </div>
     </div>
 
-    <!-- Tutorial Modal (Feature 7) - Show only when words are loaded and no error -->
+    <!-- Tutorial Modal (Feature 7) - Show when words are loaded and no error, OR when modal is explicitly opened via button -->
     <app-tutorial-modal
-        *ngIf="!isLoading() && !hasError() && hasWords() && !tutorialService.hasClickedWord()"></app-tutorial-modal>
+        *ngIf="!isLoading() && !hasError() && hasWords() && (tutorialService.modalState() !== 'hidden' || !tutorialService.hasClickedWord())"></app-tutorial-modal>
 
 </div>

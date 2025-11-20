@@ -675,6 +675,25 @@ export class VideoPlayerService {
     }
 
     /**
+     * Stop video and clear all preview states
+     * Used when tutorial modal opens to prevent conflicts
+     */
+    public stop(): void {
+        if (!this.videoElement) return;
+
+        // Pause the video
+        this.pause();
+
+        // Clear all preview states to prevent conflicts
+        this.isPreviewMode = false;
+        this.previewEndTime = null;
+        this.isEditedPlaybackMode = false;
+
+        // Clear current playback word
+        this.editorStateService.clearCurrentPlaybackWord();
+    }
+
+    /**
      * Toggle play/pause
      * ALWAYS skips deleted segments during playback (PRD: Video Playback)
      * If there's a selection and video is paused, jump to selection start before playing

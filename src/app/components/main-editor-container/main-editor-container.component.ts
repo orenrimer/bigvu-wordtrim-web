@@ -208,14 +208,14 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
       }
     }, { allowSignalWrites: true });
 
-    // Effect: Pause video player when tutorial video modal opens
+    // Effect: Stop video player when tutorial video modal opens
     effect(() => {
       const modalState = this.tutorialService.modalState();
-      const isPlaying = this.videoService.isPlaying();
 
-      // If tutorial video modal is opened and video is playing, pause it
-      if (modalState === 'video' && isPlaying) {
-        this.videoService.pause();
+      // If tutorial video modal is opened, stop all video playback and clear preview states
+      // This prevents the video from crashing when modal opens with active selection/preview
+      if (modalState === 'video') {
+        this.videoService.stop();
       }
 
       // Note: Position is already calculated by the words loading effect above
