@@ -715,8 +715,6 @@ export class EditorStateService {
         const restoredDeletedSegments = (snapshot.deletedSegments || []).map(seg => ({ ...seg }));
         this._deletedSegments.set(restoredDeletedSegments);
 
-        // Log deleted segments after restore (undo)
-        console.log('deletedSegments after UNDO:', this._deletedSegments());
 
         // Step 3: Restore selection AFTER words array is set
         // Support both new format (indices) and legacy format (Word objects)

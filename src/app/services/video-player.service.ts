@@ -551,6 +551,9 @@ export class VideoPlayerService {
      * Uses exact deletion boundaries from editor state (including fine-tuned handle positions)
      * Uses early detection and seek to ensure precise skipping at segment boundaries
      * If in preview mode with end time, ensure we don't skip past it
+     * 
+     * OPTIMIZED: Uses binary search + two-pointer algorithm for O(log n + m) complexity
+     * instead of O(n × m) nested loops
      */
     private skipDeletedSegments(): void {
         if (!this.videoElement) return;
@@ -559,13 +562,48 @@ export class VideoPlayerService {
         if (this.isSeekingToSkip) return;
 
         const currentTime = this.videoElement.currentTime;
+        const segments = this.deletedSegments;
+
+        // Early exit if no segments
+        if (segments.length === 0) return;
 
         // Find all consecutive deleted segments starting from current time
         // This handles cases where multiple deleted segments are adjacent
         let skipTarget: number | null = null;
         const threshold = 0.01; // 10ms threshold for considering segments as consecutive
 
-        for (const segment of this.deletedSegments) {
+        // OPTIMIZATION: Use binary search to find the first potentially relevant segment
+        // We're looking for segments that could intersect with currentTime considering early detection thresholds
+        // A segment is potentially relevant if:
+        // - segment.end > currentTime - DELETED_SEGMENT_EARLY_DETECTION_MS (early detection before start)
+        // - segment.start <= currentTime + SEGMENT_START_ENTRY_THRESHOLD_MS (just entered detection)
+        let left = 0;
+        let right = segments.length - 1;
+        let startIndex = segments.length; // Start from end if no relevant segment found
+
+        // Binary search for the first segment that might be relevant
+        // We want the leftmost segment where segment.end > currentTime - DELETED_SEGMENT_EARLY_DETECTION_MS
+        while (left <= right) {
+            const mid = Math.floor((left + right) / 2);
+            const segment = segments[mid];
+
+            // Check if this segment could be relevant (its end is after currentTime - early detection threshold)
+            if (segment.end > currentTime - this.DELETED_SEGMENT_EARLY_DETECTION_MS) {
+                startIndex = mid;
+                right = mid - 1; // Try to find an earlier segment
+            } else {
+                // Segment is too far behind, search right
+                left = mid + 1;
+            }
+        }
+
+        // If no relevant segment found (all segments are too far ahead), exit early
+        if (startIndex >= segments.length) return;
+
+        // OPTIMIZATION: Use two-pointer approach to find consecutive segments
+        // Start from the potentially relevant segment and check forward
+        for (let i = startIndex; i < segments.length; i++) {
+            const segment = segments[i];
             const isWithinSegment = currentTime >= segment.start && currentTime < segment.end;
             const timeUntilSegmentStart = segment.start - currentTime;
             const timeUntilSegmentEnd = segment.end - currentTime;
@@ -588,25 +626,28 @@ export class VideoPlayerService {
                 // Found a segment to skip - start with its end time
                 skipTarget = segment.end;
 
-                // Check for consecutive deleted segments after this one
-                // Keep checking until we find no more consecutive segments
-                let foundMoreSegments = true;
-                while (foundMoreSegments) {
-                    foundMoreSegments = false;
-                    for (const nextSegment of this.deletedSegments) {
-                        // Check if next segment is consecutive (starts within threshold of current skip target)
-                        const gapBetweenSegments = nextSegment.start - skipTarget;
-                        if (gapBetweenSegments >= -threshold && gapBetweenSegments <= threshold) {
-                            // Segments are consecutive or overlapping - extend skip target to end of next segment
-                            skipTarget = Math.max(skipTarget, nextSegment.end);
-                            foundMoreSegments = true;
-                            // Break to restart the search from the new skipTarget
-                            break;
-                        }
+                // OPTIMIZATION: Use two-pointer to find consecutive segments (linear scan forward)
+                // Since segments are sorted, we can just check the next segments in order
+                for (let j = i + 1; j < segments.length; j++) {
+                    const nextSegment = segments[j];
+                    const gapBetweenSegments = nextSegment.start - skipTarget;
+
+                    // Check if next segment is consecutive (starts within threshold of current skip target)
+                    if (gapBetweenSegments >= -threshold && gapBetweenSegments <= threshold) {
+                        // Segments are consecutive or overlapping - extend skip target to end of next segment
+                        skipTarget = Math.max(skipTarget, nextSegment.end);
+                    } else {
+                        // No more consecutive segments (segments are sorted, so we can stop)
+                        break;
                     }
                 }
 
                 break; // Found the segment(s) to skip, no need to check further
+            }
+
+            // Early exit: if we've passed all potentially relevant segments, stop searching
+            if (segment.start > currentTime + this.SEGMENT_START_ENTRY_THRESHOLD_MS) {
+                break;
             }
         }
 
