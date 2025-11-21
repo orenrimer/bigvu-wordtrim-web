@@ -248,6 +248,48 @@ export class EditorStateService {
     }
 
     /**
+     * Find word by index using optimized search
+     * OPTIMIZED: Uses direct access (O(1)) if indices are sequential, otherwise binary search (O(log n))
+     * 
+     * @param words Array of words (assumed to be sorted by index)
+     * @param targetIndex Index to find
+     * @returns Word with matching index, or undefined if not found
+     */
+    private findWordByIndex(words: Word[], targetIndex: number): Word | undefined {
+        if (words.length === 0 || targetIndex < 0) {
+            return undefined;
+        }
+
+        // OPTIMIZATION: Try direct access first (O(1)) - works if indices are sequential
+        // Check if the array position matches the index (indices are sequential: 0, 1, 2, 3...)
+        if (targetIndex < words.length) {
+            const directWord = words[targetIndex];
+            if (directWord && directWord.index === targetIndex) {
+                return directWord;
+            }
+        }
+
+        // Fallback: Binary search (O(log n)) - needed if indices are not sequential
+        let left = 0;
+        let right = words.length - 1;
+
+        while (left <= right) {
+            const mid = Math.floor((left + right) / 2);
+            const word = words[mid];
+
+            if (word.index === targetIndex) {
+                return word;
+            } else if (word.index < targetIndex) {
+                left = mid + 1;
+            } else {
+                right = mid - 1;
+            }
+        }
+
+        return undefined;
+    }
+
+    /**
      * Check if operation would delete all non-deleted words in the video
      * @param wordsToDelete Set of word indices that would be deleted
      * @returns True if operation would delete all remaining words
@@ -347,7 +389,7 @@ export class EditorStateService {
                 selectionStart = 0;
             } else {
                 // Find the word before the first selected word
-                const wordBefore = currentWords.find(w => w.index === selectedFirstWord.index - 1);
+                const wordBefore = this.findWordByIndex(currentWords, selectedFirstWord.index - 1);
                 selectionStart = wordBefore ? wordBefore.end : selectedFirstWord.start;
             }
         }
@@ -366,7 +408,7 @@ export class EditorStateService {
                 selectionEnd = selectedLastWord.end;
             } else {
                 // Find the word after the last selected word
-                const wordAfter = currentWords.find(w => w.index === selectedLastWord.index + 1);
+                const wordAfter = this.findWordByIndex(currentWords, selectedLastWord.index + 1);
                 selectionEnd = wordAfter ? wordAfter.start : selectedLastWord.end;
             }
         }
@@ -448,7 +490,7 @@ export class EditorStateService {
                 restoredStart = 0;
             } else {
                 // Find the word before the first selected word
-                const wordBefore = currentWords.find(w => w.index === firstWord.index - 1);
+                const wordBefore = this.findWordByIndex(currentWords, firstWord.index - 1);
                 restoredStart = wordBefore ? wordBefore.end : firstWord.start;
             }
         }
@@ -723,11 +765,11 @@ export class EditorStateService {
 
         if (snapshot.selectionStartIndex !== undefined && snapshot.selectionStartIndex !== null) {
             // New format: use index
-            restoredStart = restoredWords.find(w => w.index === snapshot.selectionStartIndex!) ?? null;
+            restoredStart = this.findWordByIndex(restoredWords, snapshot.selectionStartIndex) ?? null;
         }
         if (snapshot.selectionEndIndex !== undefined && snapshot.selectionEndIndex !== null) {
             // New format: use index
-            restoredEnd = restoredWords.find(w => w.index === snapshot.selectionEndIndex!) ?? null;
+            restoredEnd = this.findWordByIndex(restoredWords, snapshot.selectionEndIndex) ?? null;
         }
 
         // Step 4: Set selection signals - this will trigger timeline effect to update handles
