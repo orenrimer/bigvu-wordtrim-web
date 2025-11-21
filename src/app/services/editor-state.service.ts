@@ -330,12 +330,14 @@ export class EditorStateService {
         // Save fine-tuned deleted segment if provided
         // Handles are always provided together or not at all
         if (fineTunedStart !== undefined && fineTunedEnd !== undefined) {
-            this.addDeletedSegment(fineTunedStart, fineTunedEnd);
+            // Fine-tuned handles provided - don't merge adjacent segments
+            this.addDeletedSegment(fineTunedStart, fineTunedEnd, true);
         } else if (selected.length > 0) {
             // Fallback: use word boundaries if handles not provided
+            // Word boundaries can be merged with adjacent segments
             const firstWord = selected[0];
             const lastWord = selected[selected.length - 1];
-            this.addDeletedSegment(firstWord.start, lastWord.end);
+            this.addDeletedSegment(firstWord.start, lastWord.end, false);
         }
 
         const currentWords = this._words();
@@ -605,25 +607,256 @@ export class EditorStateService {
     /**
      * Add a deleted segment with fine-tuned handle times
      * Called when user deletes a segment using Remove action
-     * Merges overlapping deleted segments to avoid duplicates
+     * Properly handles overlapping and adjacent segments:
+     * - Merges overlapping segments into a single segment
+     * - Merges adjacent segments (touching) if not fine-tuned
      * @param start Fine-tuned start handle time in seconds
      * @param end Fine-tuned end handle time in seconds
+     * @param isFineTuned Whether this segment uses fine-tuned handle positions (default: true)
      */
-    public addDeletedSegment(start: number, end: number): void {
+    public addDeletedSegment(start: number, end: number, isFineTuned: boolean = true): void {
         const currentSegments = this._deletedSegments();
         const newSegment = { start, end };
 
-        // Remove any existing deleted segments that overlap with the new segment
-        // We'll replace them with the new one (which has the fine-tuned times)
-        const filteredSegments = currentSegments.filter(segment => {
-            // Check if segments overlap
-            const overlaps = segment.start < end && segment.end > start;
-            return !overlaps;
-        });
+        // Find all segments that overlap with the new segment
+        // Overlapping segments will be merged with the new segment
+        const overlappingSegments: Array<{ start: number; end: number }> = [];
+        const nonOverlappingSegments: Array<{ start: number; end: number }> = [];
 
-        // Add the new segment and sort by start time
-        const updatedSegments = [...filteredSegments, newSegment].sort((a, b) => a.start - b.start);
+        for (const segment of currentSegments) {
+            // Check if segments overlap or touch: segment.start <= end && segment.end >= start
+            // This includes both overlapping (segment.start < end && segment.end > start) 
+            // and touching (segment.end === start || segment.start === end) segments
+            const overlapsOrTouches = segment.start <= end && segment.end >= start;
+            if (overlapsOrTouches) {
+                overlappingSegments.push(segment);
+            } else {
+                nonOverlappingSegments.push(segment);
+            }
+        }
+
+        // Merge all overlapping/touching segments (including the new one) into a single segment
+        let mergedSegment: { start: number; end: number };
+        if (overlappingSegments.length > 0) {
+            // Merge all overlapping/touching segments: take min start and max end
+            const minStart = Math.min(start, ...overlappingSegments.map(s => s.start));
+            const maxEnd = Math.max(end, ...overlappingSegments.map(s => s.end));
+            mergedSegment = { start: minStart, end: maxEnd };
+        } else {
+            mergedSegment = newSegment;
+        }
+
+        // Combine non-overlapping segments with the merged segment and sort
+        let updatedSegments = [...nonOverlappingSegments, mergedSegment].sort((a, b) => a.start - b.start);
+
+        // Always merge adjacent segments (touching segments should be combined)
+        // This ensures that segments that touch are merged into a single segment
+        updatedSegments = this.mergeAdjacentSegments(updatedSegments);
+
         this._deletedSegments.set(updatedSegments);
+    }
+
+    /**
+     * Merge adjacent deleted segments (segments that touch, overlap, or have adjacent words)
+     * Used for all segments to ensure touching segments and word-adjacent segments are combined
+     * @param segments Array of segments to merge
+     * @returns Merged array of segments
+     */
+    private mergeAdjacentSegments(segments: Array<{ start: number; end: number }>): Array<{ start: number; end: number }> {
+        if (segments.length === 0) {
+            return segments;
+        }
+
+        const words = this._words();
+        if (words.length === 0) {
+            // Fallback to time-based merging if no words available
+            return this.mergeAdjacentSegmentsByTime(segments);
+        }
+
+        const mergedSegments: Array<{ start: number; end: number }> = [];
+
+        for (const segment of segments) {
+            if (mergedSegments.length === 0) {
+                mergedSegments.push({ ...segment });
+                continue;
+            }
+
+            const lastSegment = mergedSegments[mergedSegments.length - 1];
+
+            // Check if segments should be merged:
+            // 1. They overlap or touch in time (lastSegment.end >= segment.start)
+            // 2. OR the words are adjacent (last word of first segment is adjacent to first word of second segment)
+            const shouldMerge = this.shouldMergeSegments(lastSegment, segment, words);
+
+            if (shouldMerge) {
+                // Merge: extend the last segment to cover both
+                lastSegment.end = Math.max(lastSegment.end, segment.end);
+            } else {
+                // Not adjacent - add as new segment
+                mergedSegments.push({ ...segment });
+            }
+        }
+
+        return mergedSegments;
+    }
+
+    /**
+     * Check if two segments should be merged based on time overlap or word adjacency
+     * Exception: Don't merge if either segment boundary is fine-tuned (not at word boundary)
+     * @param segment1 First segment
+     * @param segment2 Second segment
+     * @param words Array of words
+     * @returns True if segments should be merged
+     */
+    private shouldMergeSegments(
+        segment1: { start: number; end: number },
+        segment2: { start: number; end: number },
+        words: Word[]
+    ): boolean {
+        // First check: segments overlap or touch in time
+        if (segment1.end >= segment2.start) {
+            // Check if boundaries are fine-tuned before merging
+            const segment1EndIsFineTuned = this.isBoundaryFineTuned(segment1.end, words, 'end');
+            const segment2StartIsFineTuned = this.isBoundaryFineTuned(segment2.start, words, 'start');
+
+            // Don't merge if either boundary is fine-tuned
+            if (segment1EndIsFineTuned || segment2StartIsFineTuned) {
+                return false;
+            }
+
+            return true;
+        }
+
+        // Second check: words are adjacent
+        // Find the last word of segment1 and first word of segment2
+        const lastWordOfSegment1 = this.findWordAtTime(segment1.end, words, 'end');
+        const firstWordOfSegment2 = this.findWordAtTime(segment2.start, words, 'start');
+
+        if (lastWordOfSegment1 && firstWordOfSegment2) {
+            // Check if words are adjacent (consecutive indices)
+            // If segment1 ends at word X and segment2 starts at word X+1, they're adjacent
+            const wordsAreAdjacent = firstWordOfSegment2.index === lastWordOfSegment1.index + 1;
+
+            if (wordsAreAdjacent) {
+                // Check if boundaries are fine-tuned before merging
+                const segment1EndIsFineTuned = this.isBoundaryFineTuned(segment1.end, words, 'end');
+                const segment2StartIsFineTuned = this.isBoundaryFineTuned(segment2.start, words, 'start');
+
+                // Don't merge if either boundary is fine-tuned
+                if (segment1EndIsFineTuned || segment2StartIsFineTuned) {
+                    return false;
+                }
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if a segment boundary is fine-tuned (not at exact word boundary)
+     * Fine-tuned means the boundary is between word boundaries (sub-word precision)
+     * @param time Time of the boundary
+     * @param words Array of words
+     * @param mode 'start' to check if time is at word.start, 'end' to check if time is at word.end
+     * @returns True if boundary is fine-tuned (not at exact word boundary)
+     */
+    private isBoundaryFineTuned(time: number, words: Word[], mode: 'start' | 'end'): boolean {
+        // Find the word that contains this time
+        const word = words.find(w => time >= w.start && time <= w.end);
+
+        if (!word) {
+            // Time is in a gap - find closest word boundary
+            if (mode === 'end') {
+                // Check if time equals any word.end
+                const exactMatch = words.some(w => Math.abs(time - w.end) < 0.001); // Small tolerance for floating point
+                return !exactMatch; // If not exact match, it's fine-tuned
+            } else {
+                // Check if time equals any word.start
+                const exactMatch = words.some(w => Math.abs(time - w.start) < 0.001); // Small tolerance for floating point
+                return !exactMatch; // If not exact match, it's fine-tuned
+            }
+        }
+
+        // Check if time is exactly at the word boundary
+        if (mode === 'end') {
+            // For end boundary: check if time equals word.end
+            return Math.abs(time - word.end) >= 0.001; // Fine-tuned if not exactly at word.end
+        } else {
+            // For start boundary: check if time equals word.start
+            return Math.abs(time - word.start) >= 0.001; // Fine-tuned if not exactly at word.start
+        }
+    }
+
+    /**
+     * Find the word at a specific time
+     * @param time Time in seconds
+     * @param words Array of words to search
+     * @param mode 'start' to find word at start of segment, 'end' to find word at end of segment
+     * @returns Word at the time, or null if not found
+     */
+    private findWordAtTime(time: number, words: Word[], mode: 'start' | 'end'): Word | null {
+        // Find word that contains this time
+        let word = words.find(w => time >= w.start && time <= w.end);
+
+        if (word) {
+            return word;
+        }
+
+        // If not found, find the closest word
+        // For 'end' mode: find the word that ends before or at this time (last word before gap)
+        // For 'start' mode: find the word that starts after or at this time (first word after gap)
+        if (mode === 'end') {
+            // Find the last word that ends before or at this time
+            const wordsBefore = words.filter(w => w.end <= time);
+            if (wordsBefore.length > 0) {
+                // Return the word with the highest index (last word before gap)
+                return wordsBefore.reduce((prev, curr) =>
+                    curr.index > prev.index ? curr : prev
+                );
+            }
+        } else {
+            // Find the first word that starts at or after this time
+            const wordsAfter = words.filter(w => w.start >= time);
+            if (wordsAfter.length > 0) {
+                // Return the word with the lowest index (first word after gap)
+                return wordsAfter.reduce((prev, curr) =>
+                    curr.index < prev.index ? curr : prev
+                );
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Fallback: Merge adjacent segments by time only (when words are not available)
+     * @param segments Array of segments to merge
+     * @returns Merged array of segments
+     */
+    private mergeAdjacentSegmentsByTime(segments: Array<{ start: number; end: number }>): Array<{ start: number; end: number }> {
+        const mergedSegments: Array<{ start: number; end: number }> = [];
+
+        for (const segment of segments) {
+            if (mergedSegments.length === 0) {
+                mergedSegments.push({ ...segment });
+                continue;
+            }
+
+            const lastSegment = mergedSegments[mergedSegments.length - 1];
+            // Check if segments are adjacent (touch) or overlap
+            // Adjacent: lastSegment.end >= segment.start (they touch or overlap)
+            if (lastSegment.end >= segment.start) {
+                // Merge: extend the last segment to cover both
+                lastSegment.end = Math.max(lastSegment.end, segment.end);
+            } else {
+                // Not adjacent - add as new segment
+                mergedSegments.push({ ...segment });
+            }
+        }
+
+        return mergedSegments;
     }
 
     /**

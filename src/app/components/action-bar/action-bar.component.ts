@@ -161,6 +161,10 @@ export class ActionBarComponent {
         this.editorState.deleteSelectedWords(fineTunedStart, fineTunedEnd);
         // Current state (after action) is NOT saved - it's the current viewing state
 
+        // Log deleted segments array after remove action
+        const deletedSegments = this.editorState.deletedSegments();
+        // console.log('Deleted Segments after Remove:', JSON.stringify(deletedSegments, null, 2));
+
         // Announce action for screen readers
         const wordCount = this.selectedWords().length;
         this.actionAnnouncement.set(`Removed ${wordCount} ${wordCount === 1 ? 'word' : 'words'} from selection`);
@@ -189,6 +193,10 @@ export class ActionBarComponent {
         // Pass fine-tuned handle times if available to ensure correct deleted segments
         this.editorState.keepOnlySelectedWords(fineTunedStart, fineTunedEnd);
         // Current state (after action) is NOT saved - it's the current viewing state
+
+        // Log deleted segments array after keep only action
+        const deletedSegments = this.editorState.deletedSegments();
+        // console.log('Deleted Segments after Keep Only:', JSON.stringify(deletedSegments, null, 2));
 
         // Announce action for screen readers
         const wordCount = this.selectedWords().length;
@@ -219,6 +227,10 @@ export class ActionBarComponent {
         // Pass fine-tuned handle times to ensure correct deleted segments are removed
         this.editorState.restoreSelectedWords(fineTunedStart, fineTunedEnd);
         // Current state (after action) is NOT saved - it's the current viewing state
+
+        // Log deleted segments array after restore action
+        const deletedSegments = this.editorState.deletedSegments();
+        // console.log('Deleted Segments after Restore:', JSON.stringify(deletedSegments, null, 2));
 
         // Announce action for screen readers
         const restoredCount = this.deletedWordsInSelection();

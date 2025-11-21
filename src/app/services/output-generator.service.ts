@@ -63,7 +63,6 @@ export class OutputGeneratorService {
         // Now we need to cut the remaining segments at those exact positions
         const deletedSegments = this.editorState.getDeletedSegments();
 
-
         // Cut segments at deleted segment boundaries
         // The deleted segments already contain fine-tuned handle times from when segments were deleted
         // So after cutting, the remaining segments are already correct - no need for additional fine-tuning
@@ -79,19 +78,16 @@ export class OutputGeneratorService {
 
     /**
      * Cut segments at deleted segment boundaries
-     * When a segment was deleted with fine-tuned handle times, we need to cut
-     * the remaining segments at those exact positions
+     * Deleted segments are already properly merged and sorted in editor-state.service.ts
+     * This method simply cuts the input segments at the deleted segment boundaries
      * 
      * Example:
      * - Original segment: [0-30s]
-     * - Deleted segment: [5-9.5s] (fine-tuned)
+     * - Deleted segment: [5-9.5s] (already merged and sorted from editor-state)
      * - Result: [0-5s], [9.5-30s]
      * 
-     * OPTIMIZED: Uses binary search + two-pointer algorithm for O(n × log m + n × k) complexity
-     * instead of O(n × m + n × k log k) nested loops
-     * 
      * @param segments Array of segments to cut
-     * @param deletedSegments Array of deleted segments with fine-tuned times (assumed to be sorted)
+     * @param deletedSegments Array of deleted segments (already merged and sorted from editor-state)
      * @returns Array of segments after cutting at deleted boundaries
      */
     private cutSegmentsAtDeletedBoundaries(segments: OutputSegment[], deletedSegments: Array<{ start: number; end: number }>): OutputSegment[] {
@@ -101,45 +97,22 @@ export class OutputGeneratorService {
 
         const result: OutputSegment[] = [];
 
-        // OPTIMIZATION: Ensure deletedSegments are sorted (they should be, but verify for safety)
-        // Since deletedSegments come from editor-state which always sorts them, we can skip this
-        // But we'll add a check to ensure they're sorted
-        const sortedDeletedSegments = this.ensureSorted(deletedSegments);
-
         for (const segment of segments) {
-            // OPTIMIZATION: Use binary search to find the first potentially overlapping deleted segment
-            // A deleted segment overlaps if: deleted.start < segment.end AND deleted.end > segment.start
-            // We're looking for the first deleted segment where deleted.start < segment.end
-            let startIndex = this.binarySearchFirstOverlapping(sortedDeletedSegments, segment);
-
-            if (startIndex === -1) {
-                // No overlapping deleted segments - keep segment as-is
-                result.push(segment);
-                continue;
-            }
-
-            // OPTIMIZATION: Use two-pointer to collect all overlapping segments
-            // Since segments are sorted, we can scan forward until deleted.end > segment.start
-            const overlappingDeleted: Array<{ start: number; end: number }> = [];
-            for (let i = startIndex; i < sortedDeletedSegments.length; i++) {
-                const deleted = sortedDeletedSegments[i];
-
-                // Check if segments overlap
-                // Two segments overlap if: deleted.start < segment.end AND deleted.end > segment.start
-                if (deleted.start < segment.end && deleted.end > segment.start) {
-                    overlappingDeleted.push(deleted);
-                } else if (deleted.start >= segment.end) {
-                    // No more overlapping segments (segments are sorted, so we can stop)
-                    break;
-                }
-            }
-
-            // Cut segment at deleted boundaries
             let currentStart = segment.start;
 
-            for (const deleted of overlappingDeleted) {
-                // If deleted segment starts after current start, keep the part before it
+            // Cut segment at each deleted boundary
+            for (const deleted of deletedSegments) {
+                // Skip deleted segments that don't overlap with current segment
+                if (deleted.end <= currentStart) {
+                    continue; // Deleted segment is before current start
+                }
+                if (deleted.start >= segment.end) {
+                    break; // Deleted segments are after current segment (sorted, so we can stop)
+                }
+
+                // If deleted segment overlaps with current segment, cut at boundaries
                 if (deleted.start > currentStart) {
+                    // Keep the part before the deleted segment
                     result.push({
                         start: currentStart,
                         end: deleted.start
@@ -162,68 +135,6 @@ export class OutputGeneratorService {
         return result;
     }
 
-    /**
-     * Ensure deleted segments are sorted by start time
-     * @param segments Array of segments
-     * @returns Sorted array of segments
-     */
-    private ensureSorted(segments: Array<{ start: number; end: number }>): Array<{ start: number; end: number }> {
-        // Check if already sorted (optimization - skip sort if already sorted)
-        let isSorted = true;
-        for (let i = 1; i < segments.length; i++) {
-            if (segments[i - 1].start > segments[i].start) {
-                isSorted = false;
-                break;
-            }
-        }
-
-        if (isSorted) {
-            return segments;
-        }
-
-        // Sort if not already sorted
-        return [...segments].sort((a, b) => a.start - b.start);
-    }
-
-    /**
-     * Binary search to find the first deleted segment that might overlap with the given segment
-     * A deleted segment overlaps if: deleted.start < segment.end AND deleted.end > segment.start
-     * We're looking for the first deleted segment where deleted.start < segment.end
-     * 
-     * @param deletedSegments Sorted array of deleted segments
-     * @param segment Segment to check overlap with
-     * @returns Index of first potentially overlapping segment, or -1 if none found
-     */
-    private binarySearchFirstOverlapping(
-        deletedSegments: Array<{ start: number; end: number }>,
-        segment: OutputSegment
-    ): number {
-        let left = 0;
-        let right = deletedSegments.length - 1;
-        let result = -1;
-
-        // Binary search for the first segment where deleted.start < segment.end
-        // This is the leftmost segment that could potentially overlap
-        while (left <= right) {
-            const mid = Math.floor((left + right) / 2);
-            const deleted = deletedSegments[mid];
-
-            if (deleted.start < segment.end) {
-                // This segment satisfies deleted.start < segment.end
-                // Check if it actually overlaps (deleted.end > segment.start)
-                if (deleted.end > segment.start) {
-                    result = mid;
-                }
-                // Continue searching left to find the first overlapping segment
-                right = mid - 1;
-            } else {
-                // Segment is too far ahead (deleted.start >= segment.end), search left
-                right = mid - 1;
-            }
-        }
-
-        return result;
-    }
 
 
 
