@@ -109,8 +109,11 @@
         </div>
     </div>
 
-    <!-- Tutorial Modal (Feature 7) - Show when words are loaded and no error, OR when modal is explicitly opened via button -->
+    <!-- Tutorial Modal (Feature 7) - Show when:
+         - Video mode: Always show if modal state is 'video' (bypass error check, regardless of words)
+         - Tip mode: Only show if words exist and no error (or empty segmentation error)
+         - Auto-show tip: Only show if words exist and user hasn't clicked word yet -->
     <app-tutorial-modal
-        *ngIf="!isLoading() && !hasError() && hasWords() && (tutorialService.modalState() !== 'hidden' || !tutorialService.hasClickedWord())"></app-tutorial-modal>
+        *ngIf="!isLoading() && (tutorialService.modalState() === 'video' || ((!hasError() || isEmptySegmentationError()) && hasWords() && (tutorialService.modalState() !== 'hidden' || !tutorialService.hasClickedWord())))"></app-tutorial-modal>
 
 </div>

@@ -199,6 +199,12 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
             return;
         }
 
+        // Validate video URL
+        if (!this.tutorialVideoUrl || this.tutorialVideoUrl.trim() === '') {
+            console.error('Tutorial video URL is not configured');
+            return;
+        }
+
         // Clean up existing HLS instance if any
         this.destroyHls();
 
@@ -221,16 +227,38 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
                     }, 100);
                 },
                 onError: (event, data) => {
-                    console.error('Tutorial video HLS error:', {
-                        event,
-                        type: data?.type,
-                        details: data?.details,
-                        fatal: data?.fatal,
-                        url: data?.url,
-                        message: data?.message,
-                        error: data?.error,
-                        fullData: data
-                    });
+                    // Filter out non-fatal errors that HLS.js handles automatically
+                    // These errors don't require user intervention and are handled internally
+                    const nonFatalErrorsToIgnore = [
+                        'bufferSeekOverHole',      // HLS.js automatically seeks over buffer holes
+                        'bufferStalled',           // HLS.js automatically recovers from stalls
+                        'bufferStalledError',      // HLS.js automatically recovers from buffer stalls
+                        'bufferAppending',         // Normal buffering operation
+                        'bufferAppended'           // Normal buffering operation
+                    ];
+
+                    // Only log fatal errors or non-ignored errors
+                    if (data?.fatal || (data?.details && !nonFatalErrorsToIgnore.includes(data.details))) {
+                        if (data?.fatal) {
+                            console.error('Tutorial video HLS fatal error:', {
+                                event,
+                                type: data?.type,
+                                details: data?.details,
+                                fatal: data?.fatal,
+                                url: data?.url,
+                                message: data?.message,
+                                error: data?.error
+                            });
+                        } else {
+                            // Log non-fatal but potentially interesting errors as warnings
+                            console.warn('Tutorial video HLS warning:', {
+                                type: data?.type,
+                                details: data?.details,
+                                message: data?.message
+                            });
+                        }
+                    }
+                    // Silently ignore non-fatal errors that are handled automatically by HLS.js
                 }
             }
         );
@@ -317,13 +345,19 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
             (videoElement as any)._tutorialEventCleanup();
         }
 
+        // Pause video before cleanup to prevent errors
+        if (videoElement && !videoElement.paused) {
+            videoElement.pause();
+        }
+
         // Destroy HLS.js instance
         this.hlsLoaderService.destroy(this.hls);
         this.hls = null;
 
-        // Clear video source
+        // Clear video source without triggering load error
+        // Remove src attribute instead of setting to empty string to avoid "Invalid URI" error
         if (videoElement) {
-            videoElement.src = '';
+            videoElement.removeAttribute('src');
             videoElement.load();
         }
     }

@@ -195,7 +195,7 @@ export class ActionBarComponent {
         // Current state (after action) is NOT saved - it's the current viewing state
 
         // Log deleted segments array after keep only action
-        const deletedSegments = this.editorState.deletedSegments();
+        // const deletedSegments = this.editorState.deletedSegments();
         // console.log('Deleted Segments after Keep Only:', JSON.stringify(deletedSegments, null, 2));
 
         // Announce action for screen readers
@@ -229,7 +229,7 @@ export class ActionBarComponent {
         // Current state (after action) is NOT saved - it's the current viewing state
 
         // Log deleted segments array after restore action
-        const deletedSegments = this.editorState.deletedSegments();
+        // const deletedSegments = this.editorState.deletedSegments();
         // console.log('Deleted Segments after Restore:', JSON.stringify(deletedSegments, null, 2));
 
         // Announce action for screen readers
