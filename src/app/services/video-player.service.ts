@@ -156,6 +156,11 @@ export class VideoPlayerService {
      * Check if video has ended
      */
     private isVideoEnded(currentTime: number, duration: number): boolean {
+        // Check video element's ended property first (most reliable)
+        if (this.videoElement && this.videoElement.ended) {
+            return true;
+        }
+        // Fallback to time-based check
         return duration > 0 && (currentTime >= duration || Math.abs(currentTime - duration) < 0.1);
     }
 
@@ -913,7 +918,9 @@ export class VideoPlayerService {
 
                     // Check if selection changed or video ended
                     const selectionChanged = this.checkSelectionChanged(selectionStart, playStart);
-                    const videoEnded = this.isVideoEnded(currentTime, duration);
+                    // Use signal for videoEnded check - signal is set to duration when video ends
+                    // (videoElement.currentTime may reset to 0 after video ends)
+                    const videoEnded = this.isVideoEnded(this._currentTime(), duration);
                     const atSegmentEnd = currentTime >= playEnd || Math.abs(currentTime - playEnd) < 0.1;
 
                     // If we're in preview mode, continue from current position but still stop at segment end
@@ -937,7 +944,9 @@ export class VideoPlayerService {
 
                     // Check if selection changed or video ended
                     const selectionChanged = this.checkSelectionChanged(selectionStart, playStart);
-                    const videoEnded = this.isVideoEnded(currentTime, duration);
+                    // Use signal for videoEnded check - signal is set to duration when video ends
+                    // (videoElement.currentTime may reset to 0 after video ends)
+                    const videoEnded = this.isVideoEnded(this._currentTime(), duration);
 
                     // If we're in preview mode, continue from current position
                     if (this.isPreviewMode) {
