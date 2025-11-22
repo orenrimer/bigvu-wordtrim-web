@@ -128,10 +128,10 @@ export class ActionBarComponent {
     });
 
     /**
-     * Can Preview Start/End - disabled when video is playing
+     * Can Preview Start/End - always enabled (pauses video if playing)
      */
     protected readonly canPreviewStartEnd = computed(() => {
-        return !this.videoPlayerService.isPlaying();
+        return true;
     });
 
     // ========== Feature 8: Undo/Redo Button States ==========
@@ -287,10 +287,15 @@ export class ActionBarComponent {
 
     /**
      * Fix Start/End (Feature 13)
-     * Toggles preview mode to show seconds until first and last words
+     * Pauses video and toggles preview mode to show seconds until first and last words
      * Shows tip modal when opening preview mode (Feature 13.11)
      */
     onFixStartEnd(): void {
+        // Pause video if playing
+        if (this.videoPlayerService.isPlaying()) {
+            this.videoPlayerService.pause();
+        }
+
         if (this.mainEditorContainer) {
             // Just toggle preview mode - tip modal will show when clicking words-container
             this.mainEditorContainer.togglePreviewMode();

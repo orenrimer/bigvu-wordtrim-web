@@ -346,7 +346,7 @@
     .words-container.preview-mode-disabled {
         // Allow clicks on container to show tip modal, but prevent word selection
         // Individual word chips are still disabled via onWordClick logic
-        opacity: 0.8; // Visual indication that word selection is disabled
+        // opacity: 0.8; // Visual indication that word selection is disabled
         cursor: pointer; // Show pointer cursor to indicate clickability
     }
 
