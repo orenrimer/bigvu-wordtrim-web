@@ -934,6 +934,113 @@ export class EditorStateService {
         return this._deletedSegments();
     }
 
+    // ========== Feature 13: Intro/Outro Segments Management ==========
+
+    /**
+     * Add intro and outro segments to deleted segments
+     * Intro: from 0 to start of first non-deleted word
+     * Outro: from end of last non-deleted word to video duration
+     * This effectively trims the start and end of the video
+     * @param videoDuration Total video duration in seconds
+     */
+    public addIntroOutroSegments(videoDuration: number): void {
+        const nonDeletedWords = this.getNonDeletedWords();
+
+        if (nonDeletedWords.length === 0) {
+            console.warn('Cannot add intro/outro: no non-deleted words found');
+            return;
+        }
+
+        // Use the first and last NON-DELETED words to determine intro/outro boundaries
+        // Intro is from 0 to first non-deleted word start
+        // Outro is from last non-deleted word end to video duration
+        const firstWord = nonDeletedWords[0];
+        const lastWord = nonDeletedWords[nonDeletedWords.length - 1];
+
+        // Intro segment: from 0 to start of first non-deleted word
+        if (firstWord.start > 0) {
+            this.addDeletedSegment(0, firstWord.start, false);
+        }
+
+        // Outro segment: from end of last non-deleted word to video duration
+        if (lastWord.end < videoDuration) {
+            this.addDeletedSegment(lastWord.end, videoDuration, false);
+        }
+    }
+
+    /**
+     * Remove intro and outro segments from deleted segments
+     * Cuts intro/outro parts from segments instead of removing entire segments
+     * For example: if segment [0, 10] includes intro [0, 5] and first word [5, 10],
+     * it will keep only [5, 10] (first word remains deleted)
+     * @param videoDuration Total video duration in seconds
+     */
+    public removeIntroOutroSegments(videoDuration: number): void {
+        const currentSegments = this._deletedSegments();
+        const allWords = this._words();
+
+        if (allWords.length === 0) {
+            // If no words at all, remove all segments that touch boundaries
+            const filteredSegments = currentSegments.filter(seg =>
+                seg.start > 0 && seg.end < videoDuration
+            );
+            this._deletedSegments.set(filteredSegments);
+            return;
+        }
+
+        // Use the VERY FIRST and VERY LAST words in the video (before any deletion)
+        // This is important because the first/last non-deleted words might not be the actual first/last words
+        const firstWord = allWords[0];
+        const lastWord = allWords[allWords.length - 1];
+
+        const resultSegments: Array<{ start: number; end: number }> = [];
+
+        for (const segment of currentSegments) {
+            let processedSegment = { ...segment };
+            let shouldSkip = false;
+
+            // Handle intro: if segment starts at 0 (includes intro), cut the intro part
+            if (processedSegment.start === 0) {
+                if (processedSegment.end <= firstWord.start) {
+                    // Segment is entirely intro (starts at 0, ends at or before first word start) - skip it
+                    shouldSkip = true;
+                } else {
+                    // Segment includes intro - cut intro part
+                    // Keep only the part from first word start onwards
+                    processedSegment = {
+                        start: firstWord.start,
+                        end: processedSegment.end
+                    };
+                }
+            }
+
+            // Handle outro: if segment ends at video duration (includes outro), cut the outro part
+            // Only check if we haven't skipped the segment already
+            if (!shouldSkip && processedSegment.end === videoDuration) {
+                if (processedSegment.start >= lastWord.end) {
+                    // Segment is entirely outro (starts at or after last word end, ends at video duration) - skip it
+                    shouldSkip = true;
+                } else {
+                    // Segment includes outro - cut outro part
+                    // Keep only the part up to last word end
+                    processedSegment = {
+                        start: processedSegment.start,
+                        end: lastWord.end
+                    };
+                }
+            }
+
+            // Only add segment if it still has valid length after cutting and wasn't skipped
+            if (!shouldSkip && processedSegment.start < processedSegment.end) {
+                resultSegments.push(processedSegment);
+            }
+        }
+
+        // Merge adjacent segments after removal
+        const mergedSegments = this.mergeAdjacentSegments(resultSegments);
+        this._deletedSegments.set(mergedSegments);
+    }
+
     // ========== Feature 8: Undo/Redo State Management ==========
 
     /**

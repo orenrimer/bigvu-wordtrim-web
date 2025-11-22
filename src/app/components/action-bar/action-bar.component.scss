@@ -40,6 +40,79 @@
 }
 
 /**
+ * Preview Mode Layout (Feature 13.8)
+ * Shows message, preview button, and action buttons
+ */
+.preview-mode-layout {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: var(--spacing-5);
+    padding-right: var(--spacing-5);
+
+}
+
+.preview-mode-layout__left {
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: var(--spacing-4);
+    flex: 1; // Take as much space as possible
+    min-width: 0; // Allow flex item to shrink below its content size if needed
+    padding: var(--spacing-4) var(--spacing-5);
+
+}
+
+.preview-mode-message {
+    font-size: var(--font-size-16);
+    font-weight: var(--font-weight-regular);
+    color: var(--color-text-primary);
+    line-height: 140%;
+    flex-shrink: 0;
+}
+
+.preview-mode-button {
+    flex-shrink: 0;
+}
+
+.preview-mode-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+    flex-shrink: 0; // Keep actions on the right, don't shrink
+    padding: var(--spacing-4);
+}
+
+.preview-action-button {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-xl);
+    border: none;
+    background-color: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: background-color 0.2s ease;
+
+    &:hover {
+        background-color: var(--color-bg-secondary);
+    }
+
+    &:active {
+        background-color: var(--color-bg-tertiary);
+    }
+
+    img {
+        width: 24px;
+        height: 24px;
+    }
+}
+
+/**
  * Action bar item (app-button component)
  * Based on DESIGN_GUIDE.md: Action Bar Item specifications
  */

@@ -44,7 +44,7 @@
             </div>
 
             <!-- Selection Info Panel (for testing/debugging) -->
-            <!-- <div class="selection-info" *ngIf="!isLoading() && hasWords() && hasSelection()">
+            <div class="selection-info" *ngIf="!isLoading() && hasWords() && hasSelection()">
                 <div class="selection-info-content">
                     <strong>Selection:</strong>
                     <span *ngIf="!hasCompleteSelection()">
@@ -62,7 +62,7 @@
                     </span>
                     <button class="clear-btn" (click)="clearSelection()">Clear</button>
                 </div>
-            </div> -->
+            </div>
 
             <!-- Transcript Content with Timestamps -->
             <div class="transcript-content">
@@ -86,7 +86,7 @@
                         </span>
                     </div>
                     <div #wordsContainer class="words-container" role="group" aria-label="Word selection">
-                        <app-word-chip *ngFor="let word of words()" [word]="word"
+                        <app-word-chip *ngFor="let word of wordsWithIntroOutro()" [word]="word"
                             [currentPlaybackWordIndex]="currentPlaybackWordIndex()" (wordClicked)="onWordClick($event)"
                             (arrowKeyPressed)="onArrowKeyPressed(word, $event)">
                         </app-word-chip>
@@ -95,7 +95,8 @@
             </div>
 
             <!-- Action Bar (fixed bottom) - Show when loaded (even if empty), but hide on error -->
-            <app-action-bar *ngIf="!isLoading() && (!hasError() || isEmptySegmentationError())"></app-action-bar>
+            <app-action-bar *ngIf="!isLoading() && (!hasError() || isEmptySegmentationError())"
+                [mainEditorContainer]="this"></app-action-bar>
         </div>
     </div>
 

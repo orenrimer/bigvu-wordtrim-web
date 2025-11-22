@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, effect, AfterViewInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, computed, effect, AfterViewInit, ViewChild, ElementRef, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SegmentationLoaderService } from '../../services/segmentation-loader.service';
 import { EditorStateService } from '../../services/editor-state.service';
@@ -13,7 +13,7 @@ import { ActionBarComponent } from '../action-bar/action-bar.component';
 import { VideoPlayerComponent } from '../video-player/video-player.component';
 import { TimelineComponent } from '../timeline/timeline.component';
 import { TutorialModalComponent } from '../tutorial-modal/tutorial-modal.component';
-import { Word } from '../../models';
+import { Word, WordState } from '../../models';
 
 /**
  * Main Editor Container Component
@@ -42,6 +42,10 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
   // Track if position calculation is in progress to prevent multiple simultaneous calls
   private isPositionCalculating = false;
 
+  // Feature 13: Preview mode state for start/end trimming
+  private readonly _isPreviewMode = signal<boolean>(false);
+  public readonly isPreviewMode = this._isPreviewMode.asReadonly();
+
   // Expose video data service signals to template
   videoDataLoadingState = this.videoDataService.loadingState;
   videoDataError = this.videoDataService.error;
@@ -59,6 +63,50 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
   hasSelection = this.editorState.hasSelection;
   hasCompleteSelection = this.editorState.hasCompleteSelection;
   currentPlaybackWordIndex = this.editorState.currentPlaybackWordIndex;
+
+  // Feature 13: Computed signal for words with intro/outro chips in preview mode
+  wordsWithIntroOutro = computed(() => {
+    const allWords = this.words();
+    const isPreview = this.isPreviewMode();
+
+    if (!isPreview || allWords.length === 0) {
+      return allWords;
+    }
+
+    // Always use the VERY FIRST and VERY LAST words in the video (regardless of deletion status)
+    // This ensures intro/outro chips show the actual silence before/after ALL words
+    const firstWord = allWords[0];
+    const lastWord = allWords[allWords.length - 1];
+    const videoDuration = this.videoService.duration() || 0;
+
+    // Calculate intro and outro durations
+    // Intro: time from video start (0) until first word starts
+    const introDuration = firstWord.start;
+    // Outro: time from last word ends until video end
+    const outroDuration = videoDuration - lastWord.end;
+
+    // Create intro and outro chips
+    const introChip: Word = {
+      word: introDuration > 0 ? `(${introDuration.toFixed(1)})` : '(0)',
+      start: 0,
+      end: firstWord.start,
+      confidence: 0,
+      state: WordState.NORMAL,
+      index: -1 // Special index for intro chip
+    };
+
+    const outroChip: Word = {
+      word: outroDuration > 0 ? `(${outroDuration.toFixed(1)})` : '(0)',
+      start: lastWord.end,
+      end: videoDuration,
+      confidence: 0,
+      state: WordState.NORMAL,
+      index: -2 // Special index for outro chip
+    };
+
+    // Combine: intro chip + all words + outro chip
+    return [introChip, ...allWords, outroChip];
+  });
 
   // Computed signals for template conditionals
   isLoadingVideoData = computed(() => this.videoDataLoadingState() === 'loading');
@@ -431,6 +479,13 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
   }
 
   /**
+   * Toggle preview mode for start/end trimming (Feature 13)
+   */
+  togglePreviewMode(): void {
+    this._isPreviewMode.update(mode => !mode);
+  }
+
+  /**
    * Retry loading video metadata and segmentation after error
    */
   retryLoad(): void {
@@ -447,6 +502,11 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
    * @param direction 'left' for previous word, 'right' for next word
    */
   onArrowKeyPressed(currentWord: Word, direction: 'left' | 'right'): void {
+    // Feature 13: Ignore arrow keys on intro/outro chips (they're display-only)
+    if (currentWord.index === -1 || currentWord.index === -2) {
+      return;
+    }
+
     const words = this.words();
     if (words.length === 0) return;
 
@@ -486,6 +546,11 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
    * Also captures state for undo/redo when complete selection is made (Feature 8)
    */
   onWordClick(word: Word): void {
+    // Feature 13: Ignore clicks on intro/outro chips (they're display-only)
+    if (word.index === -1 || word.index === -2) {
+      return;
+    }
+
     // Notify tutorial service of word click (dismisses tip on first click)
     this.tutorialService.onWordClick();
 

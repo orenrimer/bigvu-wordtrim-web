@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ButtonComponent } from '../button/button.component';
 import { EditorStateService } from '../../services/editor-state.service';
@@ -6,7 +6,9 @@ import { TutorialService } from '../../services/tutorial.service';
 import { HistoryService } from '../../services/history.service';
 import { TimelineService } from '../../services/timeline.service';
 import { OutputGeneratorService } from '../../services/output-generator.service';
+import { VideoPlayerService } from '../../services/video-player.service';
 import { WordState } from '../../models';
+import { MainEditorContainerComponent } from '../main-editor-container/main-editor-container.component';
 
 /**
  * Action Bar Component
@@ -33,9 +35,18 @@ export class ActionBarComponent {
     private readonly historyService = inject(HistoryService);
     private readonly timelineService = inject(TimelineService);
     private readonly outputGenerator = inject(OutputGeneratorService);
+    private readonly videoPlayerService = inject(VideoPlayerService);
+
+    // Reference to main editor container for preview mode toggle
+    @Input() mainEditorContainer?: MainEditorContainerComponent;
 
     // Signal for ARIA live region announcements
     public readonly actionAnnouncement = signal<string>('');
+
+    // Feature 13: Track preview mode state
+    protected readonly isPreviewModeActive = computed(() => {
+        return this.mainEditorContainer?.isPreviewMode() ?? false;
+    });
 
     // Computed signals for button states based on selection
 
@@ -107,6 +118,22 @@ export class ActionBarComponent {
         return this.hasSelection();
     });
 
+    // ========== Feature 13: Preview Start/End Button States ==========
+
+    /**
+     * Show Preview Start/End Button - hidden when there's any selection
+     */
+    protected readonly showPreviewStartEnd = computed(() => {
+        return !this.hasSelection();
+    });
+
+    /**
+     * Can Preview Start/End - disabled when video is playing
+     */
+    protected readonly canPreviewStartEnd = computed(() => {
+        return !this.videoPlayerService.isPlaying();
+    });
+
     // ========== Feature 8: Undo/Redo Button States ==========
 
     /**
@@ -163,7 +190,7 @@ export class ActionBarComponent {
 
         // Log deleted segments array after remove action
         const deletedSegments = this.editorState.deletedSegments();
-        // console.log('Deleted Segments after Remove:', JSON.stringify(deletedSegments, null, 2));
+        console.log('Deleted Segments after Remove:', JSON.stringify(deletedSegments, null, 2));
 
         // Announce action for screen readers
         const wordCount = this.selectedWords().length;
@@ -195,8 +222,8 @@ export class ActionBarComponent {
         // Current state (after action) is NOT saved - it's the current viewing state
 
         // Log deleted segments array after keep only action
-        // const deletedSegments = this.editorState.deletedSegments();
-        // console.log('Deleted Segments after Keep Only:', JSON.stringify(deletedSegments, null, 2));
+        const deletedSegments = this.editorState.deletedSegments();
+        console.log('Deleted Segments after Keep Only:', JSON.stringify(deletedSegments, null, 2));
 
         // Announce action for screen readers
         const wordCount = this.selectedWords().length;
@@ -229,8 +256,8 @@ export class ActionBarComponent {
         // Current state (after action) is NOT saved - it's the current viewing state
 
         // Log deleted segments array after restore action
-        // const deletedSegments = this.editorState.deletedSegments();
-        // console.log('Deleted Segments after Restore:', JSON.stringify(deletedSegments, null, 2));
+        const deletedSegments = this.editorState.deletedSegments();
+        console.log('Deleted Segments after Restore:', JSON.stringify(deletedSegments, null, 2));
 
         // Announce action for screen readers
         const restoredCount = this.deletedWordsInSelection();
@@ -256,13 +283,82 @@ export class ActionBarComponent {
         this.actionAnnouncement.set('Selection cleared');
     }
 
-    // ========== Placeholder handlers for future features ==========
+    // ========== Feature 13: Fix Start/End Handlers ==========
 
     /**
-     * Fix Start/End (Phase 2 - not implemented yet)
+     * Fix Start/End (Feature 13)
+     * Toggles preview mode to show seconds until first and last words
      */
     onFixStartEnd(): void {
+        if (this.mainEditorContainer) {
+            this.mainEditorContainer.togglePreviewMode();
+        }
     }
+
+    /**
+     * Preview Start/End Button Click (Feature 13.9)
+     * Plays preview of start and end of unremoved segments
+     */
+    onPreviewStartEndClick(): void {
+        this.videoPlayerService.playPreviewStartEnd();
+    }
+
+    /**
+     * Confirm Preview Start/End (Feature 13.8)
+     * Adds intro and outro segments to deleted segments array
+     * This makes them skip during playback like any other deleted segment
+     */
+    onConfirmPreview(): void {
+        // Save previous state BEFORE action (for undo/redo)
+        this.capturePreviousState();
+
+        // Get video duration
+        const videoDuration = this.videoPlayerService.duration();
+        if (!videoDuration || videoDuration <= 0) {
+            console.warn('Cannot confirm preview: invalid video duration');
+            return;
+        }
+
+        // Add intro and outro segments to deleted segments
+        this.editorState.addIntroOutroSegments(videoDuration);
+
+        // Close preview mode
+        if (this.mainEditorContainer) {
+            this.mainEditorContainer.togglePreviewMode();
+        }
+
+        // Announce action for screen readers
+        this.actionAnnouncement.set('Intro and outro segments added to deleted sections');
+    }
+
+    /**
+     * Reject Preview Start/End (Feature 13.8)
+     * Removes intro and outro segments from deleted segments array
+     */
+    onRejectPreview(): void {
+        // Save previous state BEFORE action (for undo/redo)
+        this.capturePreviousState();
+
+        // Get video duration
+        const videoDuration = this.videoPlayerService.duration();
+        if (!videoDuration || videoDuration <= 0) {
+            console.warn('Cannot reject preview: invalid video duration');
+            return;
+        }
+
+        // Remove intro and outro segments from deleted segments
+        this.editorState.removeIntroOutroSegments(videoDuration);
+
+        // Close preview mode
+        if (this.mainEditorContainer) {
+            this.mainEditorContainer.togglePreviewMode();
+        }
+
+        // Announce action for screen readers
+        this.actionAnnouncement.set('Intro and outro segments removed from deleted sections');
+    }
+
+    // ========== Placeholder handlers for future features ==========
 
     /**
      * Remove Gaps (Phase 2 - not implemented yet)

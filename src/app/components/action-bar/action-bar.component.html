@@ -11,7 +11,46 @@
     </div>
 
     <div class="action-bar-content" aria-describedby="action-bar-description">
-        <!-- Action Bar Items -->
+        <!-- Preview Mode Layout (Feature 13.8) -->
+        @if (isPreviewModeActive()) {
+        <div class="preview-mode-layout">
+            <!-- Left: Message Text -->
+            <div class="preview-mode-layout__left">
+                <div class="preview-mode-message">
+                    The silence at the start<br />
+                    and end was removed
+                </div>
+
+                <!-- Center: Preview Start/End Button -->
+                <app-button variant="secondary" class="preview-mode-button" borderRadius="var(--radius-xl)"
+                    (clicked)="onPreviewStartEndClick()" aria-label="Preview Start / End">
+                    <div class="action-bar-item">
+                        <img src="assets/icons/Preview start end.svg" alt="" class="action-icon" />
+                        <span class="action-label">Preview<br />Start / End</span>
+                    </div>
+                </app-button>
+            </div>
+
+
+            <!-- Right: Action Buttons -->
+            <div class="preview-mode-actions">
+                <!-- Reject Button -->
+                <button class="preview-action-button reject-button" (click)="onRejectPreview()"
+                    aria-label="Reject preview">
+                    <img src="assets/icons/fix_start_reject.svg" alt="Reject" />
+                </button>
+
+                <!-- Confirm Button -->
+                <button class="preview-action-button confirm-button" (click)="onConfirmPreview()"
+                    aria-label="Confirm preview">
+                    <img src="assets/icons/fix_start_check_mark.svg" alt="Confirm" />
+                </button>
+            </div>
+        </div>
+        }
+
+        <!-- Normal Action Bar Items -->
+        @if (!isPreviewModeActive()) {
         <div class="action-bar-items">
 
             <!-- Undo Button (Feature 8) -->
@@ -52,14 +91,16 @@
             </app-button>
             }
 
-            <!-- Fix Start/End (Phase 2 - Placeholder) -->
-            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)" [disabled]="true"
-                (clicked)="onFixStartEnd()" aria-label="Fix Start/End (Coming in Phase 2)">
+            <!-- Fix Start/End (Feature 13) -->
+            @if (showPreviewStartEnd()) {
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
+                [disabled]="!canPreviewStartEnd()" (clicked)="onFixStartEnd()" aria-label="Fix Start/End">
                 <div class="action-bar-item">
                     <img src="assets/icons/fix_start_end.svg" alt="" class="action-icon" />
                     <span class="action-label">Fix<br />Start/End</span>
                 </div>
             </app-button>
+            }
 
             <!-- Remove Gaps (Phase 2 - Placeholder) -->
             <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)" [disabled]="true"
@@ -111,5 +152,6 @@
                 </div>
             </app-button>
         </div>
+        }
     </div>
 </div>

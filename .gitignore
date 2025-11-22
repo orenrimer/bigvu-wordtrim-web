@@ -45,7 +45,4 @@ Thumbs.db
 
 
 /src/assets/*
-!/src/assets/data/
-!/src/assets/icons/
 /src/environments/*
-!/src/environments/*

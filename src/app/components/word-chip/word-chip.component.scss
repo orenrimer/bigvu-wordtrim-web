@@ -51,6 +51,34 @@
   }
 
   /**
+   * Feature 13: Intro/Outro chips (index -1 or -2)
+   * Display-only chips showing seconds until first/last word
+   * Light blue background with darker blue text
+   */
+  &[data-index="-1"],
+  &[data-index="-2"] {
+    background-color: var(--color-secondary); // Light blue (#c7daff)
+    color: var(--color-primary); // Darker blue (#4481fd)
+    cursor: default; // Not clickable
+    font-weight: var(--font-weight-regular);
+    opacity: 1;
+
+    &:hover {
+      transform: none; // No hover effect
+      box-shadow: none;
+      background-color: var(--color-secondary); // Keep same background
+    }
+
+    &:active {
+      transform: none; // No active effect
+    }
+
+    &:focus-visible {
+      outline: none; // Remove focus outline for display-only chips
+    }
+  }
+
+  /**
    * Word State: SELECTED START
    * First word in selection
    */

@@ -486,6 +486,85 @@ export class VideoPlayerService {
     }
 
     /**
+     * Play preview of start and end of unremoved segments (Feature 13)
+     * Plays 3 seconds from the start of the first non-deleted word
+     * and 3 seconds before the end of the last non-deleted word
+     */
+    public playPreviewStartEnd(): void {
+        if (!this.videoElement) return;
+
+        // Get all words (including deleted) to find original boundaries
+        const allWords = this.editorStateService.words();
+
+        if (allWords.length === 0) {
+            console.warn('No words found for preview');
+            return;
+        }
+
+        const PREVIEW_DURATION = 3; // seconds
+        const videoDuration = this._duration();
+
+        // Get deleted segments with fine-tuned times from EditorStateService
+        const deletedSegments = this.editorStateService.getDeletedSegments();
+
+        // Find the VERY FIRST word in the entire video (before any deletion)
+        const veryFirstWord = allWords[0];
+        const veryLastWord = allWords[allWords.length - 1];
+
+        // Check if the first word's start is inside a deleted segment
+        const firstWordInDeletedSegment = deletedSegments.find(seg =>
+            seg.start <= veryFirstWord.start && seg.end >= veryFirstWord.start
+        );
+
+        // Check if the last word's end is inside a deleted segment
+        const lastWordInDeletedSegment = deletedSegments.find(seg =>
+            seg.start <= veryLastWord.end && seg.end >= veryLastWord.end
+        );
+
+        // Determine preview start: if first word is in deleted segment, start from end of that segment
+        // Otherwise, start from the first word's start
+        let firstPreviewStart: number;
+
+        if (firstWordInDeletedSegment) {
+            // First word is in deleted segment - start from end of deleted segment
+            firstPreviewStart = firstWordInDeletedSegment.end;
+        } else {
+            // First word is not in deleted segment - start from first word's start
+            firstPreviewStart = veryFirstWord.start;
+        }
+
+        // Play 3 seconds from start (full 3 seconds, not limited to word end)
+        const firstPreviewEnd = Math.min(
+            videoDuration,
+            firstPreviewStart + PREVIEW_DURATION
+        );
+
+        // Determine preview end: if last word is in deleted segment, end at start of that segment
+        // Otherwise, end at the last word's end
+        let lastPreviewEnd: number;
+
+        if (lastWordInDeletedSegment) {
+            // Last word is in deleted segment - end at start of deleted segment
+            lastPreviewEnd = lastWordInDeletedSegment.start;
+        } else {
+            // Last word is not in deleted segment - end at last word's end
+            lastPreviewEnd = veryLastWord.end;
+        }
+
+        // Play 3 seconds before end (backwards, full 3 seconds)
+        const lastPreviewStart = Math.max(
+            0,
+            lastPreviewEnd - PREVIEW_DURATION
+        );
+
+        // Play first preview, then second preview sequentially
+        this.playPreviewSequentially([
+            { start: firstPreviewStart, end: firstPreviewEnd },
+            { start: lastPreviewStart, end: lastPreviewEnd }
+        ]);
+    }
+
+    /**
      * Play edited video (skip deleted segments seamlessly)
      * @param words Array of all words with their states
      * @param startTime Optional start time (defaults to current time or 0)
@@ -861,6 +940,64 @@ export class VideoPlayerService {
 
         // Clear current playback word
         this.editorStateService.clearCurrentPlaybackWord();
+    }
+
+    /**
+     * Play multiple preview segments sequentially
+     * Uses timeupdate event for smooth transitions without visible pause
+     * @param segments Array of preview segments to play
+     */
+    private playPreviewSequentially(segments: Array<{ start: number; end: number }>): void {
+        if (!this.videoElement || segments.length === 0) return;
+
+        let currentSegmentIndex = 0;
+
+        const playNextSegment = () => {
+            if (currentSegmentIndex >= segments.length) {
+                // All segments played - pause and clear preview mode
+                this.pause();
+                this.clearPreviewMode();
+                return;
+            }
+
+            const segment = segments[currentSegmentIndex];
+            currentSegmentIndex++;
+
+            // Set preview mode with segment end time
+            this.isPreviewMode = true;
+            this.previewEndTime = segment.end;
+            this.isEditedPlaybackMode = false;
+
+            // Seek to segment start and play
+            this.seek(segment.start);
+            this.play();
+
+            // Set up listener for when this segment ends
+            const onTimeUpdate = () => {
+                if (!this.videoElement) return;
+
+                const currentTime = this.videoElement.currentTime;
+                const timeUntilEnd = segment.end - currentTime;
+
+                // If we've reached or passed the end, move to next segment
+                if (currentTime >= segment.end || timeUntilEnd <= 0.1) {
+                    if (this.videoElement) {
+                        this.videoElement.removeEventListener('timeupdate', onTimeUpdate);
+                    }
+                    // Small delay to ensure smooth transition
+                    setTimeout(() => {
+                        playNextSegment();
+                    }, 50);
+                }
+            };
+
+            if (this.videoElement) {
+                this.videoElement.addEventListener('timeupdate', onTimeUpdate);
+            }
+        };
+
+        // Start playing first segment
+        playNextSegment();
     }
 
     /**
