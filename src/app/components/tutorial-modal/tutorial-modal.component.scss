@@ -154,9 +154,9 @@
     left: var(--preview-tip-modal-center-x, 50%);
     bottom: calc(100vh - var(--preview-tip-modal-bottom, 50vh) + var(--spacing-4)); // Convert viewport bottom to CSS bottom
     transform: translateX(-50%); // Center horizontally
-    width: auto;
+    width: 326px;
     max-width: 326px;
-    min-width: 320px;
+    min-width: 326px;
     background-color: var(--color-primary);
     color: var(--color-text-white);
     padding: var(--spacing-4);
@@ -442,7 +442,6 @@
 // Tablet (1024px and below)
 @media (max-width: 1024px) {
     .modal-preview-tip {
-        max-width: calc(100vw - var(--spacing-9));
         padding: var(--spacing-3);
         // Keep same positioning logic - centered horizontally, bottom-aligned
         left: var(--preview-tip-modal-center-x, 50%);
@@ -453,11 +452,6 @@
             gap: var(--spacing-1);
             margin-bottom: var(--spacing-3);
             padding-inline-end: var(--spacing-6);
-
-            .info-icon {
-                width: 20px;
-                height: 20px;
-            }
         }
     }
 
@@ -506,7 +500,6 @@
 // Mobile (768px and below)
 @media (max-width: 768px) {
     .modal-preview-tip {
-        max-width: calc(100vw - var(--spacing-6));
         padding: var(--spacing-3);
         min-width: auto;
         // Keep same positioning logic - centered horizontally, bottom-aligned
