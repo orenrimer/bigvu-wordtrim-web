@@ -318,10 +318,11 @@ export class ActionBarComponent {
      * Confirm Preview Start/End (Feature 13.8)
      * Adds intro and outro segments to deleted segments array
      * This makes them skip during playback like any other deleted segment
+     * Note: This action is NOT added to history stack (undo/redo does not affect it)
      */
     onConfirmPreview(): void {
-        // Save previous state BEFORE action (for undo/redo)
-        this.capturePreviousState();
+        // Note: We intentionally do NOT capture state here
+        // Fix start/end actions are not part of the undo/redo history
 
         // Get video duration
         const videoDuration = this.videoPlayerService.duration();
@@ -360,10 +361,11 @@ export class ActionBarComponent {
     /**
      * Reject Preview Start/End (Feature 13.8)
      * Removes intro and outro segments from deleted segments array
+     * Note: This action is NOT added to history stack (undo/redo does not affect it)
      */
     onRejectPreview(): void {
-        // Save previous state BEFORE action (for undo/redo)
-        this.capturePreviousState();
+        // Note: We intentionally do NOT capture state here
+        // Fix start/end actions are not part of the undo/redo history
 
         // Get video duration
         const videoDuration = this.videoPlayerService.duration();
