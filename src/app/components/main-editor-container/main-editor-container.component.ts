@@ -39,6 +39,9 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
   // ViewChild reference to words-container for CSS custom property positioning
   @ViewChild('wordsContainer', { static: false }) wordsContainerRef!: ElementRef<HTMLElement>;
 
+  // ViewChild reference to transcript-content for preview tip modal positioning (Feature 13.11)
+  @ViewChild('transcriptContent', { static: false }) transcriptContentRef!: ElementRef<HTMLElement>;
+
   // Track if position calculation is in progress to prevent multiple simultaneous calls
   private isPositionCalculating = false;
 
@@ -266,8 +269,24 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
         this.videoService.stop();
       }
 
+      // Feature 13.11: Update preview tip modal position when preview tip is shown
+      if (modalState === 'preview-tip') {
+        this.updatePreviewTipModalPosition();
+      }
+
       // Note: Position is already calculated by the words loading effect above
       // No need to recalculate when tip modal opens - it causes unnecessary jumps
+    }, { allowSignalWrites: true });
+
+    // Feature 13.11: Hide preview tip modal when preview mode is closed
+    effect(() => {
+      const isPreview = this.isPreviewMode();
+      const modalState = this.tutorialService.modalState();
+
+      // If preview mode is closed and preview tip modal is showing, hide it
+      if (!isPreview && modalState === 'preview-tip') {
+        this.tutorialService.hide();
+      }
     }, { allowSignalWrites: true });
   }
 
@@ -285,6 +304,10 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
     if (typeof window !== 'undefined') {
       window.addEventListener('resize', () => {
         this.updateWordsContainerPosition();
+        // Feature 13.11: Also update preview tip modal position on resize
+        if (this.tutorialService.modalState() === 'preview-tip') {
+          this.updatePreviewTipModalPosition();
+        }
       });
     }
   }
@@ -483,6 +506,37 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
    */
   togglePreviewMode(): void {
     this._isPreviewMode.update(mode => !mode);
+    
+    // Feature 13.11: Update preview tip modal position when preview mode changes
+    if (this.tutorialService.modalState() === 'preview-tip') {
+      // Small delay to ensure DOM is updated
+      setTimeout(() => {
+        this.updatePreviewTipModalPosition();
+      }, 0);
+    }
+  }
+
+  /**
+   * Update preview tip modal position (Feature 13.11)
+   * Centers modal horizontally with transcript-content and aligns bottom
+   */
+  private updatePreviewTipModalPosition(): void {
+    if (!this.transcriptContentRef?.nativeElement) {
+      return;
+    }
+
+    const transcriptElement = this.transcriptContentRef.nativeElement;
+    const rect = transcriptElement.getBoundingClientRect();
+
+    // Calculate center X position of transcript-content
+    const centerX = rect.left + rect.width / 2;
+
+    // Calculate bottom Y position of transcript-content
+    const bottomY = rect.bottom;
+
+    // Set CSS custom properties for modal positioning
+    document.documentElement.style.setProperty('--preview-tip-modal-center-x', `${centerX}px`);
+    document.documentElement.style.setProperty('--preview-tip-modal-bottom', `${bottomY}px`);
   }
 
   /**
@@ -502,6 +556,11 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
    * @param direction 'left' for previous word, 'right' for next word
    */
   onArrowKeyPressed(currentWord: Word, direction: 'left' | 'right'): void {
+    // Feature 13.10: Prevent arrow key navigation during preview mode
+    if (this.isPreviewMode()) {
+      return;
+    }
+
     // Feature 13: Ignore arrow keys on intro/outro chips (they're display-only)
     if (currentWord.index === -1 || currentWord.index === -2) {
       return;
@@ -546,6 +605,11 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
    * Also captures state for undo/redo when complete selection is made (Feature 8)
    */
   onWordClick(word: Word): void {
+    // Feature 13.10: Prevent word clicks during preview mode
+    if (this.isPreviewMode()) {
+      return;
+    }
+
     // Feature 13: Ignore clicks on intro/outro chips (they're display-only)
     if (word.index === -1 || word.index === -2) {
       return;

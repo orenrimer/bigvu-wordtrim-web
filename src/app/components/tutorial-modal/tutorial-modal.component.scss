@@ -147,6 +147,85 @@
     }
 }
 
+// ===== PREVIEW TIP MODE (Feature 13.11) =====
+.modal-preview-tip {
+    // Position horizontally centered with transcript-content and bottom-aligned
+    // Uses CSS custom properties set by main-editor-container component
+    left: var(--preview-tip-modal-center-x, 50%);
+    bottom: calc(100vh - var(--preview-tip-modal-bottom, 50vh) + var(--spacing-4)); // Convert viewport bottom to CSS bottom
+    transform: translateX(-50%); // Center horizontally
+    width: auto;
+    max-width: 326px;
+    min-width: 320px;
+    background-color: var(--color-primary);
+    color: var(--color-text-white);
+    padding: var(--spacing-4);
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-lg);
+    gap: var(--spacing-4);
+    animation: fadeIn var(--transition-normal);
+
+    .close-button {
+        position: absolute;
+        top: var(--spacing-4);
+        inset-inline-end: var(--spacing-4);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: var(--spacing-1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: opacity var(--transition-hover);
+        z-index: 2;
+
+        &:hover {
+            opacity: var(--opacity-hover);
+        }
+
+        &:focus-visible {
+            outline: 2px solid var(--color-text-white);
+            outline-offset: 2px;
+        }
+
+        img {
+            width: 14px;
+            height: 14px;
+            filter: brightness(0) invert(1); // Make icon white
+        }
+    }
+
+    .modal-header {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-2);
+        margin-bottom: var(--spacing-4);
+        padding-inline-end: var(--spacing-8); // Space for close button
+
+        .info-icon {
+            width: 24px;
+            height: 24px;
+            color: var(--color-text-white);
+            flex-shrink: 0;
+        }
+
+        .modal-title {
+            font-size: var(--font-size-16);
+            font-weight: var(--font-weight-bold);
+            color: var(--color-text-white);
+            margin: 0;
+        }
+    }
+
+    .modal-text {
+        font-size: var(--font-size-14);
+        font-weight: var(--font-weight-regular);
+        color: var(--color-text-white);
+        line-height: 140%;
+        margin: 0;
+    }
+}
+
 // ===== VIDEO MODE =====
 .modal-video {
     // Position in bottom-left corner
@@ -362,6 +441,26 @@
 // ===== RESPONSIVE =====
 // Tablet (1024px and below)
 @media (max-width: 1024px) {
+    .modal-preview-tip {
+        max-width: calc(100vw - var(--spacing-9));
+        padding: var(--spacing-3);
+        // Keep same positioning logic - centered horizontally, bottom-aligned
+        left: var(--preview-tip-modal-center-x, 50%);
+        bottom: calc(100vh - var(--preview-tip-modal-bottom, 50vh) + var(--spacing-4));
+        transform: translateX(-50%);
+
+        .modal-header {
+            gap: var(--spacing-1);
+            margin-bottom: var(--spacing-3);
+            padding-inline-end: var(--spacing-6);
+
+            .info-icon {
+                width: 20px;
+                height: 20px;
+            }
+        }
+    }
+
     .modal-tip {
         width: calc(100vw - var(--spacing-9));
         max-width: calc(var(--tip-modal-width) * 0.75);
@@ -406,6 +505,24 @@
 
 // Mobile (768px and below)
 @media (max-width: 768px) {
+    .modal-preview-tip {
+        max-width: calc(100vw - var(--spacing-6));
+        padding: var(--spacing-3);
+        min-width: auto;
+        // Keep same positioning logic - centered horizontally, bottom-aligned
+        left: var(--preview-tip-modal-center-x, 50%);
+        bottom: calc(100vh - var(--preview-tip-modal-bottom, 50vh) + var(--spacing-4));
+        transform: translateX(-50%);
+
+        .modal-header {
+            gap: var(--spacing-1);
+            margin-bottom: var(--spacing-3);
+            padding-inline-end: var(--spacing-6);
+        }
+
+
+    }
+
     .modal-tip {
         width: calc(100vw - var(--spacing-6));
         max-width: calc(var(--tip-modal-width) * 0.95);

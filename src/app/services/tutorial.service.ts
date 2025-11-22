@@ -10,13 +10,21 @@ import { Injectable, signal } from '@angular/core';
 })
 export class TutorialService {
     /**
-     * Modal state: 'hidden' | 'tip' | 'video'
+     * Modal state: 'hidden' | 'tip' | 'video' | 'preview-tip'
      * - hidden: modal is not shown
      * - tip: showing editing tip with "Show Me How" button
      * - video: showing tutorial video
+     * - preview-tip: showing preview mode tip (centered, no "Show Me How" button)
      */
-    private readonly _modalState = signal<'hidden' | 'tip' | 'video'>('hidden');
+    private readonly _modalState = signal<'hidden' | 'tip' | 'video' | 'preview-tip'>('hidden');
     public readonly modalState = this._modalState.asReadonly();
+
+    /**
+     * Custom tip content (title and text)
+     * Used for preview mode tip and other custom tips
+     */
+    private readonly _customTipContent = signal<{ title: string; text: string } | null>(null);
+    public readonly customTipContent = this._customTipContent.asReadonly();
 
     /**
      * Track if user has clicked on a word
@@ -30,6 +38,18 @@ export class TutorialService {
      */
     showTip(): void {
         this._modalState.set('tip');
+        this._customTipContent.set(null); // Clear custom content
+    }
+
+    /**
+     * Show custom tip modal with custom title and text
+     * Used for preview mode tip and other custom tips
+     * @param title Modal title
+     * @param text Modal text content
+     */
+    showCustomTip(title: string, text: string): void {
+        this._customTipContent.set({ title, text });
+        this._modalState.set('preview-tip');
     }
 
     /**
@@ -44,6 +64,7 @@ export class TutorialService {
      */
     hide(): void {
         this._modalState.set('hidden');
+        this._customTipContent.set(null); // Clear custom content when hiding
     }
 
     /**

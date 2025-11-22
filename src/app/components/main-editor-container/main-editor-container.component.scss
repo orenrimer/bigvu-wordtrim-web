@@ -338,6 +338,13 @@
         overflow-wrap: break-word; // Ensure long words wrap
     }
 
+    // Feature 13.10: Disable word chips container during preview mode
+    .words-container.preview-mode-disabled {
+        pointer-events: none; // Prevent all pointer interactions
+        opacity: 0.8; // Visual indication that interaction is disabled
+        cursor: not-allowed; // Show disabled cursor
+    }
+
     // Responsive: Adjust words container for smaller screens
     @media (max-width: 1024px) {
         .words-container {

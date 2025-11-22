@@ -93,7 +93,8 @@
     </div>
 
     <!-- Debug Info Panel (below timeline) -->
-    <!-- <div *ngIf="timelineService.startHandle() || timelineService.endHandle()" class="timeline-debug-panel" role="group" aria-label="Fine-tune segment timing">
+    <div *ngIf="timelineService.startHandle() || timelineService.endHandle()" class="timeline-debug-panel" role="group"
+        aria-label="Fine-tune segment timing">
         <div class="debug-row">
             <label for="start-time-input" class="debug-label">Start:</label>
             <span class="debug-value" *ngIf="timelineService.startHandle()" aria-live="polite">
@@ -103,8 +104,7 @@
             <input id="start-time-input" type="text" class="debug-input" placeholder="MM:SS.mmm"
                 [value]="timelineService.startHandle() ? formatTimeWithMs(timelineService.startHandle()!.time) : ''"
                 [attr.aria-label]="'Start time input, current value: ' + (timelineService.startHandle() ? formatTimeWithMs(timelineService.startHandle()!.time) : 'not set')"
-                [attr.aria-describedby]="'start-time-description'"
-                (blur)="onStartTimeInput($event)" 
+                [attr.aria-describedby]="'start-time-description'" (blur)="onStartTimeInput($event)"
                 (keydown.enter)="onStartTimeInput($event)">
             <div id="start-time-description" class="sr-only">
                 Enter time in MM:SS.mmm format to fine-tune the start of the selected segment
@@ -120,12 +120,11 @@
             <input id="end-time-input" type="text" class="debug-input" placeholder="MM:SS.mmm"
                 [value]="timelineService.endHandle() ? formatTimeWithMs(timelineService.endHandle()!.time) : ''"
                 [attr.aria-label]="'End time input, current value: ' + (timelineService.endHandle() ? formatTimeWithMs(timelineService.endHandle()!.time) : 'not set')"
-                [attr.aria-describedby]="'end-time-description'"
-                (blur)="onEndTimeInput($event)" 
+                [attr.aria-describedby]="'end-time-description'" (blur)="onEndTimeInput($event)"
                 (keydown.enter)="onEndTimeInput($event)">
             <div id="end-time-description" class="sr-only">
                 Enter time in MM:SS.mmm format to fine-tune the end of the selected segment
             </div>
         </div>
-    </div> -->
+    </div>
 </div>

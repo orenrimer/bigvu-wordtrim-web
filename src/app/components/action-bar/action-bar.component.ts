@@ -288,9 +288,20 @@ export class ActionBarComponent {
     /**
      * Fix Start/End (Feature 13)
      * Toggles preview mode to show seconds until first and last words
+     * Shows tip modal when opening preview mode (Feature 13.11)
      */
     onFixStartEnd(): void {
         if (this.mainEditorContainer) {
+            const isCurrentlyPreview = this.mainEditorContainer.isPreviewMode();
+            
+            // If opening preview mode (not currently active), show tip modal
+            if (!isCurrentlyPreview) {
+                this.tutorialService.showCustomTip(
+                    'Validate New Start & End',
+                    'Before editing your video, you must confirm or discard the new start and end positions'
+                );
+            }
+            
             this.mainEditorContainer.togglePreviewMode();
         }
     }

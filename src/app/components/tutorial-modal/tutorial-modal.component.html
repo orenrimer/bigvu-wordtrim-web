@@ -37,6 +37,31 @@
     </div>
     }
 
+    <!-- PREVIEW TIP MODE (Feature 13.11) -->
+    @if (tutorialService.modalState() === 'preview-tip') {
+    <div class="modal-content modal-preview-tip" dir="auto" role="dialog" aria-modal="true" aria-label="Preview mode tip">
+        <!-- Close Button -->
+        <button class="close-button" (click)="close()" aria-label="Close" type="button">
+            <img src="assets/icons/Close.svg" alt="Close" />
+        </button>
+
+        <!-- Header with Info Icon -->
+        <div class="modal-header">
+            <svg class="info-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"
+                xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
+                <path d="M12 16V12M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+            <h2 class="modal-title">{{ tutorialService.customTipContent()?.title || 'Preview Mode' }}</h2>
+        </div>
+
+        <!-- Content -->
+        <p class="modal-text">
+            {{ tutorialService.customTipContent()?.text || '' }}
+        </p>
+    </div>
+    }
+
     <!-- VIDEO MODE -->
     @if (tutorialService.modalState() === 'video') {
     <div class="modal-content modal-video" dir="auto" role="dialog" aria-modal="true" aria-label="Tutorial video">
