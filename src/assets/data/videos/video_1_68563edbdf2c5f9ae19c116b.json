@@ -1,0 +1,92 @@
+{
+  "id": "6853e80cf3c00c9cf4e05edf",
+  "storyId": "6853e80cf3c00c9cf4e05edf",
+  "headline": "データ1_2",
+  "videos": [
+    {
+      "id": "68563ec99a313b3bd45ad100",
+      "mediaId": "68563ec99a313b3bd45ad100",
+      "groupId": "68563ec99a313b3bd45ad100",
+      "type": "video#remote",
+      "duration": 55.033333,
+      "hlsPlaylistUrl": "https://assets.bigvu.tv/storyVideos/6853e80cf3c00c9cf4e05edf/takes/68563ec99a313b3bd45ad100/598b7f80-ec05-4d08-9b4e-df84271e128d/df75b638-b7b2-4d4a-a910-531a3c7b1b20-video.m3u8",
+      "features": [],
+      "streams": [
+        {
+          "url": "https://assets.bigvu.tv/storyVideos/6853e80cf3c00c9cf4e05edf/takes/68563ec99a313b3bd45ad100/571a5c98-6370-4b9c-a3d2-6bffe68bb0b2/c55b390c-d0b3-4556-8b49-c6cbf701e177-video_720.mp4",
+          "width": 720,
+          "height": 1280,
+          "fps": 30,
+          "videoBitrate": 2025848,
+          "audioBitrate": 319999,
+          "videoCodec": "h264",
+          "audioCodec": "aac",
+          "container": "mp4",
+          "mime": "video/mp4",
+          "size": 16185782
+        },
+        {
+          "url": "https://assets.bigvu.tv/storyVideos/6853e80cf3c00c9cf4e05edf/takes/68563ec99a313b3bd45ad100/571a5c98-6370-4b9c-a3d2-6bffe68bb0b2/c55b390c-d0b3-4556-8b49-c6cbf701e177-video_360.mp4",
+          "width": 360,
+          "height": 640,
+          "fps": 30,
+          "videoBitrate": 506919,
+          "audioBitrate": 319999,
+          "videoCodec": "h264",
+          "audioCodec": "aac",
+          "container": "mp4",
+          "mime": "video/mp4",
+          "size": 5736811
+        }
+      ],
+      "thumbnails": [
+        {
+          "width": 720,
+          "height": 1280,
+          "url": "https://assets.bigvu.tv/storyVideos/6853e80cf3c00c9cf4e05edf/takes/68563ec99a313b3bd45ad100/571a5c98-6370-4b9c-a3d2-6bffe68bb0b2/c55b390c-d0b3-4556-8b49-c6cbf701e177-video_thumb_720.0000001.jpeg",
+          "mime": "image/jpeg",
+          "size": 65304,
+          "format": "jpeg",
+          "type": "image#remote"
+        },
+        {
+          "width": 360,
+          "height": 640,
+          "url": "https://assets.bigvu.tv/storyVideos/6853e80cf3c00c9cf4e05edf/takes/68563ec99a313b3bd45ad100/571a5c98-6370-4b9c-a3d2-6bffe68bb0b2/c55b390c-d0b3-4556-8b49-c6cbf701e177-video_thumb_360.0000001.jpeg",
+          "mime": "image/jpeg",
+          "size": 18323,
+          "format": "jpeg",
+          "type": "image#remote"
+        }
+      ],
+      "audio": {
+        "url": "https://assets.bigvu.tv/storyVideos/6853e80cf3c00c9cf4e05edf/takes/68563ec99a313b3bd45ad100/audio_stream.m4a",
+        "audioBitrate": 320193,
+        "audioCodec": "aac",
+        "mime": "audio/x-m4a",
+        "size": 2211893
+      }
+    }
+  ],
+  "captions": [
+    {
+      "groupId": "6853efe29513cf13bd780120",
+      "lang": "ja-JP",
+      "sourceLocale": "ja-JP",
+      "url": "https://assets.bigvu.tv/storyVideos/6853e80cf3c00c9cf4e05edf/takes/6853efe29513cf13bd780120/caption_ja-JP.vtt",
+      "status": 2
+    }
+  ],
+  "segmentation": [
+    {
+      "groupId": "6853efe29513cf13bd780120",
+      "locale": "ja-JP",
+      "sourceLocale": "ja-JP",
+      "url": "https://assets.bigvu.tv/storyVideos/6853e80cf3c00c9cf4e05edf/takes/6853efe29513cf13bd780120/segmentation_ja-JP.json",
+      "status": 2
+    }
+  ],
+  "metadata": {
+    "lang": "ja"
+  }
+}

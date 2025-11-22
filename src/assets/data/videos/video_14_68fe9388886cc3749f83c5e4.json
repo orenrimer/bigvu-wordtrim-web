@@ -1,0 +1,99 @@
+{
+  "id": "68fe8ea929c89bd4445ba87d",
+  "storyId": "68fe8ea929c89bd4445ba87d",
+  "headline": "Une Arme indestructible ",
+  "videos": [
+    {
+      "id": "68fe8f60886cc3749f838e8c",
+      "mediaId": "68fe8f60886cc3749f838e8c",
+      "groupId": "68fe8f60886cc3749f838e8c",
+      "type": "video#remote",
+      "duration": 35,
+      "hlsPlaylistUrl": "https://assets.bigvu.tv/storyVideos/68fe8ea929c89bd4445ba87d/takes/68fe8f60886cc3749f838e8c/04b19e2b-866a-49a5-8dfe-a3e739c8561b/785f9f18-457f-4e44-8536-b3443602840d-video.m3u8",
+      "features": [
+        {
+          "name": "textToSpeech"
+        },
+        {
+          "name": "audiogram"
+        }
+      ],
+      "streams": [
+        {
+          "url": "https://assets.bigvu.tv/storyVideos/68fe8ea929c89bd4445ba87d/takes/68fe8f60886cc3749f838e8c/5d7cc3ad-530a-4e1c-bc1f-5880351ba2b5/77c8ec95-d835-4134-a6e6-aec159880f84-video_1080.mp4",
+          "width": 1920,
+          "height": 1080,
+          "fps": 30,
+          "videoBitrate": 5211906,
+          "audioBitrate": 320000,
+          "videoCodec": "h264",
+          "audioCodec": "aac",
+          "container": "mp4",
+          "mime": "video/mp4",
+          "size": 24234011
+        },
+        {
+          "url": "https://assets.bigvu.tv/storyVideos/68fe8ea929c89bd4445ba87d/takes/68fe8f60886cc3749f838e8c/5d7cc3ad-530a-4e1c-bc1f-5880351ba2b5/77c8ec95-d835-4134-a6e6-aec159880f84-video_360.mp4",
+          "width": 640,
+          "height": 360,
+          "fps": 30,
+          "videoBitrate": 521050,
+          "audioBitrate": 320000,
+          "videoCodec": "h264",
+          "audioCodec": "aac",
+          "container": "mp4",
+          "mime": "video/mp4",
+          "size": 3711507
+        }
+      ],
+      "thumbnails": [
+        {
+          "width": 1920,
+          "height": 1080,
+          "url": "https://assets.bigvu.tv/storyVideos/68fe8ea929c89bd4445ba87d/takes/68fe8f60886cc3749f838e8c/5d7cc3ad-530a-4e1c-bc1f-5880351ba2b5/77c8ec95-d835-4134-a6e6-aec159880f84-video_thumb_1080.0000001.jpeg",
+          "mime": "image/jpeg",
+          "size": 111849,
+          "format": "jpeg",
+          "type": "image#remote"
+        },
+        {
+          "width": 640,
+          "height": 360,
+          "url": "https://assets.bigvu.tv/storyVideos/68fe8ea929c89bd4445ba87d/takes/68fe8f60886cc3749f838e8c/5d7cc3ad-530a-4e1c-bc1f-5880351ba2b5/77c8ec95-d835-4134-a6e6-aec159880f84-video_thumb_360.0000001.jpeg",
+          "mime": "image/jpeg",
+          "size": 22184,
+          "format": "jpeg",
+          "type": "image#remote"
+        }
+      ],
+      "audio": {
+        "url": "https://assets.bigvu.tv/storyVideos/68fe8ea929c89bd4445ba87d/takes/68fe8f60886cc3749f838e8c/audio_stream.m4a",
+        "audioBitrate": 320304,
+        "audioCodec": "aac",
+        "mime": "audio/x-m4a",
+        "size": 1407711
+      }
+    }
+  ],
+  "captions": [
+    {
+      "groupId": "68fe8f60886cc3749f838e8c",
+      "lang": "fr-FR",
+      "sourceLocale": "fr-FR",
+      "url": "https://assets.bigvu.tv/storyVideos/68fe8ea929c89bd4445ba87d/takes/68fe8f60886cc3749f838e8c/_videoSeq/caption_fr-FR.vtt",
+      "status": 2
+    }
+  ],
+  "segmentation": [
+    {
+      "groupId": "68fe8f60886cc3749f838e8c",
+      "locale": "fr-FR",
+      "sourceLocale": "fr-FR",
+      "url": "https://assets.bigvu.tv/storyVideos/68fe8ea929c89bd4445ba87d/takes/68fe8f60886cc3749f838e8c/_videoSeq/segmentation_fr-FR.json",
+      "status": 2
+    }
+  ],
+  "metadata": {
+    "lang": "fr"
+  }
+}

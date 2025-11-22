@@ -1,0 +1,89 @@
+{
+  "id": "68f780d370c3cc84e697e59a",
+  "storyId": "68f780d370c3cc84e697e59a",
+  "headline": "My first video with BIGVU",
+  "videos": [
+    {
+      "id": "68f7827770c3cc84e697fbe7",
+      "mediaId": "68f7827770c3cc84e697fbe7",
+      "groupId": "68f7827770c3cc84e697fbe7",
+      "type": "video#remote",
+      "duration": 34.333333,
+      "hlsPlaylistUrl": "https://assets.bigvu.tv/storyVideos/68f780d370c3cc84e697e59a/takes/68f7827770c3cc84e697fbe7/9632ecc3-3bd6-4eae-8b95-9c2ad88ad567/c1a1c41c-dec9-4757-91cf-5bf2334c89f8-video.m3u8",
+      "features": [],
+      "streams": [
+        {
+          "url": "https://assets.bigvu.tv/storyVideos/68f780d370c3cc84e697e59a/takes/68f7827770c3cc84e697fbe7/7127c2ab-183d-4e76-978b-e4a298455727/9aa631be-60dd-42d1-a9fe-14d74faf19fe-video_720.mp4",
+          "width": 720,
+          "height": 1280,
+          "fps": 30,
+          "videoBitrate": 2087370,
+          "audioBitrate": 320000,
+          "videoCodec": "h264",
+          "audioCodec": "aac",
+          "container": "mp4",
+          "mime": "video/mp4",
+          "size": 10361453
+        },
+        {
+          "url": "https://assets.bigvu.tv/storyVideos/68f780d370c3cc84e697e59a/takes/68f7827770c3cc84e697fbe7/7127c2ab-183d-4e76-978b-e4a298455727/9aa631be-60dd-42d1-a9fe-14d74faf19fe-video_360.mp4",
+          "width": 360,
+          "height": 640,
+          "fps": 30,
+          "videoBitrate": 522734,
+          "audioBitrate": 320000,
+          "videoCodec": "h264",
+          "audioCodec": "aac",
+          "container": "mp4",
+          "mime": "video/mp4",
+          "size": 3646552
+        }
+      ],
+      "thumbnails": [
+        {
+          "width": 720,
+          "height": 1280,
+          "url": "https://assets.bigvu.tv/storyVideos/68f780d370c3cc84e697e59a/takes/68f7827770c3cc84e697fbe7/7127c2ab-183d-4e76-978b-e4a298455727/9aa631be-60dd-42d1-a9fe-14d74faf19fe-video_thumb_720.0000001.jpeg",
+          "mime": "image/jpeg",
+          "size": 96825,
+          "format": "jpeg",
+          "type": "image#remote"
+        },
+        {
+          "width": 360,
+          "height": 640,
+          "url": "https://assets.bigvu.tv/storyVideos/68f780d370c3cc84e697e59a/takes/68f7827770c3cc84e697fbe7/7127c2ab-183d-4e76-978b-e4a298455727/9aa631be-60dd-42d1-a9fe-14d74faf19fe-video_thumb_360.0000001.jpeg",
+          "mime": "image/jpeg",
+          "size": 34257,
+          "format": "jpeg",
+          "type": "image#remote"
+        }
+      ],
+      "audio": {
+        "url": "https://assets.bigvu.tv/storyVideos/68f780d370c3cc84e697e59a/takes/68f7827770c3cc84e697fbe7/audio_stream.m4a",
+        "audioBitrate": 320311,
+        "audioCodec": "aac",
+        "mime": "audio/x-m4a",
+        "size": 1379419
+      }
+    }
+  ],
+  "captions": [
+    {
+      "groupId": "68f7827770c3cc84e697fbe7",
+      "lang": "uk-UA",
+      "sourceLocale": "uk-UA",
+      "url": "https://assets.bigvu.tv/storyVideos/68f780d370c3cc84e697e59a/takes/68f7827770c3cc84e697fbe7/caption_uk-UA.vtt",
+      "status": 2
+    }
+  ],
+  "segmentation": [
+    {
+      "groupId": "68f7827770c3cc84e697fbe7",
+      "locale": "uk-UA",
+      "sourceLocale": "uk-UA",
+      "url": "https://assets.bigvu.tv/storyVideos/68f780d370c3cc84e697e59a/takes/68f7827770c3cc84e697fbe7/segmentation_uk-UA.json",
+      "status": 2
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "id": "68fe412729c89bd4445779ff",
+  "storyId": "68fe412729c89bd4445779ff",
+  "headline": "Strategie di successo delle vendite",
+  "videos": [
+    {
+      "id": "68fe4782886cc3749f7fa878",
+      "mediaId": "68fe4782886cc3749f7fa878",
+      "groupId": "68fe44704ae09876780017fe",
+      "type": "video#remote",
+      "duration": 45.066667,
+      "hlsPlaylistUrl": "https://assets.bigvu.tv/storyVideos/68fe412729c89bd4445779ff/takes/68fe4782886cc3749f7fa878/d897c347-fad5-424d-b0bc-1ec1e136a37b/41f2c280-5484-4a72-9b4e-dd7a357606c2-video.m3u8",
+      "features": [
+        {
+          "name": "blur"
+        }
+      ],
+      "streams": [
+        {
+          "url": "https://assets.bigvu.tv/storyVideos/68fe412729c89bd4445779ff/takes/68fe4782886cc3749f7fa878/18d8e4d8-fd95-46fd-972a-73d3eeca160b/77cfbad6-af47-4b06-bd57-1a633b4e8ac2-video_720.mp4",
+          "width": 720,
+          "height": 1280,
+          "fps": 30,
+          "videoBitrate": 2027934,
+          "audioBitrate": 320029,
+          "videoCodec": "h264",
+          "audioCodec": "aac",
+          "container": "mp4",
+          "mime": "video/mp4",
+          "size": 13267591
+        },
+        {
+          "url": "https://assets.bigvu.tv/storyVideos/68fe412729c89bd4445779ff/takes/68fe4782886cc3749f7fa878/18d8e4d8-fd95-46fd-972a-73d3eeca160b/77cfbad6-af47-4b06-bd57-1a633b4e8ac2-video_360.mp4",
+          "width": 360,
+          "height": 640,
+          "fps": 30,
+          "videoBitrate": 506871,
+          "audioBitrate": 320029,
+          "videoCodec": "h264",
+          "audioCodec": "aac",
+          "container": "mp4",
+          "mime": "video/mp4",
+          "size": 4698932
+        }
+      ],
+      "thumbnails": [
+        {
+          "width": 720,
+          "height": 1280,
+          "url": "https://assets.bigvu.tv/storyVideos/68fe412729c89bd4445779ff/takes/68fe4782886cc3749f7fa878/18d8e4d8-fd95-46fd-972a-73d3eeca160b/77cfbad6-af47-4b06-bd57-1a633b4e8ac2-video_thumb_720.0000001.jpeg",
+          "mime": "image/jpeg",
+          "size": 48934,
+          "format": "jpeg",
+          "type": "image#remote"
+        },
+        {
+          "width": 360,
+          "height": 640,
+          "url": "https://assets.bigvu.tv/storyVideos/68fe412729c89bd4445779ff/takes/68fe4782886cc3749f7fa878/18d8e4d8-fd95-46fd-972a-73d3eeca160b/77cfbad6-af47-4b06-bd57-1a633b4e8ac2-video_thumb_360.0000001.jpeg",
+          "mime": "image/jpeg",
+          "size": 16531,
+          "format": "jpeg",
+          "type": "image#remote"
+        }
+      ],
+      "audio": {
+        "url": "https://assets.bigvu.tv/storyVideos/68fe412729c89bd4445779ff/takes/68fe4782886cc3749f7fa878/audio_stream.m4a",
+        "audioBitrate": 320266,
+        "audioCodec": "aac",
+        "mime": "audio/x-m4a",
+        "size": 1812540
+      }
+    }
+  ],
+  "captions": [
+    {
+      "groupId": "68fe44704ae09876780017fe",
+      "lang": "it-IT",
+      "sourceLocale": "it-IT",
+      "url": "https://assets.bigvu.tv/storyVideos/68fe412729c89bd4445779ff/takes/68fe4782886cc3749f7fa878/caption_it-IT.vtt",
+      "status": 2
+    }
+  ],
+  "segmentation": [
+    {
+      "groupId": "68fe44704ae09876780017fe",
+      "locale": "it-IT",
+      "sourceLocale": "it-IT",
+      "url": "https://assets.bigvu.tv/storyVideos/68fe412729c89bd4445779ff/takes/68fe4782886cc3749f7fa878/segmentation_it-IT.json",
+      "status": 2
+    }
+  ],
+  "metadata": {
+    "lang": "it"
+  }
+}
