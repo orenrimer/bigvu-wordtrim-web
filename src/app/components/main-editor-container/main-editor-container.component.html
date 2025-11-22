@@ -85,7 +85,9 @@
                             {{ formatTimestamp(timestamp) }}
                         </span>
                     </div>
-                    <div #wordsContainer class="words-container" [class.preview-mode-disabled]="isPreviewMode()" role="group" aria-label="Word selection">
+                    <div #wordsContainer class="words-container" [class.preview-mode-disabled]="isPreviewMode()" 
+                        role="group" aria-label="Word selection"
+                        (click)="onWordsContainerClick($event)">
                         <app-word-chip *ngFor="let word of wordsWithIntroOutro()" [word]="word"
                             [currentPlaybackWordIndex]="currentPlaybackWordIndex()" (wordClicked)="onWordClick($event)"
                             (arrowKeyPressed)="onArrowKeyPressed(word, $event)">

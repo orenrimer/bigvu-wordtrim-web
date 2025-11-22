@@ -292,16 +292,7 @@ export class ActionBarComponent {
      */
     onFixStartEnd(): void {
         if (this.mainEditorContainer) {
-            const isCurrentlyPreview = this.mainEditorContainer.isPreviewMode();
-            
-            // If opening preview mode (not currently active), show tip modal
-            if (!isCurrentlyPreview) {
-                this.tutorialService.showCustomTip(
-                    'Validate New Start & End',
-                    'Before editing your video, you must confirm or discard the new start and end positions'
-                );
-            }
-            
+            // Just toggle preview mode - tip modal will show when clicking words-container
             this.mainEditorContainer.togglePreviewMode();
         }
     }

@@ -308,6 +308,10 @@
             font-weight: var(--font-weight-medium);
             white-space: nowrap;
             padding: var(--timestamp-padding-y) var(--timestamp-padding-x);
+
+            &:hover {
+                cursor: default;
+            }
         }
     }
 
@@ -340,9 +344,10 @@
 
     // Feature 13.10: Disable word chips container during preview mode
     .words-container.preview-mode-disabled {
-        pointer-events: none; // Prevent all pointer interactions
-        opacity: 0.8; // Visual indication that interaction is disabled
-        cursor: not-allowed; // Show disabled cursor
+        // Allow clicks on container to show tip modal, but prevent word selection
+        // Individual word chips are still disabled via onWordClick logic
+        opacity: 0.8; // Visual indication that word selection is disabled
+        cursor: pointer; // Show pointer cursor to indicate clickability
     }
 
     // Responsive: Adjust words container for smaller screens

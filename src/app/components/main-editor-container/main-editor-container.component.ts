@@ -49,6 +49,9 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
   private readonly _isPreviewMode = signal<boolean>(false);
   public readonly isPreviewMode = this._isPreviewMode.asReadonly();
 
+  // Feature 13.11: Track if preview tip modal has been shown (only show once)
+  private hasShownPreviewTip = false;
+
   // Expose video data service signals to template
   videoDataLoadingState = this.videoDataService.loadingState;
   videoDataError = this.videoDataService.error;
@@ -517,6 +520,28 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
   }
 
   /**
+   * Handle click on words-container during preview mode (Feature 13.11)
+   * Shows tip modal only the first time user clicks on words-container in preview mode
+   */
+  onWordsContainerClick(event: MouseEvent): void {
+    // Only show tip modal if in preview mode, not already shown, and click is not on a word chip
+    if (this.isPreviewMode() && !this.hasShownPreviewTip) {
+      // Check if click target is the container itself (not a word chip)
+      const target = event.target as HTMLElement;
+      const isWordChip = target.closest('app-word-chip');
+      
+      // If click is directly on container (not on word chip), show tip modal
+      if (!isWordChip) {
+        this.tutorialService.showCustomTip(
+          'Validate New Start & End',
+          'Before editing your video, you must confirm or discard the new start and end positions'
+        );
+        this.hasShownPreviewTip = true; // Mark as shown
+      }
+    }
+  }
+
+  /**
    * Update preview tip modal position (Feature 13.11)
    * Centers modal horizontally with transcript-content and aligns bottom
    */
@@ -605,14 +630,21 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
    * Also captures state for undo/redo when complete selection is made (Feature 8)
    */
   onWordClick(word: Word): void {
-    // Feature 13.10: Prevent word clicks during preview mode
-    if (this.isPreviewMode()) {
-      return;
-    }
-
     // Feature 13: Ignore clicks on intro/outro chips (they're display-only)
     if (word.index === -1 || word.index === -2) {
       return;
+    }
+
+    // Feature 13.11: Show tip modal only the first time when clicking word chips during preview mode
+    if (this.isPreviewMode()) {
+      if (!this.hasShownPreviewTip) {
+        this.tutorialService.showCustomTip(
+          'Validate New Start & End',
+          'Before editing your video, you must confirm or discard the new start and end positions'
+        );
+        this.hasShownPreviewTip = true; // Mark as shown
+      }
+      return; // Don't process word selection during preview mode
     }
 
     // Notify tutorial service of word click (dismisses tip on first click)
