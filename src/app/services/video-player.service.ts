@@ -42,6 +42,7 @@ export class VideoPlayerService {
     private readonly _isPlaying = signal<boolean>(false);
     private readonly _currentTime = signal<number>(0);
     private readonly _duration = signal<number>(0);
+    private readonly _effectiveDuration = signal<number | null>(null); // Effective duration after intro/outro removal (Feature 13)
     private readonly _isLoading = signal<boolean>(false);
     private readonly _error = signal<string | null>(null);
     private readonly _aspectRatio = signal<AspectRatio>('16:9');
@@ -73,13 +74,18 @@ export class VideoPlayerService {
     public readonly isPlaying = this._isPlaying.asReadonly();
     public readonly currentTime = this._currentTime.asReadonly();
     public readonly duration = this._duration.asReadonly();
+    public readonly effectiveDuration = this._effectiveDuration.asReadonly();
     public readonly isLoading = this._isLoading.asReadonly();
     public readonly error = this._error.asReadonly();
     public readonly aspectRatio = this._aspectRatio.asReadonly();
 
     // Computed signals
     public readonly formattedCurrentTime = computed(() => this.formatTime(this._currentTime()));
-    public readonly formattedDuration = computed(() => this.formatTime(this._duration()));
+    // Feature 13: Use effective duration if set, otherwise use original duration
+    public readonly formattedDuration = computed(() => {
+        const effective = this._effectiveDuration();
+        return this.formatTime(effective !== null ? effective : this._duration());
+    });
 
     // Playback control state
     private isPreviewMode = false;
@@ -341,6 +347,8 @@ export class VideoPlayerService {
         this.videoElement.addEventListener('loadedmetadata', () => {
             if (!this.videoElement) return;
             this._duration.set(this.videoElement.duration);
+            // Reset effective duration when video duration changes (e.g., new video loaded)
+            this._effectiveDuration.set(null);
             // Aspect ratio is already set from metadata before video loads (via effect in constructor)
         });
 
@@ -421,6 +429,10 @@ export class VideoPlayerService {
             this.pause();
         }
 
+        // Feature 13: Get effective boundaries (after intro/outro removal)
+        const effectiveStart = this.getEffectiveStartBoundary();
+        const effectiveEnd = this.getEffectiveEndBoundary();
+
         // Calculate preview times
         const PREVIEW_DURATION = 3; // seconds
         let previewStart: number;
@@ -428,15 +440,18 @@ export class VideoPlayerService {
 
         if (isEndWord && wordEnd !== undefined) {
             // For end words: play 3 seconds before ending at word end
-            previewStart = Math.max(0, startTime - PREVIEW_DURATION);
+            // Clamp to effective start boundary (no preview before intro removal point)
+            previewStart = Math.max(effectiveStart, startTime - PREVIEW_DURATION);
 
             // Use word.end directly to avoid floating point precision errors
-            previewEnd = wordEnd;
+            // Clamp to effective end boundary (no preview after outro removal point)
+            previewEnd = Math.min(effectiveEnd, wordEnd);
 
         } else {
             // For start words: play 3 seconds from start
-            previewStart = startTime;
-            previewEnd = Math.min(this._duration(), startTime + PREVIEW_DURATION);
+            previewStart = Math.max(effectiveStart, startTime); // Ensure not before effective start
+            // Clamp preview end to effective end boundary (no preview after outro removal point)
+            previewEnd = Math.min(effectiveEnd, startTime + PREVIEW_DURATION);
         }
 
         // Set preview mode
@@ -451,6 +466,60 @@ export class VideoPlayerService {
         // Seek and play
         this.seek(previewStart);
         this.play();
+    }
+
+    /**
+     * Check if intro/outro segments have been removed (Feature 13)
+     * Returns true if intro/outro segments exist in deleted segments
+     */
+    private hasIntroOutroRemoved(): boolean {
+        const deletedSegments = this.editorStateService.getDeletedSegments();
+        const videoDuration = this._duration();
+
+        if (videoDuration <= 0 || deletedSegments.length === 0) {
+            return false;
+        }
+
+        // Check if there's a deleted segment starting at 0 (intro removed)
+        const hasIntro = deletedSegments.some(seg => seg.start === 0);
+        // Check if there's a deleted segment ending at video duration (outro removed)
+        const hasOutro = deletedSegments.some(seg => seg.end === videoDuration);
+
+        return hasIntro || hasOutro;
+    }
+
+    /**
+     * Get effective start boundary (after intro removal) (Feature 13)
+     * Returns the start time of the first non-deleted word if intro was removed, otherwise 0
+     */
+    private getEffectiveStartBoundary(): number {
+        // Only use effective boundary if intro/outro have been removed
+        if (!this.hasIntroOutroRemoved()) {
+            return 0; // Use original video start
+        }
+
+        const nonDeletedWords = this.editorStateService.getNonDeletedWords();
+        if (nonDeletedWords.length === 0) {
+            return 0; // Fallback to video start
+        }
+        return nonDeletedWords[0].start;
+    }
+
+    /**
+     * Get effective end boundary (after outro removal) (Feature 13)
+     * Returns the end time of the last non-deleted word if outro was removed, otherwise video duration
+     */
+    private getEffectiveEndBoundary(): number {
+        // Only use effective boundary if intro/outro have been removed
+        if (!this.hasIntroOutroRemoved()) {
+            return this._duration(); // Use original video duration
+        }
+
+        const nonDeletedWords = this.editorStateService.getNonDeletedWords();
+        if (nonDeletedWords.length === 0) {
+            return this._duration(); // Fallback to video duration
+        }
+        return nonDeletedWords[nonDeletedWords.length - 1].end;
     }
 
     /**
@@ -1168,11 +1237,36 @@ export class VideoPlayerService {
         this._isPlaying.set(false);
         this._currentTime.set(0);
         this._duration.set(0);
+        this._effectiveDuration.set(null); // Reset effective duration
         this._isLoading.set(false);
         this._error.set(null);
         this.isPreviewMode = false;
         this.isEditedPlaybackMode = false;
         this.deletedSegments = [];
+    }
+
+    /**
+     * Update effective duration based on intro/outro segments (Feature 13)
+     * Effective duration = original duration - (intro_length + outro_length)
+     * @param introLength Length of intro segment in seconds (from 0 to first word start)
+     * @param outroLength Length of outro segment in seconds (from last word end to video duration)
+     */
+    public updateEffectiveDuration(introLength: number, outroLength: number): void {
+        const originalDuration = this._duration();
+        if (originalDuration <= 0) {
+            console.warn('Cannot update effective duration: invalid video duration');
+            return;
+        }
+        const effectiveDuration = originalDuration - introLength - outroLength;
+        this._effectiveDuration.set(Math.max(0, effectiveDuration)); // Ensure non-negative
+    }
+
+    /**
+     * Reset effective duration to original video duration (Feature 13)
+     * Called when intro/outro segments are removed
+     */
+    public resetEffectiveDuration(): void {
+        this._effectiveDuration.set(null);
     }
 
     /**

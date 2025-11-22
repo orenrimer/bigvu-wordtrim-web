@@ -330,8 +330,23 @@ export class ActionBarComponent {
             return;
         }
 
+        // Calculate intro and outro lengths before adding segments
+        const nonDeletedWords = this.editorState.getNonDeletedWords();
+        if (nonDeletedWords.length === 0) {
+            console.warn('Cannot confirm preview: no non-deleted words found');
+            return;
+        }
+
+        const firstWord = nonDeletedWords[0];
+        const lastWord = nonDeletedWords[nonDeletedWords.length - 1];
+        const introLength = firstWord.start; // From 0 to first word start
+        const outroLength = videoDuration - lastWord.end; // From last word end to video duration
+
         // Add intro and outro segments to deleted segments
         this.editorState.addIntroOutroSegments(videoDuration);
+
+        // Update effective duration in video player (Feature 13)
+        this.videoPlayerService.updateEffectiveDuration(introLength, outroLength);
 
         // Close preview mode
         if (this.mainEditorContainer) {
@@ -359,6 +374,9 @@ export class ActionBarComponent {
 
         // Remove intro and outro segments from deleted segments
         this.editorState.removeIntroOutroSegments(videoDuration);
+
+        // Reset effective duration to original video duration (Feature 13)
+        this.videoPlayerService.resetEffectiveDuration();
 
         // Close preview mode
         if (this.mainEditorContainer) {
