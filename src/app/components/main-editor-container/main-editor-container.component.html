@@ -6,23 +6,27 @@
     <!-- Show layout if video data is ready (even if segmentation failed) -->
     <div *ngIf="isVideoDataReady() && !isLoadingVideoData()" class="editor-layout">
         <!-- Left Column: Video Player + Timeline -->
-        <div class="editor-layout__video" role="region" aria-label="Video player and timeline">
-            <h2 class="sr-only">Video Player and Timeline</h2>
-            <!-- Video Player Error State - Show only when there's an error -->
-            <div *ngIf="hasVideoPlayerError()" class="video-error-section" role="alert">
-                <div class="error-card">
-                    <h3>Failed to Load Video</h3>
-                    <p class="error-message">{{ videoPlayerErrorMessage() }}</p>
+        <div class="editor-layout__video-container">
+            <div class="editor-layout__video" [class.video-horizontal]="videoAspectRatio() === '16:9'"
+                [class.video-square]="videoAspectRatio() === '1:1'" role="region"
+                aria-label="Video player and timeline">
+                <h2 class="sr-only">Video Player and Timeline</h2>
+                <!-- Video Player Error State - Show only when there's an error -->
+                <div *ngIf="hasVideoPlayerError()" class="video-error-section" role="alert">
+                    <div class="error-card">
+                        <h3>Failed to Load Video</h3>
+                        <p class="error-message">{{ videoPlayerErrorMessage() }}</p>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Video Player - Show when no error -->
-            <app-video-player *ngIf="!hasVideoPlayerError()"></app-video-player>
+                <!-- Video Player - Show when no error -->
+                <app-video-player *ngIf="!hasVideoPlayerError()"></app-video-player>
 
-            <!-- Timeline (Always visible) -->
-            <div class="timeline-section" role="region" aria-label="Timeline">
-                <h3 class="sr-only">Timeline</h3>
-                <app-timeline></app-timeline>
+                <!-- Timeline (Always visible) -->
+                <div class="timeline-section" role="region" aria-label="Timeline">
+                    <h3 class="sr-only">Timeline</h3>
+                    <app-timeline></app-timeline>
+                </div>
             </div>
         </div>
 
@@ -79,15 +83,15 @@
                 </div>
 
                 <!-- Content - Show only when loaded and no error -->
-                <div *ngIf="!isLoading() && !hasError()" class="transcript-content-wrapper" [attr.dir]="isRTL() ? 'rtl' : 'ltr'">
+                <div *ngIf="!isLoading() && !hasError()" class="transcript-content-wrapper"
+                    [attr.dir]="isRTL() ? 'rtl' : 'ltr'">
                     <div class="timestamps-container" *ngIf="hasWords()">
                         <span *ngFor="let timestamp of timestamps()" class="timestamp">
                             {{ formatTimestamp(timestamp) }}
                         </span>
                     </div>
-                    <div #wordsContainer class="words-container" [class.preview-mode-disabled]="isPreviewMode()" 
-                        [attr.dir]="isRTL() ? 'rtl' : 'ltr'"
-                        role="group" aria-label="Word selection"
+                    <div #wordsContainer class="words-container" [class.preview-mode-disabled]="isPreviewMode()"
+                        [attr.dir]="isRTL() ? 'rtl' : 'ltr'" role="group" aria-label="Word selection"
                         (click)="onWordsContainerClick($event)">
                         <app-word-chip *ngFor="let word of wordsWithIntroOutro()" [word]="word"
                             [currentPlaybackWordIndex]="currentPlaybackWordIndex()" (wordClicked)="onWordClick($event)"

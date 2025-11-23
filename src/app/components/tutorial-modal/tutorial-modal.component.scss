@@ -470,9 +470,9 @@
     }
 
     .modal-tip {
-        width: var(--tip-modal-width) !important; // Always 326px
-        max-width: var(--tip-modal-width) !important; // Always 326px
-        min-width: var(--tip-modal-width) !important; // Always 326px
+        width: calc(var(--tip-modal-width) * 0.95) !important; // Always 326px
+        max-width: calc(var(--tip-modal-width) * 0.95) !important; // Always 326px
+        min-width: calc(var(--tip-modal-width) * 0.95) !important; // Always 326px
         // Position below first row - use CSS custom property if available, otherwise calculate
         top: var(--words-container-top, calc(var(--spacing-8) + 2rem + var(--spacing-4)));
         // Use CSS custom property for alignment with words-container, fallback to centered if not available
@@ -486,9 +486,9 @@
             left: auto !important;
             right: var(--words-container-right, 50%) !important;
             transform: none !important;
-            width: var(--tip-modal-width) !important; // Always 326px
-            max-width: var(--tip-modal-width) !important; // Always 326px
-            min-width: var(--tip-modal-width) !important; // Always 326px
+            width: calc(var(--tip-modal-width) * 0.95) !important; // Always 326px
+            max-width: calc(var(--tip-modal-width) * 0.95) !important; // Always 326px
+            min-width: calc(var(--tip-modal-width) * 0.95) !important; // Always 326px
         }
 
         .modal-header {

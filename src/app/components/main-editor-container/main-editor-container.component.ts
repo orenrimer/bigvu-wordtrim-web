@@ -95,6 +95,9 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
   hasCompleteSelection = this.editorState.hasCompleteSelection;
   currentPlaybackWordIndex = this.editorState.currentPlaybackWordIndex;
 
+  // Expose video aspect ratio for CSS scaling
+  videoAspectRatio = this.videoService.aspectRatio;
+
   // Feature 13: Computed signal for words with intro/outro chips in preview mode
   wordsWithIntroOutro = computed(() => {
     const allWords = this.words();

@@ -122,6 +122,7 @@
     left: 0;
     z-index: 15;
     pointer-events: none;
+    transform-origin: top left; // Scale from top-left corner when counter-scaling
 }
 
 .time-indicator-content {
@@ -331,6 +332,32 @@
 
 .timeline-frames {
     width: 100%; // Frames take full width of container (352px)
+}
+
+// Counter-scale timeline time indicator when parent video column is scaled
+// This keeps the time indicator at its original size even when video is scaled down
+:host-context(.editor-layout__video.video-horizontal),
+:host-context(.editor-layout__video.video-square) {
+    @media (min-width: 1025px) and (max-width: 1280px) {
+        .timeline-time-indicator {
+            transform: scale(1.176); // 1 / 0.85 ≈ 1.176
+        }
+    }
+
+    @media (min-width: 769px) and (max-width: 1024px) {
+        .timeline-time-indicator {
+            transform: scale(1.176); // 1 / 0.85 ≈ 1.176
+        }
+    }
+}
+
+// Special case for horizontal videos at 768-1024px (scale 0.80)
+:host-context(.editor-layout__video.video-horizontal) {
+    @media (min-width: 769px) and (max-width: 1024px) {
+        .timeline-time-indicator {
+            transform: scale(1.25); // 1 / 0.80 = 1.25
+        }
+    }
 }
 
 

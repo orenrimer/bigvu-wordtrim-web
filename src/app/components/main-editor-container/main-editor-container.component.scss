@@ -81,11 +81,17 @@
             display: flex;
             flex-direction: column;
             gap: var(--editor-video-gap);
-            background: var(--color-bg-secondary);
             overflow-y: auto;
             box-sizing: border-box;
             align-items: center; // Center video player and timeline horizontally
             flex-shrink: 0; // Don't shrink - take only needed width
+        }
+
+        &__video-container {
+            background: var(--color-bg-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
             width: auto; // Width determined by content (352px for video/timeline)
         }
 
@@ -146,18 +152,82 @@
                 gap: var(--editor-content-gap);
             }
         }
-
     }
 
-    // Responsive: Tablet Small (768px - 1024px)
-    @media (min-width: 769px) and (max-width: 1024px) {
+
+    // Scale down video player when video is horizontal (16:9) or square (1:1)
+    // Applied to screens smaller than 1440px (but not mobile)
+    // Don't scale vertical videos (9:16) as they're already narrow
+    @media (min-width: 769px) and (max-width: 1440px) {
         .editor-layout {
-            &__video {
-                display: flex;
-                flex-direction: column;
-                align-items: center; // Center video player horizontally
-                justify-content: flex-start; // Align to top
+
+            &__video.video-horizontal,
+            &__video.video-square {
+                // Scale down the entire video column (video player + timeline)
+                // This scales the preview while keeping transcript area at full width
+                transform-origin: center top;
                 padding: var(--editor-video-padding-sm);
+            }
+
+            // Ensure transcript area maintains full width (don't shrink)
+            &__transcript {
+                min-width: 0; // Keep existing behavior
+            }
+        }
+
+
+        @media (min-width: 1025px) and (max-width: 1280px) {
+            .editor-layout {
+
+                &__video.video-horizontal,
+                &__video.video-square {
+                    transform: scale(0.85);
+                    padding: var(--editor-video-padding-sm) 0;
+
+                    // Counter-scale timeline time indicator to keep it at original size
+                    // Use ::ng-deep to penetrate timeline component's view encapsulation
+                    ::ng-deep .timeline-time-indicator {
+                        transform: scale(1.176) !important; // 1 / 0.85 ≈ 1.176
+                        transform-origin: top left;
+                    }
+                }
+            }
+        }
+
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .editor-layout {
+                &__video {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center; // Center video player horizontally
+                    justify-content: flex-start; // Align to top
+                    padding: var(--editor-video-padding-sm);
+                }
+
+                &__video.video-horizontal,
+                &__video.video-square {
+                    transform: scale(0.85);
+                    padding: var(--editor-video-padding-sm) 0;
+
+                    // Counter-scale timeline time indicator to keep it at original size
+                    // Use ::ng-deep to penetrate timeline component's view encapsulation
+                    ::ng-deep .timeline-time-indicator {
+                        transform: scale(1.176) !important; // 1 / 0.85 ≈ 1.176
+                        transform-origin: top left;
+                    }
+                }
+
+                &__video.video-horizontal {
+                    transform: scale(0.80);
+                    padding: var(--editor-video-padding-sm) 0;
+
+                    // Counter-scale timeline time indicator to keep it at original size
+                    // Use ::ng-deep to penetrate timeline component's view encapsulation
+                    ::ng-deep .timeline-time-indicator {
+                        transform: scale(1.25) !important; // 1 / 0.80 = 1.25
+                        transform-origin: top left;
+                    }
+                }
             }
         }
     }
@@ -237,13 +307,6 @@
         }
     }
 
-    // Hide selection info panel on screens smaller than 1024px
-    @media (max-width: 1023px) {
-        .selection-info {
-            display: none;
-        }
-    }
-
     // Transcript Content Area - THIS SCROLLS
     .transcript-content {
         width: 100%;
@@ -279,7 +342,11 @@
 
     @media (max-width: 1024px) {
         .transcript-content {
-            padding: var(--spacing-8);
+            padding: var(--spacing-8) var(--spacing-4);
+        }
+
+        .selection-info {
+            display: none;
         }
     }
 
@@ -363,7 +430,6 @@
         .words-container {
             line-height: 2rem;
         }
-
     }
 
     @media (max-width: 768px) {
@@ -372,6 +438,11 @@
             gap: calc(var(--word-chip-gap) * 0.8);
         }
 
+        .editor-layout {
+            &__video-container {
+                width: 100%;
+            }
+        }
     }
 
     // Timeline Section (in video column)
