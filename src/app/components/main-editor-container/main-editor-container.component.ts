@@ -56,6 +56,9 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
   private autoScrollResumeSubject = new Subject<void>();
   private destroy$ = new Subject<void>();
 
+  // Window resize event listener reference for cleanup
+  private windowResizeListener: (() => void) | null = null;
+
   // Feature 13: Preview mode state for start/end trimming
   private readonly _isPreviewMode = signal<boolean>(false);
   public readonly isPreviewMode = this._isPreviewMode.asReadonly();
@@ -371,13 +374,14 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
 
     // Update position on window resize
     if (typeof window !== 'undefined') {
-      window.addEventListener('resize', () => {
+      this.windowResizeListener = () => {
         this.updateWordsContainerPosition();
         // Feature 13.11: Also update preview tip modal position on resize
         if (this.tutorialService.modalState() === 'preview-tip') {
           this.updatePreviewTipModalPosition();
         }
-      });
+      };
+      window.addEventListener('resize', this.windowResizeListener);
     }
 
     // Setup scroll event listener to detect manual scrolling
@@ -405,6 +409,12 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     // Clean up scroll event listener
     if (this.transcriptContentRef?.nativeElement) {
       this.transcriptContentRef.nativeElement.removeEventListener('scroll', this.onManualScrollBound);
+    }
+
+    // Clean up window resize event listener
+    if (this.windowResizeListener && typeof window !== 'undefined') {
+      window.removeEventListener('resize', this.windowResizeListener);
+      this.windowResizeListener = null;
     }
 
     // Clean up RxJS subscriptions

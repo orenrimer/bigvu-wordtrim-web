@@ -109,6 +109,12 @@ export class VideoPlayerService {
     private lastPlayStartTime: number | null = null; // Track last play start time to detect if selection changed
     private lastPlayStartIndex: number | null = null; // Track last play start word index to detect if selection changed
 
+    // Event listener references for cleanup
+    private videoEventListeners: Array<{ event: string; listener: EventListener }> = [];
+
+    // Track temporary timeupdate listener for sequential preview playback
+    private sequentialPreviewTimeUpdateListener: (() => void) | null = null;
+
     // RxJS Subject for debouncing togglePlayPause
     private togglePlayPauseSubject = new Subject<void>();
     private destroy$ = new Subject<void>();
@@ -298,20 +304,27 @@ export class VideoPlayerService {
     private attachVideoEventListeners(): void {
         if (!this.videoElement) return;
 
+        // Clear any existing listeners first
+        this.removeVideoEventListeners();
+
         // Play event
-        this.videoElement.addEventListener('play', () => {
+        const onPlay = () => {
             this._isPlaying.set(true);
             this.startPlaybackCheck();
-        });
+        };
+        this.videoElement.addEventListener('play', onPlay);
+        this.videoEventListeners.push({ event: 'play', listener: onPlay });
 
         // Pause event
-        this.videoElement.addEventListener('pause', () => {
+        const onPause = () => {
             this._isPlaying.set(false);
             this.stopPlaybackCheck();
-        });
+        };
+        this.videoElement.addEventListener('pause', onPause);
+        this.videoEventListeners.push({ event: 'pause', listener: onPause });
 
         // Time update event - update current time signal and check preview end
-        this.videoElement.addEventListener('timeupdate', () => {
+        const onTimeUpdate = () => {
             if (!this.videoElement) return;
             this._currentTime.set(this.videoElement.currentTime);
             // Check preview end on timeupdate for more precise stopping
@@ -337,7 +350,9 @@ export class VideoPlayerService {
                     }
                 }
             }
-        });
+        };
+        this.videoElement.addEventListener('timeupdate', onTimeUpdate);
+        this.videoEventListeners.push({ event: 'timeupdate', listener: onTimeUpdate });
 
         // Seeked event - fired when seek operation completes
         // Use this for precise timing and to clear skip flags accurately
@@ -358,19 +373,21 @@ export class VideoPlayerService {
             }
         };
         this.videoElement.addEventListener('seeked', this.seekedEventListener);
+        this.videoEventListeners.push({ event: 'seeked', listener: this.seekedEventListener });
 
         // Duration change event
-        this.videoElement.addEventListener('loadedmetadata', () => {
+        const onLoadedMetadata = () => {
             if (!this.videoElement) return;
             this._duration.set(this.videoElement.duration);
             // Reset effective duration when video duration changes (e.g., new video loaded)
             this._effectiveDuration.set(null);
             // Aspect ratio is already set from metadata before video loads (via effect in constructor)
-        });
+        };
+        this.videoElement.addEventListener('loadedmetadata', onLoadedMetadata);
+        this.videoEventListeners.push({ event: 'loadedmetadata', listener: onLoadedMetadata });
 
         // Ended event
-        this.videoElement.addEventListener('ended', () => {
-
+        const onEnded = () => {
             // Update current time to duration to ensure videoEnded check works correctly
             if (this.videoElement) {
                 this._currentTime.set(this.videoElement.duration);
@@ -393,10 +410,12 @@ export class VideoPlayerService {
                 this.lastPlayStartTime = null;
                 this.lastPlayStartIndex = null;
             }
-        });
+        };
+        this.videoElement.addEventListener('ended', onEnded);
+        this.videoEventListeners.push({ event: 'ended', listener: onEnded });
 
         // Error event
-        this.videoElement.addEventListener('error', () => {
+        const onError = () => {
             if (!this.videoElement) return;
             const error = this.videoElement.error;
             let errorMessage = 'Unknown video error';
@@ -422,7 +441,22 @@ export class VideoPlayerService {
 
             this._error.set(errorMessage);
             this._isLoading.set(false);
+        };
+        this.videoElement.addEventListener('error', onError);
+        this.videoEventListeners.push({ event: 'error', listener: onError });
+    }
+
+    /**
+     * Remove all video event listeners
+     */
+    private removeVideoEventListeners(): void {
+        if (!this.videoElement) return;
+
+        this.videoEventListeners.forEach(({ event, listener }) => {
+            this.videoElement!.removeEventListener(event, listener);
         });
+        this.videoEventListeners = [];
+        this.seekedEventListener = null;
     }
 
     /**
@@ -1048,10 +1082,20 @@ export class VideoPlayerService {
         let currentSegmentIndex = 0;
 
         const playNextSegment = () => {
+            // Check if video element still exists (component might have been destroyed)
+            if (!this.videoElement) {
+                return;
+            }
+
             if (currentSegmentIndex >= segments.length) {
                 // All segments played - pause and clear preview mode
                 this.pause();
                 this.clearPreviewMode();
+                // Clean up listener
+                if (this.sequentialPreviewTimeUpdateListener && this.videoElement) {
+                    this.videoElement.removeEventListener('timeupdate', this.sequentialPreviewTimeUpdateListener);
+                    this.sequentialPreviewTimeUpdateListener = null;
+                }
                 return;
             }
 
@@ -1067,6 +1111,12 @@ export class VideoPlayerService {
             this.seek(segment.start);
             this.play();
 
+            // Clean up any existing sequential preview listener
+            if (this.sequentialPreviewTimeUpdateListener && this.videoElement) {
+                this.videoElement.removeEventListener('timeupdate', this.sequentialPreviewTimeUpdateListener);
+                this.sequentialPreviewTimeUpdateListener = null;
+            }
+
             // Set up listener for when this segment ends
             const onTimeUpdate = () => {
                 if (!this.videoElement) return;
@@ -1076,18 +1126,24 @@ export class VideoPlayerService {
 
                 // If we've reached or passed the end, move to next segment
                 if (currentTime >= segment.end || timeUntilEnd <= 0.1) {
-                    if (this.videoElement) {
-                        this.videoElement.removeEventListener('timeupdate', onTimeUpdate);
+                    // Clean up listener
+                    if (this.videoElement && this.sequentialPreviewTimeUpdateListener) {
+                        this.videoElement.removeEventListener('timeupdate', this.sequentialPreviewTimeUpdateListener);
+                        this.sequentialPreviewTimeUpdateListener = null;
                     }
                     // Small delay to ensure smooth transition
                     setTimeout(() => {
-                        playNextSegment();
+                        // Check if video element still exists before continuing
+                        if (this.videoElement) {
+                            playNextSegment();
+                        }
                     }, 50);
                 }
             };
 
             if (this.videoElement) {
                 this.videoElement.addEventListener('timeupdate', onTimeUpdate);
+                this.sequentialPreviewTimeUpdateListener = onTimeUpdate;
             }
         };
 
@@ -1234,15 +1290,21 @@ export class VideoPlayerService {
         // Stop playback check interval
         this.stopPlaybackCheck();
 
-        // Clean up seeked event listener if exists
-        if (this.seekedEventListener && this.videoElement) {
-            this.videoElement.removeEventListener('seeked', this.seekedEventListener);
-            this.seekedEventListener = null;
+        // Clear loading timeout
+        this.clearLoadingTimeout();
+
+        // Remove all video event listeners
+        this.removeVideoEventListeners();
+
+        // Clean up sequential preview timeupdate listener if exists
+        if (this.sequentialPreviewTimeUpdateListener && this.videoElement) {
+            this.videoElement.removeEventListener('timeupdate', this.sequentialPreviewTimeUpdateListener);
+            this.sequentialPreviewTimeUpdateListener = null;
         }
 
         this.isSeekingToSkip = false;
 
-        this.hlsLoaderService.destroy(this.hls);
+        this.hlsLoaderService.destroy(this.hls, this.videoElement);
         this.hls = null;
 
         if (this.videoElement) {
@@ -1296,9 +1358,13 @@ export class VideoPlayerService {
     }
 
     /**
-     * Cleanup RxJS subscriptions
+     * Cleanup RxJS subscriptions and resources
      */
     ngOnDestroy(): void {
+        // Clean up all resources
+        this.destroy();
+
+        // Clean up RxJS subscriptions
         this.destroy$.next();
         this.destroy$.complete();
     }

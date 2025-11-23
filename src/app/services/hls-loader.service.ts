@@ -25,6 +25,8 @@ export interface HlsLoaderCallbacks {
     providedIn: 'root'
 })
 export class HlsLoaderService {
+    // Track event listeners for native HLS cleanup
+    private nativeHlsListeners = new Map<HTMLVideoElement, Array<{ event: string; listener: EventListener }>>();
     /**
      * Check if HLS.js is supported in the current browser
      */
@@ -120,17 +122,44 @@ export class HlsLoaderService {
         // Ensure video loads
         videoElement.load();
 
-        videoElement.addEventListener('loadedmetadata', () => {
-            callbacks?.onManifestParsed?.();
-        });
+        // Clear any existing listeners for this element
+        this.removeNativeHlsListeners(videoElement);
 
-        videoElement.addEventListener('error', () => {
+        // Store listeners for cleanup
+        const listeners: Array<{ event: string; listener: EventListener }> = [];
+
+        const onLoadedMetadata = () => {
+            callbacks?.onManifestParsed?.();
+        };
+        videoElement.addEventListener('loadedmetadata', onLoadedMetadata);
+        listeners.push({ event: 'loadedmetadata', listener: onLoadedMetadata });
+
+        const onError = () => {
             const error = videoElement.error;
             const errorMessage = error ? `Video Error: ${error.message}` : 'Unknown video error';
             callbacks?.onError?.('error', { message: errorMessage });
-        });
+        };
+        videoElement.addEventListener('error', onError);
+        listeners.push({ event: 'error', listener: onError });
+
+        // Store listeners for this element
+        this.nativeHlsListeners.set(videoElement, listeners);
 
         return true;
+    }
+
+    /**
+     * Remove native HLS event listeners for a video element
+     * @param videoElement Video element to clean up
+     */
+    private removeNativeHlsListeners(videoElement: HTMLVideoElement): void {
+        const listeners = this.nativeHlsListeners.get(videoElement);
+        if (listeners) {
+            listeners.forEach(({ event, listener }) => {
+                videoElement.removeEventListener(event, listener);
+            });
+            this.nativeHlsListeners.delete(videoElement);
+        }
     }
 
     /**
@@ -162,12 +191,18 @@ export class HlsLoaderService {
     }
 
     /**
-     * Destroy HLS instance
+     * Destroy HLS instance and clean up event listeners
      * @param hls HLS instance to destroy
+     * @param videoElement Optional video element to clean up native HLS listeners
      */
-    public destroy(hls: Hls | null): void {
+    public destroy(hls: Hls | null, videoElement?: HTMLVideoElement | null): void {
         if (hls) {
             hls.destroy();
+        }
+
+        // Clean up native HLS event listeners if video element is provided
+        if (videoElement) {
+            this.removeNativeHlsListeners(videoElement);
         }
     }
 }

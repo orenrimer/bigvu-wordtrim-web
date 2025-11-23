@@ -58,7 +58,7 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
                 // Check RTL when tip modal is shown
                 this.isRTL.set(document.documentElement.classList.contains('is-rtl'));
             }
-        });
+        }, { allowSignalWrites: true });
 
         // Watch for modal state changes and initialize video when switching to video mode
         effect(() => {
@@ -380,7 +380,7 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
         }
 
         // Destroy HLS.js instance
-        this.hlsLoaderService.destroy(this.hls);
+        this.hlsLoaderService.destroy(this.hls, videoElement);
         this.hls = null;
 
         // Clear video source without triggering load error
