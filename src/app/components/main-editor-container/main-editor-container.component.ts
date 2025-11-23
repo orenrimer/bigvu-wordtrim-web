@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, effect, AfterViewInit, ViewChild, ElementRef, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, AfterViewInit, OnDestroy, ViewChild, ElementRef, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SegmentationLoaderService } from '../../services/segmentation-loader.service';
 import { EditorStateService } from '../../services/editor-state.service';
@@ -35,7 +35,7 @@ import { Word, WordState } from '../../models';
   templateUrl: './main-editor-container.component.html',
   styleUrl: './main-editor-container.component.scss'
 })
-export class MainEditorContainerComponent implements OnInit, AfterViewInit {
+export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDestroy {
   // ViewChild reference to words-container for CSS custom property positioning
   @ViewChild('wordsContainer', { static: false }) wordsContainerRef!: ElementRef<HTMLElement>;
 
@@ -44,6 +44,12 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
 
   // Track if position calculation is in progress to prevent multiple simultaneous calls
   private isPositionCalculating = false;
+
+  // Auto-scroll tracking
+  private autoScrollPaused = false; // Whether auto-scroll is paused due to manual scroll
+  private autoScrollResumeTimer: ReturnType<typeof setTimeout> | null = null; // Timer to resume auto-scroll after 5 seconds
+  private isProgrammaticScroll = false; // Flag to distinguish programmatic scrolls from manual ones
+  private programmaticScrollEndTime = 0; // Timestamp when programmatic scroll should end
 
   // Feature 13: Preview mode state for start/end trimming
   private readonly _isPreviewMode = signal<boolean>(false);
@@ -318,6 +324,23 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
         this.tutorialService.hide();
       }
     }, { allowSignalWrites: true });
+
+    // Effect: Auto-scroll to keep active playback word visible
+    effect(() => {
+      const playbackWordIndex = this.currentPlaybackWordIndex();
+      const isPlaying = this.videoService.isPlaying();
+
+      // Only auto-scroll if:
+      // 1. Video is playing
+      // 2. There's an active playback word
+      // 3. Auto-scroll is not paused (user hasn't manually scrolled recently)
+      if (isPlaying && playbackWordIndex !== null && !this.autoScrollPaused) {
+        // Use setTimeout to ensure DOM is updated
+        setTimeout(() => {
+          this.scrollToActiveWord(playbackWordIndex);
+        }, 0);
+      }
+    });
   }
 
   ngOnInit(): void {
@@ -339,6 +362,39 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
           this.updatePreviewTipModalPosition();
         }
       });
+    }
+
+    // Setup scroll event listener to detect manual scrolling
+    // Wait for transcriptContentRef to be available
+    // Use multiple retries in case the element isn't ready yet
+    let retryCount = 0;
+    const maxRetries = 10;
+    const setupScrollListener = () => {
+      if (this.transcriptContentRef?.nativeElement) {
+        this.transcriptContentRef.nativeElement.addEventListener('scroll', this.onManualScrollBound, { passive: true });
+      } else if (retryCount < maxRetries) {
+        retryCount++;
+        setTimeout(setupScrollListener, 50);
+      }
+    };
+    setTimeout(setupScrollListener, 0);
+  }
+
+  // Bound scroll handler for cleanup
+  private onManualScrollBound = () => {
+    this.onManualScroll();
+  }
+
+  ngOnDestroy(): void {
+    // Clean up scroll event listener
+    if (this.transcriptContentRef?.nativeElement) {
+      this.transcriptContentRef.nativeElement.removeEventListener('scroll', this.onManualScrollBound);
+    }
+
+    // Clean up auto-scroll resume timer
+    if (this.autoScrollResumeTimer !== null) {
+      clearTimeout(this.autoScrollResumeTimer);
+      this.autoScrollResumeTimer = null;
     }
   }
 
@@ -827,6 +883,103 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
 
     if (previousState) {
       this.restoreState(previousState);
+    }
+  }
+
+  /**
+   * Handle manual scroll event
+   * Pauses auto-scroll and schedules resume after 5 seconds
+   */
+  private onManualScroll(): void {
+    // Ignore programmatic scrolls - check both flag and timestamp
+    const now = Date.now();
+    if (this.isProgrammaticScroll || now < this.programmaticScrollEndTime) {
+      return;
+    }
+
+    // Pause auto-scroll
+    this.autoScrollPaused = true;
+
+    // Clear existing resume timer
+    if (this.autoScrollResumeTimer !== null) {
+      clearTimeout(this.autoScrollResumeTimer);
+    }
+
+    // Schedule resume after 5 seconds
+    this.autoScrollResumeTimer = setTimeout(() => {
+      this.autoScrollPaused = false;
+      this.autoScrollResumeTimer = null;
+    }, 5000);
+  }
+
+  /**
+   * Scroll the active playback word into view
+   * @param wordIndex Index of the word to scroll to
+   */
+  private scrollToActiveWord(wordIndex: number): void {
+    // Ensure transcript content element is available
+    if (!this.transcriptContentRef?.nativeElement || !this.wordsContainerRef?.nativeElement) {
+      return;
+    }
+
+    // Get the words array (with intro/outro chips in preview mode)
+    const wordsWithIntroOutro = this.wordsWithIntroOutro();
+
+    // Find the word in the array that matches the index
+    const wordIndexInArray = wordsWithIntroOutro.findIndex(w => w.index === wordIndex);
+
+    if (wordIndexInArray === -1) {
+      return; // Word not found (might be intro/outro chip or deleted)
+    }
+
+    // Find the word chip element - chips are rendered in the same order as the array
+    const wordChips = this.wordsContainerRef.nativeElement.querySelectorAll('app-word-chip');
+
+    if (!wordChips || wordIndexInArray >= wordChips.length) {
+      return;
+    }
+
+    const targetChip = wordChips[wordIndexInArray] as HTMLElement;
+
+    if (!targetChip) {
+      return;
+    }
+
+    const scrollContainer = this.transcriptContentRef.nativeElement;
+    const chipRect = targetChip.getBoundingClientRect();
+    const containerRect = scrollContainer.getBoundingClientRect();
+
+    // Check if chip is already visible (with some padding for better UX)
+    const padding = 50; // Padding in pixels
+    const isVisible = chipRect.top >= (containerRect.top + padding) &&
+      chipRect.bottom <= (containerRect.bottom - padding);
+
+    if (!isVisible) {
+      // Set flag and timestamp BEFORE scrolling to prevent triggering manual scroll detection
+      // Smooth scroll animations typically take 500-1000ms, so we'll ignore scroll events for 1500ms
+      const scrollStartTime = Date.now();
+      this.isProgrammaticScroll = true;
+      this.programmaticScrollEndTime = scrollStartTime + 1500; // 1.5 seconds should cover smooth scroll animation
+
+      // Use requestAnimationFrame to ensure flag is set before scroll happens
+      requestAnimationFrame(() => {
+        // Use scrollIntoView with smooth behavior
+        // This will scroll the nearest scrollable ancestor (transcript-content)
+        targetChip.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+          inline: 'nearest'
+        });
+
+        // Reset flag after scroll animation completes (typically 500-1000ms for smooth scroll)
+        setTimeout(() => {
+          this.isProgrammaticScroll = false;
+          // Keep programmaticScrollEndTime set for a bit longer to catch any delayed scroll events
+          setTimeout(() => {
+            this.programmaticScrollEndTime = 0;
+          }, 300);
+        }, 1500);
+      });
     }
   }
 
