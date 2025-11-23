@@ -69,6 +69,10 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
   // Window resize event listener reference for cleanup
   private windowResizeListener: (() => void) | null = null;
 
+  // Track timeouts and animation frames for cleanup
+  private activeTimeouts: number[] = [];
+  private activeAnimationFrames: number[] = [];
+
   // Feature 13: Preview mode state for start/end trimming
   private readonly _isPreviewMode = signal<boolean>(false);
   public readonly isPreviewMode = this._isPreviewMode.asReadonly();
@@ -293,12 +297,14 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       if (words.length > 0 && loadingState === 'success') {
         // First, update position
         // Use requestAnimationFrame to ensure DOM is updated after Angular change detection
-        requestAnimationFrame(() => {
+        const rafId = requestAnimationFrame(() => {
           this.tutorialService.updateWordsContainerPosition(
             this.wordsContainerRef,
             words.length,
             rtl
           ).then((positionSuccess) => {
+            // Remove from tracking array when completed
+            this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
             // Only show tip modal if:
             // 1. Position was calculated successfully
             // 2. No error occurred
@@ -311,6 +317,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
             }
           });
         });
+        this.activeAnimationFrames.push(rafId);
       }
     });
     // Effect: Sync current playback word with video time
@@ -373,9 +380,12 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       // 3. Auto-scroll is not paused (user hasn't manually scrolled recently)
       if (isPlaying && playbackWordIndex !== null && !this.autoScrollPaused) {
         // Use setTimeout to ensure DOM is updated
-        setTimeout(() => {
+        const timeoutId = window.setTimeout(() => {
           this.scrollToActiveWord(playbackWordIndex);
+          // Remove from tracking array when completed
+          this.activeTimeouts = this.activeTimeouts.filter(id => id !== timeoutId);
         }, 0);
+        this.activeTimeouts.push(timeoutId);
       }
     });
 
@@ -440,7 +450,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     // Scroll listener is set up in constructor using afterNextRender
     // If element wasn't ready then, try again here (should be available in ngAfterViewInit)
     // Use requestAnimationFrame to ensure DOM is fully rendered
-    requestAnimationFrame(() => {
+    const rafId = requestAnimationFrame(() => {
       if (this.transcriptContentRef?.nativeElement) {
         // Check if listener wasn't already added
         if (!this.transcriptContentRef.nativeElement.hasAttribute('data-scroll-listener-added')) {
@@ -448,7 +458,10 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
           this.transcriptContentRef.nativeElement.setAttribute('data-scroll-listener-added', 'true');
         }
       }
+      // Remove from tracking array when completed
+      this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
     });
+    this.activeAnimationFrames.push(rafId);
   }
 
   // Bound scroll handler for cleanup
@@ -467,6 +480,18 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       window.removeEventListener('resize', this.windowResizeListener);
       this.windowResizeListener = null;
     }
+
+    // Clean up all active timeouts
+    this.activeTimeouts.forEach(timeoutId => {
+      clearTimeout(timeoutId);
+    });
+    this.activeTimeouts = [];
+
+    // Clean up all active animation frames
+    this.activeAnimationFrames.forEach(rafId => {
+      cancelAnimationFrame(rafId);
+    });
+    this.activeAnimationFrames = [];
 
     // Clean up RxJS subscriptions
     this.destroy$.next();
@@ -536,13 +561,17 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     // Feature 13.11: Update preview tip modal position when preview mode changes
     if (this.tutorialService.modalState() === 'preview-tip') {
       // Use requestAnimationFrame to ensure DOM is updated
-      requestAnimationFrame(() => {
+      const rafId = requestAnimationFrame(() => {
         this.tutorialService.updatePreviewTipModalPosition(
           this.transcriptContentRef,
           this.wordsContainerRef,
           this.isRTL()
         );
+        // Remove from tracking array when completed
+        this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
       });
+      this.activeAnimationFrames.push(rafId);
+      this.activeAnimationFrames.push(rafId);
     }
   }
 
@@ -621,13 +650,16 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
 
     // Find the corresponding word chip element and focus it
     // Use setTimeout to ensure DOM is updated after Angular change detection
-    setTimeout(() => {
+    const timeoutId = window.setTimeout(() => {
       // Find the word chip element by data-index attribute
       const targetElement = document.querySelector(`[data-index="${targetIndex}"].word-chip`) as HTMLElement;
       if (targetElement) {
         targetElement.focus();
       }
+      // Remove from tracking array when completed
+      this.activeTimeouts = this.activeTimeouts.filter(id => id !== timeoutId);
     }, 0);
+    this.activeTimeouts.push(timeoutId);
   }
 
   /**
@@ -805,10 +837,15 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       return;
     }
 
-    // Pause auto-scroll
+    // Pause auto-scroll immediately
     this.autoScrollPaused = true;
 
+    // Cancel any ongoing programmatic scroll to prevent interference
+    this.isProgrammaticScroll = false;
+    this.programmaticScrollEndTime = 0;
+
     // Emit to Subject for debounced resume (5 seconds)
+    // This will reset autoScrollPaused to false after 5 seconds of no manual scrolling
     this.autoScrollResumeSubject.next();
   }
 
@@ -855,14 +892,27 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       chipRect.bottom <= (containerRect.bottom - padding);
 
     if (!isVisible) {
+      // Don't scroll if auto-scroll is paused (user has manually scrolled)
+      if (this.autoScrollPaused) {
+        return;
+      }
+
       // Set flag and timestamp BEFORE scrolling to prevent triggering manual scroll detection
-      // Smooth scroll animations typically take 500-1000ms, so we'll ignore scroll events for 1500ms
+      // Smooth scroll animations typically take 500-1000ms, so we'll ignore scroll events for 2000ms
       const scrollStartTime = Date.now();
       this.isProgrammaticScroll = true;
-      this.programmaticScrollEndTime = scrollStartTime + 1500; // 1.5 seconds should cover smooth scroll animation
+      this.programmaticScrollEndTime = scrollStartTime + 2000; // 2 seconds should cover smooth scroll animation
 
       // Use requestAnimationFrame to ensure flag is set before scroll happens
-      requestAnimationFrame(() => {
+      const rafId = requestAnimationFrame(() => {
+        // Double-check that auto-scroll is still not paused (user might have scrolled in the meantime)
+        if (this.autoScrollPaused) {
+          this.isProgrammaticScroll = false;
+          this.programmaticScrollEndTime = 0;
+          this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
+          return;
+        }
+
         // Calculate scroll position relative to the transcript-content container
         // This ensures we only scroll the container, not the entire page
         const chipOffsetTop = targetChip.offsetTop;
@@ -883,15 +933,25 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
           behavior: 'smooth'
         });
 
+        // Remove RAF from tracking array when completed
+        this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
+
         // Reset flag after scroll animation completes (typically 500-1000ms for smooth scroll)
-        setTimeout(() => {
+        const timeoutId1 = window.setTimeout(() => {
           this.isProgrammaticScroll = false;
           // Keep programmaticScrollEndTime set for a bit longer to catch any delayed scroll events
-          setTimeout(() => {
+          const timeoutId2 = window.setTimeout(() => {
             this.programmaticScrollEndTime = 0;
-          }, 300);
-        }, 1500);
+            // Remove from tracking array when completed
+            this.activeTimeouts = this.activeTimeouts.filter(id => id !== timeoutId2);
+          }, 500);
+          this.activeTimeouts.push(timeoutId2);
+          // Remove from tracking array when completed
+          this.activeTimeouts = this.activeTimeouts.filter(id => id !== timeoutId1);
+        }, 2000);
+        this.activeTimeouts.push(timeoutId1);
       });
+      this.activeAnimationFrames.push(rafId);
     }
   }
 
