@@ -210,10 +210,16 @@ export class VideoPlayerService {
      * Setup edited preview mode with deleted segments skipping
      */
     private setupEditedPreviewMode(words: Word[], endTime: number): void {
+        // Calculate deleted segments
         this.deletedSegments = this.calculateDeletedSegments(words);
+
+        // Adjust end time if it falls within a deleted segment
+        // This ensures playback stops at the last non-deleted time before the deleted segment
+        const adjustedEndTime = this.getLastNonDeletedTimeBefore(words, endTime);
+
         this.isEditedPlaybackMode = true;
         this.isPreviewMode = true;
-        this.previewEndTime = endTime;
+        this.previewEndTime = adjustedEndTime;
     }
 
     /**
@@ -717,10 +723,14 @@ export class VideoPlayerService {
         // Calculate deleted segments
         this.deletedSegments = this.calculateDeletedSegments(words);
 
+        // Adjust end time if it falls within a deleted segment
+        // This ensures playback stops at the last non-deleted time before the deleted segment
+        const adjustedEndTime = this.getLastNonDeletedTimeBefore(words, endTime);
+
         // Set both modes: edited playback (skip deleted) + preview mode (stop at end)
         this.isEditedPlaybackMode = true;
         this.isPreviewMode = true;
-        this.previewEndTime = endTime;
+        this.previewEndTime = adjustedEndTime;
 
 
         // Jump to selection start and play
@@ -761,6 +771,32 @@ export class VideoPlayerService {
             // Beginning is not deleted - start from 0
             return 0;
         }
+    }
+
+    /**
+     * Get the last non-deleted time before a given time
+     * If the given time is inside a deleted segment, returns the start of that segment
+     * Otherwise returns the given time
+     * @param words Array of words (used to get deleted segments)
+     * @param endTime The end time to check
+     * @returns The last non-deleted time before or at endTime
+     */
+    private getLastNonDeletedTimeBefore(words: Word[], endTime: number): number {
+        const deletedSegments = this.calculateDeletedSegments(words);
+
+        // Find deleted segments that contain or overlap with endTime
+        // Check if endTime falls within any deleted segment
+        for (const segment of deletedSegments) {
+            // If endTime is inside this deleted segment (including at the start or end)
+            if (endTime >= segment.start && endTime <= segment.end) {
+                // endTime is inside or at the boundary of this deleted segment
+                // Return the start of the segment (last non-deleted time before the deleted segment)
+                return segment.start;
+            }
+        }
+
+        // No deleted segment affects endTime - return as-is
+        return endTime;
     }
 
     /**
@@ -927,21 +963,28 @@ export class VideoPlayerService {
                 this.pause();
                 this.clearPreviewMode();
 
-                // If there's a start selection only (no end), reset position back to start word
+                // Reset position back to start when segment ends
                 // This ensures that after preview ends, next play will start from the beginning
                 const selectionStart = this.editorStateService.selectionStart();
                 const selectionEnd = this.editorStateService.selectionEnd();
 
-                if (selectionStart && !selectionEnd) {
-                    // Get fine-tuned position if available
+                if (selectionStart && selectionEnd) {
+                    // Complete selection - reset to start (fine-tuned position if available)
+                    const startHandle = this.timelineService.startHandle();
+                    const playStart = startHandle?.time ?? selectionStart.start;
+                    this.seek(playStart);
+                    // Note: We don't update lastPlayStartTime/lastPlayStartIndex here
+                    // They should only be updated when actual playback starts in togglePlayPause()
+                    // This ensures that selectionChanged detection works correctly
+                } else if (selectionStart && !selectionEnd) {
+                    // Only start selected - reset to start word (fine-tuned position)
                     const playStart = this.getPlayStartTimeSimple(selectionStart);
-                    // Reset position back to start word (fine-tuned position)
                     this.seek(playStart);
                     // Note: We don't update lastPlayStartTime/lastPlayStartIndex here
                     // They should only be updated when actual playback starts in togglePlayPause()
                     // This ensures that selectionChanged detection works correctly
                 } else {
-                    // For other cases (complete selection or no selection), seek to exact end time
+                    // No selection - seek to exact end time
                     this.seek(savedPreviewEndTime);
                     // Reset last play start time if no start selection
                     this.lastPlayStartTime = null;
@@ -1195,7 +1238,11 @@ export class VideoPlayerService {
                 const startHandle = this.timelineService.startHandle();
                 const endHandle = this.timelineService.endHandle();
                 const playStart = startHandle?.time ?? selectionStart.start;
-                const playEnd = endHandle?.time ?? selectionEnd.end;
+                const rawPlayEnd = endHandle?.time ?? selectionEnd.end;
+
+                // Adjust end time if it falls within a deleted segment
+                // This ensures playback stops at the last non-deleted time before the deleted segment
+                const playEnd = this.getLastNonDeletedTimeBefore(words, rawPlayEnd);
 
                 // Get current time directly from video element (more reliable than signal after seek)
                 const currentTime = this.videoElement?.currentTime ?? this._currentTime();
@@ -1214,7 +1261,7 @@ export class VideoPlayerService {
                     this.play();
                 } else if (selectionChanged || videoEnded || atSegmentEnd || currentTime < playStart) {
                     // Selection changed, video ended, at segment end, or before start - start from beginning
-                    this.playSelectedSegment(words, playStart, playEnd);
+                    this.playSelectedSegment(words, playStart, rawPlayEnd);
                     this.updateLastPlayStart(selectionStart, playStart);
                 } else {
                     // Continue from current position, but still stop at segment end
