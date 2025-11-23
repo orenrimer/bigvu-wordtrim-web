@@ -7,7 +7,7 @@ import { HistoryService } from '../../services/history.service';
 import { TimelineService } from '../../services/timeline.service';
 import { OutputGeneratorService } from '../../services/output-generator.service';
 import { VideoPlayerService } from '../../services/video-player.service';
-import { WordState } from '../../models';
+import { WordState, EditorStateSnapshot } from '../../models';
 import { MainEditorContainerComponent } from '../main-editor-container/main-editor-container.component';
 
 /**
@@ -468,7 +468,7 @@ export class ActionBarComponent {
      * Restore editor state from snapshot
      * Updates both EditorStateService and TimelineService
      */
-    private restoreState(snapshot: any): void {
+    private restoreState(snapshot: EditorStateSnapshot): void {
         // Restore editor state (words and selection)
         this.editorState.restoreState(snapshot);
 

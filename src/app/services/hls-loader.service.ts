@@ -1,12 +1,19 @@
 import { Injectable, inject } from '@angular/core';
-import Hls from 'hls.js';
+import Hls, { ErrorData } from 'hls.js';
+
+/**
+ * HLS Error Data
+ * Union type that accepts either HLS.js ErrorData or a simple error object
+ * Used for both HLS.js errors (ErrorData) and native HLS errors ({ message: string })
+ */
+export type HlsErrorData = ErrorData | { message: string };
 
 /**
  * HLS Event Callbacks
  */
 export interface HlsLoaderCallbacks {
     onManifestParsed?: () => void;
-    onError?: (event: string, data: any) => void;
+    onError?: (event: string, data: HlsErrorData) => void;
 }
 
 /**

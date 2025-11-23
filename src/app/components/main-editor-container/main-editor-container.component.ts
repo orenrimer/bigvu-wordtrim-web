@@ -1,5 +1,7 @@
 import { Component, OnInit, computed, effect, AfterViewInit, OnDestroy, ViewChild, ElementRef, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Subject } from 'rxjs';
+import { debounceTime, takeUntil } from 'rxjs/operators';
 import { SegmentationLoaderService } from '../../services/segmentation-loader.service';
 import { EditorStateService } from '../../services/editor-state.service';
 import { VideoPlayerService } from '../../services/video-player.service';
@@ -13,7 +15,7 @@ import { ActionBarComponent } from '../action-bar/action-bar.component';
 import { VideoPlayerComponent } from '../video-player/video-player.component';
 import { TimelineComponent } from '../timeline/timeline.component';
 import { TutorialModalComponent } from '../tutorial-modal/tutorial-modal.component';
-import { Word, WordState } from '../../models';
+import { Word, WordState, EditorStateSnapshot } from '../../models';
 
 /**
  * Main Editor Container Component
@@ -47,9 +49,12 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
 
   // Auto-scroll tracking
   private autoScrollPaused = false; // Whether auto-scroll is paused due to manual scroll
-  private autoScrollResumeTimer: ReturnType<typeof setTimeout> | null = null; // Timer to resume auto-scroll after 5 seconds
   private isProgrammaticScroll = false; // Flag to distinguish programmatic scrolls from manual ones
   private programmaticScrollEndTime = 0; // Timestamp when programmatic scroll should end
+
+  // RxJS Subject for debouncing auto-scroll resume
+  private autoScrollResumeSubject = new Subject<void>();
+  private destroy$ = new Subject<void>();
 
   // Feature 13: Preview mode state for start/end trimming
   private readonly _isPreviewMode = signal<boolean>(false);
@@ -344,6 +349,14 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
         }, 0);
       }
     });
+
+    // Set up debounced auto-scroll resume using RxJS
+    this.autoScrollResumeSubject.pipe(
+      debounceTime(5000), // Resume after 5 seconds of no manual scrolling
+      takeUntil(this.destroy$)
+    ).subscribe(() => {
+      this.autoScrollPaused = false;
+    });
   }
 
   ngOnInit(): void {
@@ -394,11 +407,9 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       this.transcriptContentRef.nativeElement.removeEventListener('scroll', this.onManualScrollBound);
     }
 
-    // Clean up auto-scroll resume timer
-    if (this.autoScrollResumeTimer !== null) {
-      clearTimeout(this.autoScrollResumeTimer);
-      this.autoScrollResumeTimer = null;
-    }
+    // Clean up RxJS subscriptions
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   private updateWordsContainerPosition(): Promise<boolean> {
@@ -891,7 +902,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
 
   /**
    * Handle manual scroll event
-   * Pauses auto-scroll and schedules resume after 5 seconds
+   * Pauses auto-scroll and schedules resume after 5 seconds (debounced via RxJS)
    */
   private onManualScroll(): void {
     // Ignore programmatic scrolls - check both flag and timestamp
@@ -903,16 +914,8 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     // Pause auto-scroll
     this.autoScrollPaused = true;
 
-    // Clear existing resume timer
-    if (this.autoScrollResumeTimer !== null) {
-      clearTimeout(this.autoScrollResumeTimer);
-    }
-
-    // Schedule resume after 5 seconds
-    this.autoScrollResumeTimer = setTimeout(() => {
-      this.autoScrollPaused = false;
-      this.autoScrollResumeTimer = null;
-    }, 5000);
+    // Emit to Subject for debounced resume (5 seconds)
+    this.autoScrollResumeSubject.next();
   }
 
   /**
@@ -1006,7 +1009,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
    * Restore editor state from snapshot
    * Updates both EditorStateService and TimelineService
    */
-  private restoreState(snapshot: any): void {
+  private restoreState(snapshot: EditorStateSnapshot): void {
     // Restore editor state (words and selection)
     this.editorState.restoreState(snapshot);
 

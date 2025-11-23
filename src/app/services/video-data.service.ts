@@ -15,6 +15,25 @@ import { environment } from '../../environments/environment.development';
  * - Signal-based state management for loading status
  * - Error handling for missing or invalid JSON files
  */
+
+/**
+ * Raw JSON response structure from video data API
+ */
+interface VideoJsonResponse {
+    videos: Array<{
+        hlsPlaylistUrl: string;
+        duration?: number;
+        thumbnails?: Array<{
+            width?: number;
+            height?: number;
+            url?: string;
+        }>;
+    }>;
+    segmentation: Array<{
+        url: string;
+    }>;
+}
+
 export interface VideoMetadata {
     hlsPlaylistUrl: string;
     segmentationUrl: string;
@@ -70,8 +89,8 @@ export class VideoDataService {
         const fileName = this.getVideoFileName(index);
         const url = `assets/data/videos/${fileName}`;
 
-        return this.http.get<any>(url).pipe(
-            map((data: any) => {
+        return this.http.get<VideoJsonResponse>(url).pipe(
+            map((data: VideoJsonResponse) => {
                 try {
                     const metadata = this.parseVideoMetadata(data);
                     this._metadata.set(metadata);
@@ -131,7 +150,7 @@ export class VideoDataService {
      * @param data Raw JSON data from server
      * @returns Parsed VideoMetadata object
      */
-    private parseVideoMetadata(data: any): VideoMetadata {
+    private parseVideoMetadata(data: VideoJsonResponse): VideoMetadata {
         // Extract hlsPlaylistUrl from videos[0].hlsPlaylistUrl
         if (!data.videos || !Array.isArray(data.videos) || data.videos.length === 0) {
             throw new Error('Missing videos array in JSON data');
@@ -159,7 +178,7 @@ export class VideoDataService {
         if (video.thumbnails && Array.isArray(video.thumbnails) && video.thumbnails.length > 0) {
             // Map thumbnails to our format and validate URLs
             thumbnails = video.thumbnails
-                .map((thumb: any) => ({
+                .map((thumb) => ({
                     width: thumb.width || 0,
                     height: thumb.height || 0,
                     url: thumb.url || ''

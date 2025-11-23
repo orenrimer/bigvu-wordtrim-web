@@ -1,4 +1,6 @@
-import { Injectable, signal, computed, effect, inject } from '@angular/core';
+import { Injectable, signal, computed, effect, inject, OnDestroy } from '@angular/core';
+import { Subject } from 'rxjs';
+import { debounceTime, takeUntil } from 'rxjs/operators';
 import Hls from 'hls.js';
 import { Word, WordState } from '../models';
 import { EditorStateService } from './editor-state.service';
@@ -68,6 +70,14 @@ export class VideoPlayerService {
                 }
             }
         }, { allowSignalWrites: true });
+
+        // Set up debounced togglePlayPause using RxJS
+        this.togglePlayPauseSubject.pipe(
+            debounceTime(150), // 150ms debounce - enough to prevent rapid clicks but still feels responsive
+            takeUntil(this.destroy$)
+        ).subscribe(() => {
+            this.executeTogglePlayPause();
+        });
     }
 
     // Public read-only signals
@@ -96,9 +106,12 @@ export class VideoPlayerService {
     private lastSeekTime: number | null = null; // Track last seek time to prevent infinite loops
     private isSeekingToSkip: boolean = false; // Flag to prevent recursive skip calls during seek
     private seekedEventListener: (() => void) | null = null; // Listener for seeked event
-    private togglePlayPauseDebounceTimer: number | null = null; // Debounce timer for togglePlayPause
     private lastPlayStartTime: number | null = null; // Track last play start time to detect if selection changed
     private lastPlayStartIndex: number | null = null; // Track last play start word index to detect if selection changed
+
+    // RxJS Subject for debouncing togglePlayPause
+    private togglePlayPauseSubject = new Subject<void>();
+    private destroy$ = new Subject<void>();
 
     // Smooth playback checks
     private playbackCheckAnimationFrame: number | null = null;
@@ -234,15 +247,18 @@ export class VideoPlayerService {
                 },
                 onError: (event, data) => {
                     // Only handle fatal errors
-                    if (data?.fatal || event === 'unsupported') {
+                    // Check if data is ErrorData (has fatal property) or if event is unsupported
+                    const isFatal = (data && typeof data === 'object' && 'fatal' in data && data.fatal) || event === 'unsupported';
+
+                    if (isFatal) {
                         // Create error message from data
                         let errorMessage = 'Failed to load video';
 
-                        if (data?.message) {
+                        if ('message' in data && data.message) {
                             errorMessage = data.message;
                         } else if (event === 'unsupported') {
                             errorMessage = 'Video format not supported';
-                        } else if (data?.type) {
+                        } else if ('type' in data && data.type) {
                             // Map HLS error types to simple messages
                             switch (data.type) {
                                 case 'networkError':
@@ -354,11 +370,6 @@ export class VideoPlayerService {
 
         // Ended event
         this.videoElement.addEventListener('ended', () => {
-            // Clear debounce timer
-            if (this.togglePlayPauseDebounceTimer !== null) {
-                clearTimeout(this.togglePlayPauseDebounceTimer);
-                this.togglePlayPauseDebounceTimer = null;
-            }
 
             // Update current time to duration to ensure videoEnded check works correctly
             if (this.videoElement) {
@@ -983,12 +994,6 @@ export class VideoPlayerService {
     public pause(): void {
         if (!this.videoElement) return;
 
-        // Clear any pending debounce timer
-        if (this.togglePlayPauseDebounceTimer !== null) {
-            clearTimeout(this.togglePlayPauseDebounceTimer);
-            this.togglePlayPauseDebounceTimer = null;
-        }
-
         this.videoElement.pause();
         // Immediately update state (don't wait for 'pause' event)
         this._isPlaying.set(false);
@@ -1091,112 +1096,110 @@ export class VideoPlayerService {
     }
 
     /**
-     * Toggle play/pause
+     * Toggle play/pause (debounced via RxJS Subject)
      * ALWAYS skips deleted segments during playback (PRD: Video Playback)
      * If there's a selection and video is paused, jump to selection start before playing
      * If there's a complete selection (start + end), play only that segment (skipping deleted words within)
      * Includes debouncing to prevent rapid clicks from causing crashes
      */
     public togglePlayPause(): void {
-        // Clear any existing debounce timer
-        if (this.togglePlayPauseDebounceTimer !== null) {
-            clearTimeout(this.togglePlayPauseDebounceTimer);
-        }
+        // Emit to Subject for debouncing
+        this.togglePlayPauseSubject.next();
+    }
 
-        // Debounce rapid clicks to prevent race conditions and crashes
-        this.togglePlayPauseDebounceTimer = window.setTimeout(() => {
-            this.togglePlayPauseDebounceTimer = null;
+    /**
+     * Execute toggle play/pause logic (called after debounce)
+     */
+    private executeTogglePlayPause(): void {
+        if (this._isPlaying()) {
+            this.pause();
+        } else {
+            // Get all words from editor state for deleted segment skipping
+            const words = this.editorStateService.words();
 
-            if (this._isPlaying()) {
-                this.pause();
-            } else {
-                // Get all words from editor state for deleted segment skipping
-                const words = this.editorStateService.words();
+            // Check if there's a selection
+            const selectionStart = this.editorStateService.selectionStart();
+            const selectionEnd = this.editorStateService.selectionEnd();
 
-                // Check if there's a selection
-                const selectionStart = this.editorStateService.selectionStart();
-                const selectionEnd = this.editorStateService.selectionEnd();
+            if (selectionStart && selectionEnd) {
+                // Check if the entire selected segment is deleted
+                const selectedWords = this.editorStateService.selectedWords();
+                const allDeleted = selectedWords.every(word =>
+                    word.state === WordState.DELETED ||
+                    word.state === WordState.DELETED_SELECTED_START ||
+                    word.state === WordState.DELETED_SELECTED_END ||
+                    word.state === WordState.DELETED_SELECTED_RANGE
+                );
 
-                if (selectionStart && selectionEnd) {
-                    // Check if the entire selected segment is deleted
-                    const selectedWords = this.editorStateService.selectedWords();
-                    const allDeleted = selectedWords.every(word =>
-                        word.state === WordState.DELETED ||
-                        word.state === WordState.DELETED_SELECTED_START ||
-                        word.state === WordState.DELETED_SELECTED_END ||
-                        word.state === WordState.DELETED_SELECTED_RANGE
-                    );
-
-                    // If entire segment is deleted, don't play anything
-                    if (allDeleted) {
-                        return;
-                    }
-
-                    // Complete selection - play from start to end (skipping deleted words)
-                    // ALWAYS use fine-tuned handle positions for precise stopping
-                    const startHandle = this.timelineService.startHandle();
-                    const endHandle = this.timelineService.endHandle();
-                    const playStart = startHandle?.time ?? selectionStart.start;
-                    const playEnd = endHandle?.time ?? selectionEnd.end;
-
-                    // Get current time directly from video element (more reliable than signal after seek)
-                    const currentTime = this.videoElement?.currentTime ?? this._currentTime();
-                    const duration = this._duration();
-
-                    // Check if selection changed or video ended
-                    const selectionChanged = this.checkSelectionChanged(selectionStart, playStart);
-                    // Use signal for videoEnded check - signal is set to duration when video ends
-                    // (videoElement.currentTime may reset to 0 after video ends)
-                    const videoEnded = this.isVideoEnded(this._currentTime(), duration);
-                    const atSegmentEnd = currentTime >= playEnd || Math.abs(currentTime - playEnd) < 0.1;
-
-                    // If we're in preview mode, continue from current position but still stop at segment end
-                    if (this.isPreviewMode) {
-                        this.setupEditedPreviewMode(words, playEnd);
-                        this.play();
-                    } else if (selectionChanged || videoEnded || atSegmentEnd || currentTime < playStart) {
-                        // Selection changed, video ended, at segment end, or before start - start from beginning
-                        this.playSelectedSegment(words, playStart, playEnd);
-                        this.updateLastPlayStart(selectionStart, playStart);
-                    } else {
-                        // Continue from current position, but still stop at segment end
-                        this.setupEditedPreviewMode(words, playEnd);
-                        this.play();
-                    }
-                } else if (selectionStart) {
-                    // Only start selected - get fine-tuned position
-                    const playStart = this.getPlayStartTime(selectionStart);
-                    const currentTime = this.videoElement?.currentTime ?? this._currentTime();
-                    const duration = this._duration();
-
-                    // Check if selection changed or video ended
-                    const selectionChanged = this.checkSelectionChanged(selectionStart, playStart);
-                    // Use signal for videoEnded check - signal is set to duration when video ends
-                    // (videoElement.currentTime may reset to 0 after video ends)
-                    const videoEnded = this.isVideoEnded(this._currentTime(), duration);
-
-                    // If we're in preview mode, continue from current position
-                    if (this.isPreviewMode) {
-                        this.playEditedVideo(words);
-                    } else if (selectionChanged || videoEnded || currentTime < playStart) {
-                        // Selection changed, video ended, or before start - start from start word
-                        this.playEditedVideo(words, playStart);
-                        this.updateLastPlayStart(selectionStart, playStart);
-                    } else {
-                        // Continue from current position
-                        this.playEditedVideo(words);
-                    }
-                } else {
-                    // No selection - reset last play start time and index
-                    this.lastPlayStartTime = null;
-                    this.lastPlayStartIndex = null;
-                    // No selection - always start from beginning (unless beginning contains deleted segment)
-                    // ALWAYS skip deleted segments
-                    const startTime = this.getFirstNonDeletedStartTime(words);
-                    this.playEditedVideo(words, startTime);
+                // If entire segment is deleted, don't play anything
+                if (allDeleted) {
+                    return;
                 }
+
+                // Complete selection - play from start to end (skipping deleted words)
+                // ALWAYS use fine-tuned handle positions for precise stopping
+                const startHandle = this.timelineService.startHandle();
+                const endHandle = this.timelineService.endHandle();
+                const playStart = startHandle?.time ?? selectionStart.start;
+                const playEnd = endHandle?.time ?? selectionEnd.end;
+
+                // Get current time directly from video element (more reliable than signal after seek)
+                const currentTime = this.videoElement?.currentTime ?? this._currentTime();
+                const duration = this._duration();
+
+                // Check if selection changed or video ended
+                const selectionChanged = this.checkSelectionChanged(selectionStart, playStart);
+                // Use signal for videoEnded check - signal is set to duration when video ends
+                // (videoElement.currentTime may reset to 0 after video ends)
+                const videoEnded = this.isVideoEnded(this._currentTime(), duration);
+                const atSegmentEnd = currentTime >= playEnd || Math.abs(currentTime - playEnd) < 0.1;
+
+                // If we're in preview mode, continue from current position but still stop at segment end
+                if (this.isPreviewMode) {
+                    this.setupEditedPreviewMode(words, playEnd);
+                    this.play();
+                } else if (selectionChanged || videoEnded || atSegmentEnd || currentTime < playStart) {
+                    // Selection changed, video ended, at segment end, or before start - start from beginning
+                    this.playSelectedSegment(words, playStart, playEnd);
+                    this.updateLastPlayStart(selectionStart, playStart);
+                } else {
+                    // Continue from current position, but still stop at segment end
+                    this.setupEditedPreviewMode(words, playEnd);
+                    this.play();
+                }
+            } else if (selectionStart) {
+                // Only start selected - get fine-tuned position
+                const playStart = this.getPlayStartTime(selectionStart);
+                const currentTime = this.videoElement?.currentTime ?? this._currentTime();
+                const duration = this._duration();
+
+                // Check if selection changed or video ended
+                const selectionChanged = this.checkSelectionChanged(selectionStart, playStart);
+                // Use signal for videoEnded check - signal is set to duration when video ends
+                // (videoElement.currentTime may reset to 0 after video ends)
+                const videoEnded = this.isVideoEnded(this._currentTime(), duration);
+
+                // If we're in preview mode, continue from current position
+                if (this.isPreviewMode) {
+                    this.playEditedVideo(words);
+                } else if (selectionChanged || videoEnded || currentTime < playStart) {
+                    // Selection changed, video ended, or before start - start from start word
+                    this.playEditedVideo(words, playStart);
+                    this.updateLastPlayStart(selectionStart, playStart);
+                } else {
+                    // Continue from current position
+                    this.playEditedVideo(words);
+                }
+            } else {
+                // No selection - reset last play start time and index
+                this.lastPlayStartTime = null;
+                this.lastPlayStartIndex = null;
+                // No selection - always start from beginning (unless beginning contains deleted segment)
+                // ALWAYS skip deleted segments
+                const startTime = this.getFirstNonDeletedStartTime(words);
+                this.playEditedVideo(words, startTime);
             }
-        }, 150); // 150ms debounce - enough to prevent rapid clicks but still feels responsive
+        }
     }
 
     /**
@@ -1230,12 +1233,6 @@ export class VideoPlayerService {
     public destroy(): void {
         // Stop playback check interval
         this.stopPlaybackCheck();
-
-        // Clear debounce timer
-        if (this.togglePlayPauseDebounceTimer !== null) {
-            clearTimeout(this.togglePlayPauseDebounceTimer);
-            this.togglePlayPauseDebounceTimer = null;
-        }
 
         // Clean up seeked event listener if exists
         if (this.seekedEventListener && this.videoElement) {
@@ -1296,6 +1293,14 @@ export class VideoPlayerService {
      */
     public reset(): void {
         this.destroy();
+    }
+
+    /**
+     * Cleanup RxJS subscriptions
+     */
+    ngOnDestroy(): void {
+        this.destroy$.next();
+        this.destroy$.complete();
     }
 }
 

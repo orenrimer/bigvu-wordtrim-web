@@ -7,7 +7,7 @@ import { EditorStateService } from '../../services/editor-state.service';
 import { VideoPlayerService } from '../../services/video-player.service';
 import { HistoryService } from '../../services/history.service';
 import { VideoDataService } from '../../services/video-data.service';
-import { Word, WordState } from '../../models';
+import { Word, WordState, EditorStateSnapshot } from '../../models';
 
 /**
  * Timeline Component
@@ -49,10 +49,10 @@ export class TimelineComponent implements OnInit, OnDestroy {
     private isRestoringHandlePosition = false; // Flag to prevent effect from running after restoring handle position
 
     // Store selection before drag to check if word changed
-    private currentStartBeforeChange: any = null;
-    private currentEndBeforeChange: any = null;
+    private currentStartBeforeChange: Word | null = null;
+    private currentEndBeforeChange: Word | null = null;
     // Store state snapshot before drag starts (for first word selection)
-    private stateBeforeDrag: any = null;
+    private stateBeforeDrag: EditorStateSnapshot | null = null;
 
     // Video frames for timeline display (gradient placeholders or thumbnails)
     public videoFrames: Array<{ index: number; thumbnail: string | null }> =
@@ -369,7 +369,7 @@ export class TimelineComponent implements OnInit, OnDestroy {
      * Find word for start handle based on handle position
      * If handle passed the midpoint of a word, select the next word
      */
-    private findWordForStartHandle(handleTime: number, words: any[]): any | null {
+    private findWordForStartHandle(handleTime: number, words: Word[]): Word | null {
         // Find the word that contains the handle time
         const currentWord = words.find(w => handleTime >= w.start && handleTime <= w.end);
 
@@ -398,7 +398,7 @@ export class TimelineComponent implements OnInit, OnDestroy {
      * - Word 7 is no longer in selected state
      * - Timeline handle stays at the dragged position (between word 6 end and word 7 start)
      */
-    private findWordForEndHandle(handleTime: number, words: any[]): any | null {
+    private findWordForEndHandle(handleTime: number, words: Word[]): Word | null {
         // Find the word that contains the handle time
         const currentWord = words.find(w => handleTime >= w.start && handleTime <= w.end);
 

@@ -6,6 +6,13 @@ import { environment } from '../../../environments/environment.development';
 import Hls from 'hls.js';
 
 /**
+ * Extended HTMLVideoElement with cleanup function for event listeners
+ */
+interface VideoElementWithCleanup extends HTMLVideoElement {
+    _tutorialEventCleanup?: () => void;
+}
+
+/**
  * Tutorial Modal Component
  * Displays tutorial content in two modes: tip and video
  * Based on PRD: Tutorial System (Section 7)
@@ -252,24 +259,29 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
                         'bufferAppended'           // Normal buffering operation
                     ];
 
+                    // Check if data is ErrorData (has fatal/details properties) using type guards
+                    const isFatal = data && typeof data === 'object' && 'fatal' in data && data.fatal;
+                    const hasDetails = data && typeof data === 'object' && 'details' in data && data.details;
+                    const detailsValue = hasDetails ? data.details : null;
+
                     // Only log fatal errors or non-ignored errors
-                    if (data?.fatal || (data?.details && !nonFatalErrorsToIgnore.includes(data.details))) {
-                        if (data?.fatal) {
+                    if (isFatal || (hasDetails && detailsValue && typeof detailsValue === 'string' && !nonFatalErrorsToIgnore.includes(detailsValue))) {
+                        if (isFatal) {
                             console.error('Tutorial video HLS fatal error:', {
                                 event,
-                                type: data?.type,
-                                details: data?.details,
-                                fatal: data?.fatal,
-                                url: data?.url,
-                                message: data?.message,
-                                error: data?.error
+                                type: 'type' in data ? data.type : undefined,
+                                details: hasDetails ? detailsValue : undefined,
+                                fatal: isFatal,
+                                url: 'url' in data ? data.url : undefined,
+                                message: 'message' in data ? data.message : undefined,
+                                error: 'error' in data ? data.error : undefined
                             });
                         } else {
                             // Log non-fatal but potentially interesting errors as warnings
                             console.warn('Tutorial video HLS warning:', {
-                                type: data?.type,
-                                details: data?.details,
-                                message: data?.message
+                                type: 'type' in data ? data.type : undefined,
+                                details: hasDetails ? detailsValue : undefined,
+                                message: 'message' in data ? data.message : undefined
                             });
                         }
                     }
@@ -343,9 +355,10 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
         cleanupFunctions.push(() => videoElement.removeEventListener('canplay', onCanPlay));
 
         // Store cleanup functions on element
-        (videoElement as any)._tutorialEventCleanup = () => {
+        const elementWithCleanup = videoElement as VideoElementWithCleanup;
+        elementWithCleanup._tutorialEventCleanup = () => {
             cleanupFunctions.forEach(cleanup => cleanup());
-            delete (videoElement as any)._tutorialEventCleanup;
+            delete elementWithCleanup._tutorialEventCleanup;
         };
     }
 
@@ -356,8 +369,9 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
         const videoElement = this.videoElementRef?.nativeElement;
 
         // Clean up event listeners if they exist
-        if (videoElement && (videoElement as any)._tutorialEventCleanup) {
-            (videoElement as any)._tutorialEventCleanup();
+        const elementWithCleanup = videoElement as VideoElementWithCleanup;
+        if (elementWithCleanup && elementWithCleanup._tutorialEventCleanup) {
+            elementWithCleanup._tutorialEventCleanup();
         }
 
         // Pause video before cleanup to prevent errors
