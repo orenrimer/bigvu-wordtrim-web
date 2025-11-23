@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, effect, AfterViewInit, OnDestroy, ViewChild, ElementRef, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, AfterViewInit, OnDestroy, ViewChild, ElementRef, signal, afterNextRender, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subject } from 'rxjs';
 import { debounceTime, takeUntil } from 'rxjs/operators';
@@ -269,6 +269,14 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     public tutorialService: TutorialService,
     private historyService: HistoryService
   ) {
+    // Setup scroll event listener after next render
+    // Use afterNextRender in constructor (injection context) to ensure DOM is ready
+    afterNextRender(() => {
+      // Check if element is available (will be set in ngAfterViewInit)
+      if (this.transcriptContentRef?.nativeElement) {
+        this.transcriptContentRef.nativeElement.addEventListener('scroll', this.onManualScrollBound, { passive: true });
+      }
+    });
     // Update words-container position when words are loaded AND auto-show tip modal
     // Combined effect to ensure proper sequencing: position calculation -> tip modal display
     effect(() => {
@@ -373,11 +381,30 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     ).subscribe(() => {
       this.autoScrollPaused = false;
     });
+
+    // Setup scroll event listener after next render
+    // Use afterNextRender in constructor (injection context) to ensure DOM is ready
+    afterNextRender(() => {
+      // Check if element is available (will be set in ngAfterViewInit)
+      if (this.transcriptContentRef?.nativeElement) {
+        this.transcriptContentRef.nativeElement.addEventListener('scroll', this.onManualScrollBound, { passive: true });
+      }
+    });
   }
 
   ngOnInit(): void {
     // STEP 1: Load video metadata JSON first (FEATURE 11)
     this.loadVideoMetadata();
+
+    // Reset page scroll position on init to prevent sticky scroll position
+    // This ensures the page starts at the top even if browser remembers scroll position
+    if (typeof window !== 'undefined') {
+      window.scrollTo(0, 0);
+      // Also prevent scroll restoration
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'manual';
+      }
+    }
   }
 
   ngAfterViewInit(): void {
@@ -397,20 +424,18 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       window.addEventListener('resize', this.windowResizeListener);
     }
 
-    // Setup scroll event listener to detect manual scrolling
-    // Wait for transcriptContentRef to be available
-    // Use multiple retries in case the element isn't ready yet
-    let retryCount = 0;
-    const maxRetries = 10;
-    const setupScrollListener = () => {
+    // Scroll listener is set up in constructor using afterNextRender
+    // If element wasn't ready then, try again here (should be available in ngAfterViewInit)
+    // Use requestAnimationFrame to ensure DOM is fully rendered
+    requestAnimationFrame(() => {
       if (this.transcriptContentRef?.nativeElement) {
-        this.transcriptContentRef.nativeElement.addEventListener('scroll', this.onManualScrollBound, { passive: true });
-      } else if (retryCount < maxRetries) {
-        retryCount++;
-        setTimeout(setupScrollListener, 50);
+        // Check if listener wasn't already added
+        if (!this.transcriptContentRef.nativeElement.hasAttribute('data-scroll-listener-added')) {
+          this.transcriptContentRef.nativeElement.addEventListener('scroll', this.onManualScrollBound, { passive: true });
+          this.transcriptContentRef.nativeElement.setAttribute('data-scroll-listener-added', 'true');
+        }
       }
-    };
-    setTimeout(setupScrollListener, 0);
+    });
   }
 
   // Bound scroll handler for cleanup
@@ -585,7 +610,11 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
           resolve(false);
         }
       };
-      setTimeout(tryUpdate, 0);
+      // Use requestAnimationFrame to ensure DOM is ready before measuring
+      // This is better than setTimeout(..., 0) as it waits for the browser's next paint
+      requestAnimationFrame(() => {
+        tryUpdate();
+      });
     });
   }
 
@@ -992,12 +1021,24 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
 
       // Use requestAnimationFrame to ensure flag is set before scroll happens
       requestAnimationFrame(() => {
-        // Use scrollIntoView with smooth behavior
-        // This will scroll the nearest scrollable ancestor (transcript-content)
-        targetChip.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-          inline: 'nearest'
+        // Calculate scroll position relative to the transcript-content container
+        // This ensures we only scroll the container, not the entire page
+        const chipOffsetTop = targetChip.offsetTop;
+        const containerScrollTop = scrollContainer.scrollTop;
+        const containerHeight = scrollContainer.clientHeight;
+        const chipHeight = targetChip.offsetHeight;
+
+        // Calculate target scroll position to center the chip in the container
+        const targetScrollTop = chipOffsetTop - (containerHeight / 2) + (chipHeight / 2);
+
+        // Ensure we don't scroll beyond container bounds
+        const maxScrollTop = scrollContainer.scrollHeight - containerHeight;
+        const clampedScrollTop = Math.max(0, Math.min(targetScrollTop, maxScrollTop));
+
+        // Scroll only the transcript-content container, not the page
+        scrollContainer.scrollTo({
+          top: clampedScrollTop,
+          behavior: 'smooth'
         });
 
         // Reset flag after scroll animation completes (typically 500-1000ms for smooth scroll)

@@ -1,4 +1,4 @@
-import { Component, inject, HostListener, ViewChild, ElementRef, AfterViewInit, OnDestroy, effect, signal, computed } from '@angular/core';
+import { Component, inject, HostListener, ViewChild, ElementRef, AfterViewInit, OnDestroy, effect, signal, computed, afterNextRender, afterRender, runInInjectionContext, Injector } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TutorialService } from '../../services/tutorial.service';
 import { HlsLoaderService } from '../../services/hls-loader.service';
@@ -28,6 +28,7 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
     // Inject services
     protected readonly tutorialService = inject(TutorialService);
     private hlsLoaderService = inject(HlsLoaderService);
+    private injector = inject(Injector);
 
     // Video element reference
     @ViewChild('tutorialVideo', { static: false }) videoElementRef!: ElementRef<HTMLVideoElement>;
@@ -64,21 +65,26 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
         effect(() => {
             const modalState = this.tutorialService.modalState();
             if (modalState === 'video') {
-                // Use setTimeout to ensure the view is updated and video element is available
-                // Retry mechanism in case ViewChild isn't immediately available
-                let retryCount = 0;
-                const maxRetries = 10; // Max 10 retries (500ms total)
-                const tryInitialize = () => {
-                    if (this.videoElementRef?.nativeElement) {
-                        this.initializeVideo();
-                    } else if (retryCount < maxRetries) {
-                        retryCount++;
-                        setTimeout(tryInitialize, 50);
-                    } else {
-                        console.warn('Video element not available after retries');
-                    }
-                };
-                setTimeout(tryInitialize, 0);
+                // Use runInInjectionContext to call afterRender from effect
+                // afterRender waits for render completion, ensuring ViewChild is available
+                runInInjectionContext(this.injector, () => {
+                    afterRender(() => {
+                        // ViewChild should be available after render completes
+                        if (this.videoElementRef?.nativeElement) {
+                            this.initializeVideo();
+                        } else {
+                            // If still not available, use requestAnimationFrame as fallback
+                            // This ensures we wait for the browser's next paint cycle
+                            requestAnimationFrame(() => {
+                                if (this.videoElementRef?.nativeElement) {
+                                    this.initializeVideo();
+                                } else {
+                                    console.warn('Video element not available after render');
+                                }
+                            });
+                        }
+                    });
+                });
             } else {
                 // Clean up when modal is hidden or in tip mode
                 this.destroyHls();
