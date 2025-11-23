@@ -1,15 +1,10 @@
 <!-- Tutorial Modal Container -->
 @if (tutorialService.modalState() !== 'hidden') {
 <div class="modal-container">
-    <!-- Backdrop only for video mode (blocks interaction) -->
-    @if (tutorialService.modalState() === 'video') {
-    <div class="modal-backdrop" (click)="onBackdropClick($event)">
-    </div>
-    }
-
     <!-- TIP MODE -->
     @if (tutorialService.modalState() === 'tip' && isPositionReady()) {
-    <div #tipModal class="modal-content modal-tip" dir="auto" role="dialog" aria-modal="false" aria-label="Editing tip">
+    <div #tipModal class="modal-content modal-tip" [class.is-rtl-modal]="isRTL()" dir="auto" role="dialog"
+        aria-modal="false" aria-label="Editing tip">
         <!-- Close Button -->
         <button class="close-button" (click)="close()" aria-label="Close" type="button">
             <img src="assets/icons/Close.svg" alt="Close" />
@@ -39,7 +34,8 @@
 
     <!-- PREVIEW TIP MODE (Feature 13.11) -->
     @if (tutorialService.modalState() === 'preview-tip') {
-    <div class="modal-content modal-preview-tip" dir="auto" role="dialog" aria-modal="true" aria-label="Preview mode tip">
+    <div class="modal-content modal-preview-tip" dir="auto" role="dialog" aria-modal="true"
+        aria-label="Preview mode tip">
         <!-- Close Button -->
         <button class="close-button" (click)="close()" aria-label="Close" type="button">
             <img src="assets/icons/Close.svg" alt="Close" />

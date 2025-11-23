@@ -23,6 +23,7 @@
     &--primary {
         background: var(--color-primary);
         color: var(--color-text-white);
+        border: none; // Explicitly no border for primary
 
         &:hover:not(.wt-button--disabled) {
             background: var(--color-primary);
@@ -33,16 +34,21 @@
     &--secondary {
         background: var(--color-gray-100);
         color: var(--color-text-primary);
+        border: 1px solid var(--color-secondary); // Light blue border
+        box-shadow: none; // Override base box-shadow for cleaner look
 
         &:hover:not(.wt-button--disabled) {
             background: var(--color-gray-100);
-            opacity: var(--opacity-hover);
+            border-color: var(--color-primary); // Darker blue border on hover
+            transform: translateY(-1px); // Slight lift effect
+            box-shadow: 0px 2px 4px rgba(68, 129, 253, 0.15); // Subtle shadow with blue tint
         }
     }
 
     &--danger {
         background: var(--color-danger);
         color: var(--color-text-white);
+        border: none; // Explicitly no border for danger
 
         &:hover:not(.wt-button--disabled) {
             background: var(--color-danger);

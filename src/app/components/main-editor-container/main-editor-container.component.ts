@@ -49,8 +49,27 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
   private readonly _isPreviewMode = signal<boolean>(false);
   public readonly isPreviewMode = this._isPreviewMode.asReadonly();
 
-  // Feature 13.11: Track if preview tip modal has been shown (only show once)
-  private hasShownPreviewTip = false;
+  // RTL language detection (Arabic, Hebrew)
+  public readonly isRTL = computed(() => {
+    const wordsList = this.words();
+    if (!wordsList || wordsList.length === 0) {
+      return false;
+    }
+
+    // Check first few words for RTL characters
+    // Arabic: U+0600-U+06FF, Hebrew: U+0590-U+05FF
+    const rtlRegex = /[\u0590-\u05FF\u0600-\u06FF]/;
+
+    // Sample first 10 words to detect language
+    const sampleSize = Math.min(10, wordsList.length);
+    for (let i = 0; i < sampleSize; i++) {
+      if (rtlRegex.test(wordsList[i].word)) {
+        return true;
+      }
+    }
+
+    return false;
+  });
 
   // Expose video data service signals to template
   videoDataLoadingState = this.videoDataService.loadingState;
@@ -226,6 +245,14 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
       const words = this.words();
       const loadingState = this.loadingState();
       const hasError = this.hasError();
+      const rtl = this.isRTL();
+
+      // Set RTL mode as class on html element for CSS to use
+      if (rtl) {
+        document.documentElement.classList.add('is-rtl');
+      } else {
+        document.documentElement.classList.remove('is-rtl');
+      }
 
       // Only proceed if words are loaded and loading is complete
       if (words.length > 0 && loadingState === 'success') {
@@ -366,10 +393,24 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
 
                 // Verify the chip has valid dimensions and is actually visible
                 if (firstChipRect.width > 0 && firstChipRect.height > 0 && firstChipRect.left > 0) {
-                  // Use first chip's left position for horizontal alignment
+                  // Ensure RTL class is set before calculating positions
+                  const rtl = this.isRTL();
+                  if (rtl) {
+                    document.documentElement.classList.add('is-rtl');
+                  } else {
+                    document.documentElement.classList.remove('is-rtl');
+                  }
+
+                  // Use first chip's left position for horizontal alignment (LTR)
                   // This aligns the modal with the first word, not the container edge
                   const leftPosition = firstChipRect.left;
                   document.documentElement.style.setProperty('--words-container-left', `${leftPosition}px`);
+
+                  // Calculate right position for RTL mode (align with right edge of words container)
+                  // This aligns the modal's right edge with the container's right border
+                  const wordsContainerRect = this.wordsContainerRef.nativeElement.getBoundingClientRect();
+                  const rightPosition = window.innerWidth - wordsContainerRect.right;
+                  document.documentElement.style.setProperty('--words-container-right', `${rightPosition}px`);
 
                   // Calculate top position based on first word chip element
                   const lineHeight = parseFloat(getComputedStyle(this.wordsContainerRef.nativeElement).lineHeight) ||
@@ -405,6 +446,10 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
               if (this.words().length === 0) {
                 // Use container position as fallback when no words are available
                 document.documentElement.style.setProperty('--words-container-left', `${rect.left}px`);
+
+                // Calculate right position for RTL mode (use container right as fallback)
+                const rightPosition = window.innerWidth - rect.right;
+                document.documentElement.style.setProperty('--words-container-right', `${rightPosition}px`);
 
                 const lineHeight = parseFloat(getComputedStyle(this.wordsContainerRef.nativeElement).lineHeight) ||
                   (window.innerWidth <= 768 ? 1.75 * 16 : 2.5 * 16);
@@ -509,7 +554,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
    */
   togglePreviewMode(): void {
     this._isPreviewMode.update(mode => !mode);
-    
+
     // Feature 13.11: Update preview tip modal position when preview mode changes
     if (this.tutorialService.modalState() === 'preview-tip') {
       // Small delay to ensure DOM is updated
@@ -521,22 +566,21 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
 
   /**
    * Handle click on words-container during preview mode (Feature 13.11)
-   * Shows tip modal only the first time user clicks on words-container in preview mode
+   * Shows tip modal when clicking on words-container in preview mode
    */
   onWordsContainerClick(event: MouseEvent): void {
-    // Only show tip modal if in preview mode, not already shown, and click is not on a word chip
-    if (this.isPreviewMode() && !this.hasShownPreviewTip) {
+    // Only show tip modal if in preview mode and click is not on a word chip
+    if (this.isPreviewMode()) {
       // Check if click target is the container itself (not a word chip)
       const target = event.target as HTMLElement;
       const isWordChip = target.closest('app-word-chip');
-      
+
       // If click is directly on container (not on word chip), show tip modal
       if (!isWordChip) {
         this.tutorialService.showCustomTip(
           'Validate New Start & End',
           'Before editing your video, you must confirm or discard the new start and end positions'
         );
-        this.hasShownPreviewTip = true; // Mark as shown
       }
     }
   }
@@ -635,15 +679,12 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit {
       return;
     }
 
-    // Feature 13.11: Show tip modal only the first time when clicking word chips during preview mode
+    // Feature 13.11: Show tip modal when clicking words-container during preview mode
     if (this.isPreviewMode()) {
-      if (!this.hasShownPreviewTip) {
-        this.tutorialService.showCustomTip(
-          'Validate New Start & End',
-          'Before editing your video, you must confirm or discard the new start and end positions'
-        );
-        this.hasShownPreviewTip = true; // Mark as shown
-      }
+      this.tutorialService.showCustomTip(
+        'Validate New Start & End',
+        'Before editing your video, you must confirm or discard the new start and end positions'
+      );
       return; // Don't process word selection during preview mode
     }
 

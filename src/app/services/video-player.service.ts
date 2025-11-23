@@ -700,6 +700,27 @@ export class VideoPlayerService {
     }
 
     /**
+     * Get the first non-deleted start time
+     * Returns 0 if the beginning is not deleted, otherwise returns the end of the first deleted segment
+     * @param words Array of words (used to get deleted segments)
+     * @returns Start time (0 or end of first deleted segment if beginning is deleted)
+     */
+    private getFirstNonDeletedStartTime(words: Word[]): number {
+        const deletedSegments = this.calculateDeletedSegments(words);
+
+        // Check if time 0 is inside a deleted segment
+        const beginningDeletedSegment = deletedSegments.find(seg => seg.start <= 0 && seg.end > 0);
+
+        if (beginningDeletedSegment) {
+            // Beginning is deleted - start from end of deleted segment
+            return beginningDeletedSegment.end;
+        } else {
+            // Beginning is not deleted - start from 0
+            return 0;
+        }
+    }
+
+    /**
      * Skip deleted segments during edited playback
      * Uses exact deletion boundaries from editor state (including fine-tuned handle positions)
      * Uses early detection and seek to ensure precise skipping at segment boundaries
@@ -1169,9 +1190,10 @@ export class VideoPlayerService {
                     // No selection - reset last play start time and index
                     this.lastPlayStartTime = null;
                     this.lastPlayStartIndex = null;
-                    // No selection - continue from current position (or start from beginning if at start/end)
+                    // No selection - always start from beginning (unless beginning contains deleted segment)
                     // ALWAYS skip deleted segments
-                    this.playEditedVideo(words);
+                    const startTime = this.getFirstNonDeletedStartTime(words);
+                    this.playEditedVideo(words, startTime);
                 }
             }
         }, 150); // 150ms debounce - enough to prevent rapid clicks but still feels responsive

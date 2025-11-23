@@ -267,6 +267,12 @@
             gap: var(--spacing-16);
             width: 100%;
             align-items: stretch;
+
+            // RTL support: In RTL mode, flex items reverse automatically
+            // timestamps-container will appear on the right side
+            &[dir="rtl"] {
+                direction: rtl;
+            }
         }
     }
 
@@ -308,6 +314,8 @@
             font-weight: var(--font-weight-medium);
             white-space: nowrap;
             padding: var(--timestamp-padding-y) var(--timestamp-padding-x);
+            direction: ltr; // Timestamps always LTR (e.g., "00:00s" not "s00:00")
+            text-align: left; // Align text to left within timestamp
 
             &:hover {
                 cursor: default;
@@ -378,4 +386,14 @@
 // Support for RTL languages
 [dir="rtl"] .wordtrim-editor .words-container {
     direction: rtl;
+}
+
+// RTL support for transcript content wrapper
+.transcript-content-wrapper[dir="rtl"] {
+    direction: rtl;
+
+    // In RTL, flex items reverse automatically
+    // timestamps-container (first in DOM) will appear on the right
+    // words-container (second in DOM) will appear on the left
+    // This is the desired layout for RTL languages
 }

@@ -79,13 +79,14 @@
                 </div>
 
                 <!-- Content - Show only when loaded and no error -->
-                <div *ngIf="!isLoading() && !hasError()" class="transcript-content-wrapper">
+                <div *ngIf="!isLoading() && !hasError()" class="transcript-content-wrapper" [attr.dir]="isRTL() ? 'rtl' : 'ltr'">
                     <div class="timestamps-container" *ngIf="hasWords()">
                         <span *ngFor="let timestamp of timestamps()" class="timestamp">
                             {{ formatTimestamp(timestamp) }}
                         </span>
                     </div>
                     <div #wordsContainer class="words-container" [class.preview-mode-disabled]="isPreviewMode()" 
+                        [attr.dir]="isRTL() ? 'rtl' : 'ltr'"
                         role="group" aria-label="Word selection"
                         (click)="onWordsContainerClick($event)">
                         <app-word-chip *ngFor="let word of wordsWithIntroOutro()" [word]="word"

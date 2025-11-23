@@ -40,7 +40,7 @@
     // Uses CSS custom property --words-container-top set by main-editor-container component
     // Fallback: transcript padding (40px) + first row height (~40px) + spacing (16px) = ~96px
     top: var(--words-container-top);
-    // Position horizontally aligned with start of words-container
+    // Position horizontally aligned with start of words-container (LTR)
     // Uses CSS custom property --words-container-left set by main-editor-container component
     // If --words-container-left is set, use it; otherwise use fallback calculation
     left: var(--words-container-left);
@@ -48,7 +48,21 @@
     // When --words-container-left is set, we don't want translateX(-50%) which would center it
     transform: var(--words-container-transform, none);
 
-    width: var(--tip-modal-width);
+    width: var(--tip-modal-width); // Always 326px
+    max-width: var(--tip-modal-width); // Always 326px
+    min-width: var(--tip-modal-width); // Always 326px
+
+    // RTL mode: align right edge of modal with right edge of words container
+    // Use class on modal element itself for reliable targeting
+    &.is-rtl-modal {
+        left: auto !important;
+        right: var(--words-container-right) !important;
+        transform: none !important;
+        width: var(--tip-modal-width) !important; // Always 326px
+        max-width: var(--tip-modal-width) !important; // Always 326px
+        min-width: var(--tip-modal-width) !important; // Always 326px
+    }
+
     height: auto;
     min-height: var(--tip-modal-height);
     background-color: var(--color-primary);
@@ -456,8 +470,9 @@
     }
 
     .modal-tip {
-        width: calc(100vw - var(--spacing-9));
-        max-width: calc(var(--tip-modal-width) * 0.75);
+        width: var(--tip-modal-width) !important; // Always 326px
+        max-width: var(--tip-modal-width) !important; // Always 326px
+        min-width: var(--tip-modal-width) !important; // Always 326px
         // Position below first row - use CSS custom property if available, otherwise calculate
         top: var(--words-container-top, calc(var(--spacing-8) + 2rem + var(--spacing-4)));
         // Use CSS custom property for alignment with words-container, fallback to centered if not available
@@ -465,6 +480,16 @@
         // Use transform from custom property if set, otherwise center with translateX
         transform: var(--words-container-transform, translateX(-50%));
         padding: var(--spacing-3);
+
+        // RTL: Position from right edge - align modal's right edge with container's right edge
+        &.is-rtl-modal {
+            left: auto !important;
+            right: var(--words-container-right, 50%) !important;
+            transform: none !important;
+            width: var(--tip-modal-width) !important; // Always 326px
+            max-width: var(--tip-modal-width) !important; // Always 326px
+            min-width: var(--tip-modal-width) !important; // Always 326px
+        }
 
         .modal-header {
             gap: var(--spacing-1);
@@ -517,8 +542,9 @@
     }
 
     .modal-tip {
-        width: calc(100vw - var(--spacing-6));
-        max-width: calc(var(--tip-modal-width) * 0.95);
+        width: var(--tip-modal-width) !important; // Always 326px
+        max-width: var(--tip-modal-width) !important; // Always 326px
+        min-width: var(--tip-modal-width) !important; // Always 326px
         padding: var(--spacing-3);
         // Position below first row - use CSS custom property if available, otherwise calculate
         // Fallback: transcript-content padding (32px) + first row height (1.75rem) + spacing (16px)
@@ -528,6 +554,16 @@
         // Use transform from custom property if set, otherwise center with translateX
         transform: var(--words-container-transform, translateX(-50%));
         // No animation - modal appears instantly
+
+        // RTL: Position from right edge - align modal's right edge with container's right edge
+        &.is-rtl-modal {
+            left: auto !important;
+            right: var(--words-container-right, 50%) !important;
+            transform: none !important;
+            width: var(--tip-modal-width) !important; // Always 326px
+            max-width: var(--tip-modal-width) !important; // Always 326px
+            min-width: var(--tip-modal-width) !important; // Always 326px
+        }
 
         .modal-header {
             gap: var(--spacing-1);
@@ -568,5 +604,4 @@
 }
 
 // ===== RTL SUPPORT =====
-// RTL support is handled automatically via logical properties (inset-inline-start, etc.)
-// No additional RTL-specific styles needed
+// RTL support is now handled inline within .modal-tip block above
