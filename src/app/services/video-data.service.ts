@@ -42,9 +42,7 @@ export interface VideoMetadata {
     aspectRatio: '16:9' | '1:1' | '9:16'; // Aspect ratio calculated from thumbnails
 }
 
-@Injectable({
-    providedIn: 'root'
-})
+@Injectable()
 export class VideoDataService {
     // Signal-based state management
     private _loadingState = signal<'idle' | 'loading' | 'success' | 'error'>('idle');

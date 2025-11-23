@@ -13,9 +13,7 @@ import { EditorStateSnapshot } from '../models';
  * - Undo/redo operations
  * - Clear redo stack on new action
  */
-@Injectable({
-    providedIn: 'root'
-})
+@Injectable()
 export class HistoryService {
     // Maximum history stack size to prevent memory leaks
     // After this limit, oldest states are removed (FIFO)

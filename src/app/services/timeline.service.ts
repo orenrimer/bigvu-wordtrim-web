@@ -35,9 +35,7 @@ export interface TimelineState {
  * - Update selection based on handle drag
  * - Handle interactions across deleted words
  */
-@Injectable({
-    providedIn: 'root'
-})
+@Injectable()
 export class TimelineService {
     // Private writable signals
     private readonly _startHandle = signal<HandlePosition | null>(null);
@@ -376,15 +374,15 @@ export class TimelineService {
     public restoreHandles(startHandle: HandlePosition | null, endHandle: HandlePosition | null): void {
         // Set flag to prevent effect from updating handles
         this._isRestoringHandles.set(true);
-        
+
         // Restore handle positions
         this._startHandle.set(startHandle ? { ...startHandle } : null);
         this._endHandle.set(endHandle ? { ...endHandle } : null);
-        
+
         // Update single word mode based on whether end handle exists
         // If endHandle exists, we're in range selection mode (not single word mode)
         this._isSingleWordMode.set(!endHandle);
-        
+
         // Clear flag after Angular change detection completes
         // Use requestAnimationFrame to ensure effect has run before clearing flag
         requestAnimationFrame(() => {

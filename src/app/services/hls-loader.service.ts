@@ -21,9 +21,7 @@ export interface HlsLoaderCallbacks {
  * Centralized service for loading HLS videos
  * Handles both HLS.js and native HLS (Safari) support
  */
-@Injectable({
-    providedIn: 'root'
-})
+@Injectable()
 export class HlsLoaderService {
     // Track event listeners for native HLS cleanup
     private nativeHlsListeners = new Map<HTMLVideoElement, Array<{ event: string; listener: EventListener }>>();

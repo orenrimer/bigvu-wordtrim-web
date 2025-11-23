@@ -15,9 +15,7 @@ import { OutputSegment } from '../models';
  * - Validates output (no gaps, proper ordering)
  * - Handles empty output error
  */
-@Injectable({
-    providedIn: 'root'
-})
+@Injectable()
 export class OutputGeneratorService {
     private readonly editorState = inject(EditorStateService);
     private readonly videoPlayerService = inject(VideoPlayerService);

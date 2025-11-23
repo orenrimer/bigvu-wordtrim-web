@@ -26,9 +26,7 @@ export type AspectRatio = '16:9' | '1:1' | '9:16';
  * - Edited playback (skip deleted segments)
  * - Selected segment playback
  */
-@Injectable({
-    providedIn: 'root'
-})
+@Injectable()
 export class VideoPlayerService {
     // Inject services
     private editorStateService = inject(EditorStateService);

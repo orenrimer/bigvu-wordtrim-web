@@ -9,6 +9,8 @@ import { TimelineService } from '../../services/timeline.service';
 import { TutorialService } from '../../services/tutorial.service';
 import { HistoryService } from '../../services/history.service';
 import { VideoDataService } from '../../services/video-data.service';
+import { HlsLoaderService } from '../../services/hls-loader.service';
+import { OutputGeneratorService } from '../../services/output-generator.service';
 import { SkeletonLoaderComponent } from '../skeleton-loader/skeleton-loader.component';
 import { WordChipComponent } from '../word-chip/word-chip.component';
 import { ActionBarComponent } from '../action-bar/action-bar.component';
@@ -34,6 +36,17 @@ import { Word, WordState, EditorStateSnapshot } from '../../models';
   selector: 'app-main-editor-container',
   standalone: true,
   imports: [CommonModule, SkeletonLoaderComponent, WordChipComponent, ActionBarComponent, VideoPlayerComponent, TimelineComponent, TutorialModalComponent],
+  providers: [
+    EditorStateService,
+    VideoPlayerService,
+    TimelineService,
+    TutorialService,
+    HistoryService,
+    VideoDataService,
+    HlsLoaderService,
+    OutputGeneratorService,
+    SegmentationLoaderService
+  ],
   templateUrl: './main-editor-container.component.html',
   styleUrl: './main-editor-container.component.scss'
 })

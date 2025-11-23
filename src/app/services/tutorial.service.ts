@@ -5,9 +5,7 @@ import { Injectable, signal } from '@angular/core';
  * Manages tutorial modal state and visibility
  * Based on PRD: Tutorial System (Section 7)
  */
-@Injectable({
-    providedIn: 'root'
-})
+@Injectable()
 export class TutorialService {
     /**
      * Modal state: 'hidden' | 'tip' | 'video' | 'preview-tip'

@@ -7,9 +7,7 @@ import { HandlePosition } from './timeline.service';
  * Manages word selection state and word states using Angular Signals
  * Based on PRD: Word Selection Logic
  */
-@Injectable({
-    providedIn: 'root'
-})
+@Injectable()
 export class EditorStateService {
     // Private writable signals for state management
     private readonly _words = signal<Word[]>([]);

@@ -7,9 +7,7 @@ import { Word, Segment, WordState } from '../models';
  * Service responsible for loading and processing video segmentation data
  * Based on PRD: Loading State & Segmentation Loader
  */
-@Injectable({
-    providedIn: 'root'
-})
+@Injectable()
 export class SegmentationLoaderService {
     // Signal-based state management for reactive UI updates
     private _loadingState = signal<'idle' | 'loading' | 'success' | 'error'>('idle');
