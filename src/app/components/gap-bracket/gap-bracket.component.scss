@@ -16,8 +16,12 @@
     font-family: var(--font-family);
     cursor: pointer;
     user-select: none;
-    transition: all var(--transition-hover);
     line-height: 140%;
+
+    // Default state (unselected)
+    background-color: var(--color-gap-unselected-bg);
+    color: var(--color-primary);
+    border: 1px solid var(--color-border-primary);
 
     // Ensure proper focus outline for accessibility
     &:focus-visible {
@@ -31,50 +35,49 @@
         box-shadow: var(--shadow-sm);
     }
 
-    // Active/press effect
-    &:active {
-        transform: scale(0.98);
-    }
+
 
     /**
-     * Gap State: ACTIVE (Remove)
-     * Gap marked for removal - use danger/primary color
+     * Gap State: ACTIVE (Marked for removal - visually selected)
+     * Gaps marked for removal appear as selected (blue)
      */
     &[data-state="active"],
     &.active {
-        background-color: var(--color-primary);
-        color: var(--color-text-white);
+        background-color: var(--color-secondary);
+        color: var(--color-primary);
+        border: 1px solid transparent; // Maintain same size as unselected state
 
         &:hover {
-            background-color: var(--color-primary);
-            filter: brightness(0.9);
+            background-color: var(--color-secondary);
+            filter: brightness(0.95);
         }
     }
 
     /**
      * Gap State: IGNORED (Keep)
-     * Gap will be preserved - use secondary/muted color
+     * Gap will be preserved - same as unselected
      */
     &[data-state="ignored"],
     &.ignored {
-        background-color: var(--color-gray-100);
-        color: var(--color-text-secondary);
+        background-color: var(--color-gap-unselected-bg);
+        color: var(--color-primary);
+        border: 1px solid var(--color-border-primary);
 
         &:hover {
-            background-color: var(--color-gray-100);
+            background-color: var(--color-gap-unselected-bg);
             filter: brightness(0.97);
         }
     }
 
     /**
      * Gap State: SELECTED (Focused)
-     * Currently focused gap - use highlight color
+     * Currently selected gap
      */
     &[data-state="selected"],
     &.selected {
         background-color: var(--color-secondary);
         color: var(--color-primary);
-        box-shadow: 0 0 0 2px var(--color-primary);
+        border: 1px solid transparent; // Maintain same size as unselected state
 
         &:hover {
             background-color: var(--color-secondary);
@@ -86,4 +89,3 @@
         white-space: nowrap;
     }
 }
-

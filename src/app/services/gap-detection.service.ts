@@ -1,4 +1,4 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, effect } from '@angular/core';
 import { Word, WordState } from '../models';
 import { Gap, GapState } from '../models/gap.interface';
 
@@ -35,6 +35,40 @@ export class GapDetectionService {
     public readonly threshold = this._threshold.asReadonly();
     public readonly selectedGapId = this._selectedGapId.asReadonly();
 
+    constructor() {
+        // Effect: Automatically mark all gaps as ACTIVE when first detected
+        // This ensures all gaps start with ACTIVE state (marked for removal)
+        effect(() => {
+            const gaps = this.gaps();
+            const gapStates = this._gapStates();
+            const updatedStates = new Map(gapStates);
+            let statesChanged = false;
+
+            // Ensure all gaps have ACTIVE state (for removal)
+            gaps.forEach(gap => {
+                if (!updatedStates.has(gap.id)) {
+                    // New gap detected - mark as ACTIVE automatically (to be removed)
+                    updatedStates.set(gap.id, GapState.ACTIVE);
+                    statesChanged = true;
+                }
+            });
+
+            // Remove states for gaps that no longer exist
+            const gapIds = new Set(gaps.map(g => g.id));
+            updatedStates.forEach((state, gapId) => {
+                if (!gapIds.has(gapId)) {
+                    updatedStates.delete(gapId);
+                    statesChanged = true;
+                }
+            });
+
+            // Update states if changes were detected
+            if (statesChanged) {
+                this._gapStates.set(updatedStates);
+            }
+        });
+    }
+
     /**
      * Computed signal: All detected gaps based on current words and threshold
      * Uses memoization for performance optimization
@@ -66,19 +100,14 @@ export class GapDetectionService {
 
     /**
      * Computed signal: Gaps with their current states applied
+     * All gaps are automatically marked as ACTIVE when first detected (via effect)
      */
     public readonly gapsWithStates = computed(() => {
         const gaps = this.gaps();
         const gapStates = this._gapStates();
-        const selectedId = this._selectedGapId();
 
         return gaps.map(gap => {
-            // Apply selected state if this gap is selected
-            if (selectedId === gap.id) {
-                return { ...gap, state: GapState.SELECTED };
-            }
-
-            // Apply stored state, or default to ACTIVE if not set
+            // Apply stored state, or default to ACTIVE if not set (shouldn't happen due to effect)
             const storedState = gapStates.get(gap.id);
             return {
                 ...gap,
@@ -136,19 +165,30 @@ export class GapDetectionService {
     }
 
     /**
-     * Toggle gap state between ACTIVE and IGNORED
+     * Toggle gap state between ACTIVE (to be removed) and IGNORED (to be kept)
+     * Based on PRD Phase 2: Gap Visualization - Click behavior
+     * 
+     * Logic:
+     * - If gap is ACTIVE (marked for removal) → toggle to IGNORED (keep)
+     * - If gap is IGNORED (keep) → toggle to ACTIVE (marked for removal)
+     * - SELECTED state is used for visual focus/highlight only
+     * 
      * @param gapId ID of the gap to toggle
      */
     public toggleGapState(gapId: number): void {
         const gapStates = new Map(this._gapStates());
-        const currentState = gapStates.get(gapId);
+        const currentState = gapStates.get(gapId) ?? GapState.ACTIVE; // Default to ACTIVE
 
-        // Toggle between ACTIVE and IGNORED
-        const newState = currentState === GapState.IGNORED
-            ? GapState.ACTIVE
-            : GapState.IGNORED;
+        // Toggle between ACTIVE (remove) and IGNORED (keep)
+        if (currentState === GapState.ACTIVE) {
+            gapStates.set(gapId, GapState.IGNORED);
+        } else if (currentState === GapState.IGNORED) {
+            gapStates.set(gapId, GapState.ACTIVE);
+        } else {
+            // If SELECTED or unknown state, set to ACTIVE
+            gapStates.set(gapId, GapState.ACTIVE);
+        }
 
-        gapStates.set(gapId, newState);
         this._gapStates.set(gapStates);
     }
 
