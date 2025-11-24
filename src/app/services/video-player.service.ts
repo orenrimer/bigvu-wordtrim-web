@@ -124,6 +124,8 @@ export class VideoPlayerService {
     private readonly DELETED_SEGMENT_EARLY_DETECTION_MS = 0.008; // Early detection: anticipate 8ms before segment start (accounts for frame timing)
     private readonly SEGMENT_START_ENTRY_THRESHOLD_MS = 0.01; // Consider "just entered" if within 10ms after start (accounts for video frame timing)
     private readonly SEEK_ACCURACY_THRESHOLD_MS = 0.005; // Accept seek accuracy within 5ms
+    private readonly SEEK_DEBOUNCE_MS = 100; // Debounce time between seeks (ms)
+    private readonly SKIP_CLEANUP_DELAY_MS = 200; // Delay before cleaning up skip state after segment skip
 
     // Loading timeout
     private loadingTimeout: number | null = null;
@@ -349,8 +351,8 @@ export class VideoPlayerService {
                 // do another seek to improve precision (but only once, to prevent loops)
                 if (seekAccuracy < 0.1 && seekAccuracy > this.SEEK_ACCURACY_THRESHOLD_MS) {
                     const now = Date.now();
-                    // Only seek again if we haven't tried in the last 100ms
-                    if (this.lastSeekTime === null || (now - this.lastSeekTime) > 100) {
+                    // Only seek again if we haven't tried in the last debounce period
+                    if (this.lastSeekTime === null || (now - this.lastSeekTime) > this.SEEK_DEBOUNCE_MS) {
                         // Seek again to exact position for better precision
                         this.seek(this.lastSkipTarget);
                         this.lastSeekTime = now;
@@ -940,7 +942,7 @@ export class VideoPlayerService {
                     this.lastSkipTarget = null;
                     this.lastSeekTime = null;
                 }
-            }, 200);
+            }, this.SKIP_CLEANUP_DELAY_MS);
             this.activeTimeouts.push(timeoutId);
         }
     }

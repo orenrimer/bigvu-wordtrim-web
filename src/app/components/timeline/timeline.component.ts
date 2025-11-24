@@ -29,6 +29,9 @@ import { Word, WordState, EditorStateSnapshot } from '../../models';
     styleUrls: ['./timeline.component.scss']
 })
 export class TimelineComponent implements OnInit, OnDestroy {
+    // Constants
+    private static readonly DRAG_DEBOUNCE_MS = 50; // Debounce time for drag events
+
     @ViewChild('timelineTrack', { static: false }) timelineTrack?: ElementRef<HTMLDivElement>;
     @ViewChild('startHandle', { static: false }) startHandleElement?: ElementRef<HTMLDivElement>;
     @ViewChild('endHandle', { static: false }) endHandleElement?: ElementRef<HTMLDivElement>;
@@ -167,7 +170,7 @@ export class TimelineComponent implements OnInit, OnDestroy {
         // Set up debounced handle drag updates
         // Debounce selection updates during drag for smoother UX
         this.handleDragSubject.pipe(
-            debounceTime(50), // Wait 50ms after last drag event
+            debounceTime(TimelineComponent.DRAG_DEBOUNCE_MS),
             takeUntil(this.destroy$)
         ).subscribe(() => {
             this.updateSelectionFromHandles();

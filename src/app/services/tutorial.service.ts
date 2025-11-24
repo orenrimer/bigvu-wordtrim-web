@@ -7,6 +7,16 @@ import { Injectable, signal, ElementRef } from '@angular/core';
  */
 @Injectable()
 export class TutorialService {
+    // Constants for positioning and calculations
+    private static readonly MOBILE_BREAKPOINT_PX = 768;
+    private static readonly LINE_HEIGHT_MOBILE_MULTIPLIER = 1.75;
+    private static readonly LINE_HEIGHT_DESKTOP_MULTIPLIER = 2.5;
+    private static readonly BASE_FONT_SIZE_PX = 16; // Base font size for line height calculation
+    private static readonly SPACING_PX = 16; // var(--spacing-4)
+    private static readonly POSITION_RETRY_DELAY_MS = 50;
+    private static readonly POSITION_MAX_RETRIES = 40; // Max retries for position calculation (2000ms total)
+    private static readonly POSITION_RETRY_BUFFER = 10; // Additional retries before giving up on word chips
+
     /**
      * Modal state: 'hidden' | 'tip' | 'video' | 'preview-tip'
      * - hidden: modal is not shown
@@ -135,7 +145,7 @@ export class TutorialService {
             // Retry mechanism in case ViewChild isn't immediately available
             // Also wait for word chips to be rendered in DOM
             let retryCount = 0;
-            const maxRetries = 40; // Max 40 retries (2000ms total) - increased to wait for word chips rendering
+            const maxRetries = TutorialService.POSITION_MAX_RETRIES;
 
             const tryUpdate = () => {
                 if (wordsContainerRef?.nativeElement) {
@@ -147,9 +157,9 @@ export class TutorialService {
                         const wordChips = wordsContainerRef.nativeElement.querySelectorAll('app-word-chip');
 
                         // If we have words in the signal but no chips rendered yet, wait a bit more
-                        if (wordsCount > 0 && wordChips.length === 0 && retryCount < maxRetries - 10) {
+                        if (wordsCount > 0 && wordChips.length === 0 && retryCount < maxRetries - TutorialService.POSITION_RETRY_BUFFER) {
                             retryCount++;
-                            setTimeout(tryUpdate, 50);
+                            setTimeout(tryUpdate, TutorialService.POSITION_RETRY_DELAY_MS);
                             return;
                         }
 
@@ -182,10 +192,14 @@ export class TutorialService {
                                     document.documentElement.style.setProperty('--words-container-right', `${rightPosition}px`);
 
                                     // Calculate top position based on first word chip element
+                                    const isMobile = window.innerWidth <= TutorialService.MOBILE_BREAKPOINT_PX;
+                                    const lineHeightMultiplier = isMobile
+                                        ? TutorialService.LINE_HEIGHT_MOBILE_MULTIPLIER
+                                        : TutorialService.LINE_HEIGHT_DESKTOP_MULTIPLIER;
                                     const lineHeight = parseFloat(getComputedStyle(wordsContainerRef.nativeElement).lineHeight) ||
                                         parseFloat(getComputedStyle(firstWordChip).lineHeight) ||
-                                        (window.innerWidth <= 768 ? 1.75 * 16 : 2.5 * 16); // fallback based on screen size
-                                    const spacing = 16; // var(--spacing-4)
+                                        (lineHeightMultiplier * TutorialService.BASE_FONT_SIZE_PX);
+                                    const spacing = TutorialService.SPACING_PX;
                                     const topPosition = firstChipRect.top + lineHeight + spacing;
                                     document.documentElement.style.setProperty('--words-container-top', `${topPosition}px`);
 
@@ -220,9 +234,13 @@ export class TutorialService {
                                 const rightPosition = window.innerWidth - rect.right;
                                 document.documentElement.style.setProperty('--words-container-right', `${rightPosition}px`);
 
+                                const isMobile = window.innerWidth <= TutorialService.MOBILE_BREAKPOINT_PX;
+                                const lineHeightMultiplier = isMobile
+                                    ? TutorialService.LINE_HEIGHT_MOBILE_MULTIPLIER
+                                    : TutorialService.LINE_HEIGHT_DESKTOP_MULTIPLIER;
                                 const lineHeight = parseFloat(getComputedStyle(wordsContainerRef.nativeElement).lineHeight) ||
-                                    (window.innerWidth <= 768 ? 1.75 * 16 : 2.5 * 16);
-                                const spacing = 16;
+                                    (lineHeightMultiplier * TutorialService.BASE_FONT_SIZE_PX);
+                                const spacing = TutorialService.SPACING_PX;
                                 const topPosition = rect.top + lineHeight + spacing;
                                 document.documentElement.style.setProperty('--words-container-top', `${topPosition}px`);
 

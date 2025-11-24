@@ -9,6 +9,12 @@ import { Word, Segment, WordState } from '../models';
  */
 @Injectable()
 export class SegmentationLoaderService {
+    // Constants for retry logic
+    private static readonly RETRY_COUNT = 3;
+    private static readonly RETRY_BASE_DELAY_MS = 1000; // Base delay for exponential backoff
+    private static readonly RETRY_EXPONENTIAL_BASE = 2; // Exponential multiplier
+    private static readonly RETRY_MAX_DELAY_MS = 10000; // Maximum delay cap (10 seconds)
+
     // Signal-based state management for reactive UI updates
     private _loadingState = signal<'idle' | 'loading' | 'success' | 'error'>('idle');
     private _words = signal<Word[]>([]);
@@ -32,11 +38,14 @@ export class SegmentationLoaderService {
         this._error.set(null);
 
         return this.http.get<Segment[]>(url).pipe(
-            // Retry failed requests up to 3 times with exponential backoff
+            // Retry failed requests with exponential backoff
             retry({
-                count: 3,
+                count: SegmentationLoaderService.RETRY_COUNT,
                 delay: (_error, retryCount) => {
-                    const delayMs = Math.min(1000 * Math.pow(2, retryCount - 1), 10000);
+                    const delayMs = Math.min(
+                        SegmentationLoaderService.RETRY_BASE_DELAY_MS * Math.pow(SegmentationLoaderService.RETRY_EXPONENTIAL_BASE, retryCount - 1),
+                        SegmentationLoaderService.RETRY_MAX_DELAY_MS
+                    );
                     return new Observable<void>(subscriber => {
                         setTimeout(() => {
                             subscriber.next();

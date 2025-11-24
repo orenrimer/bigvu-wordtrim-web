@@ -51,6 +51,19 @@ import { Word, WordState, EditorStateSnapshot } from '../../models';
   styleUrl: './main-editor-container.component.scss'
 })
 export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDestroy {
+  // Constants for scroll behavior
+  private static readonly MOBILE_BREAKPOINT_PX = 768;
+  private static readonly AUTOSCROLL_RESUME_DELAY_MS = 5000; // Resume after 5 seconds of no manual scrolling
+  private static readonly SCROLL_PADDING_MOBILE_PX = 30;
+  private static readonly SCROLL_PADDING_DESKTOP_PX = 50;
+  private static readonly PROGRAMMATIC_SCROLL_TIMEOUT_MS = 2000; // Time to ignore scroll events after programmatic scroll
+  private static readonly PROGRAMMATIC_SCROLL_CLEANUP_DELAY_MS = 500; // Additional delay before clearing scroll end time
+  private static readonly MOBILE_SCROLL_FINETUNE_DELAY_MS = 150; // Delay before fine-tuning mobile scroll position
+  private static readonly MOBILE_SCROLL_OFFSET_RATIO = 0.2; // Position word at 20% from top on mobile
+  private static readonly DESKTOP_SCROLL_OFFSET_RATIO = 0.5; // Center word on desktop (50%)
+  private static readonly MOBILE_VISIBILITY_THRESHOLD_RATIO = 0.5; // Consider visible if within 50% of container height
+  private static readonly TIMESTAMP_INTERVAL_SECONDS = 10; // Target interval between timestamps
+
   // ViewChild reference to words-container for CSS custom property positioning
   @ViewChild('wordsContainer', { static: false }) wordsContainerRef!: ElementRef<HTMLElement>;
 
@@ -199,8 +212,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     const contentDuration = lastTime - firstTime;
 
     // Calculate number of timestamps based on duration
-    // Target: one timestamp every 10 seconds
-    const targetInterval = 10; // seconds between timestamps
+    const targetInterval = MainEditorContainerComponent.TIMESTAMP_INTERVAL_SECONDS;
     const timestampCount = Math.max(2, Math.ceil(contentDuration / targetInterval)); // At least 2 (first and last)
 
     // If we have fewer words than timestamps, use all words
@@ -399,7 +411,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
 
     // Set up debounced auto-scroll resume using RxJS
     this.autoScrollResumeSubject.pipe(
-      debounceTime(5000), // Resume after 5 seconds of no manual scrolling
+      debounceTime(MainEditorContainerComponent.AUTOSCROLL_RESUME_DELAY_MS),
       takeUntil(this.destroy$)
     ).subscribe(() => {
       this.autoScrollPaused = false;
@@ -906,12 +918,14 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     const chipRect = targetChip.getBoundingClientRect();
     const containerRect = scrollContainer.getBoundingClientRect();
 
-    // Check if we're on mobile (768px and below) - calculate once and reuse
-    const isMobile = window.innerWidth <= 768;
+    // Check if we're on mobile - calculate once and reuse
+    const isMobile = window.innerWidth <= MainEditorContainerComponent.MOBILE_BREAKPOINT_PX;
 
     // Check if chip is already visible (with some padding for better UX)
     // Use smaller padding on mobile to prevent unnecessary scrolling
-    const padding = isMobile ? 30 : 50; // Smaller padding on mobile
+    const padding = isMobile
+      ? MainEditorContainerComponent.SCROLL_PADDING_MOBILE_PX
+      : MainEditorContainerComponent.SCROLL_PADDING_DESKTOP_PX;
     const isVisible = chipRect.top >= (containerRect.top + padding) &&
       chipRect.bottom <= (containerRect.bottom - padding);
 
@@ -922,10 +936,9 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       }
 
       // Set flag and timestamp BEFORE scrolling to prevent triggering manual scroll detection
-      // Smooth scroll animations typically take 500-1000ms, so we'll ignore scroll events for 2000ms
       const scrollStartTime = Date.now();
       this.isProgrammaticScroll = true;
-      this.programmaticScrollEndTime = scrollStartTime + 2000; // 2 seconds should cover smooth scroll animation
+      this.programmaticScrollEndTime = scrollStartTime + MainEditorContainerComponent.PROGRAMMATIC_SCROLL_TIMEOUT_MS;
 
       // Use requestAnimationFrame to ensure flag is set before scroll happens
       const rafId = requestAnimationFrame(() => {
@@ -952,12 +965,12 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
             const finalContainerRect = scrollContainer.getBoundingClientRect();
             const finalContainerHeight = finalContainerRect.height;
 
-            // Check if chip is in a good position (within top 40% of container)
+            // Check if chip is in a good position
             const chipTopRelative = finalChipRect.top - finalContainerRect.top;
-            const desiredTopPosition = finalContainerHeight * 0.2; // 20% from top for better visibility
+            const desiredTopPosition = finalContainerHeight * MainEditorContainerComponent.MOBILE_SCROLL_OFFSET_RATIO;
 
             // Only adjust if chip is outside the visible area or too low
-            if (chipTopRelative < 0 || chipTopRelative > finalContainerHeight * 0.5) {
+            if (chipTopRelative < 0 || chipTopRelative > finalContainerHeight * MainEditorContainerComponent.MOBILE_VISIBILITY_THRESHOLD_RATIO) {
               const currentScrollTop = scrollContainer.scrollTop;
               const adjustment = chipTopRelative - desiredTopPosition;
               scrollContainer.scrollTo({
@@ -966,7 +979,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
               });
             }
             this.activeTimeouts = this.activeTimeouts.filter(id => id !== fineTuneTimeoutId);
-          }, 150);
+          }, MainEditorContainerComponent.MOBILE_SCROLL_FINETUNE_DELAY_MS);
           this.activeTimeouts.push(fineTuneTimeoutId);
         } else {
           // Desktop: Use precise calculation
@@ -979,7 +992,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
           const chipRelativeTop = currentChipRect.top - currentContainerRect.top + scrollContainer.scrollTop;
 
           // Calculate target scroll position - center on desktop
-          const scrollOffset = containerHeight * 0.5;
+          const scrollOffset = containerHeight * MainEditorContainerComponent.DESKTOP_SCROLL_OFFSET_RATIO;
           const targetScrollTop = chipRelativeTop - scrollOffset + (chipHeight / 2);
 
           // Ensure we don't scroll beyond container bounds
@@ -996,7 +1009,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
         // Remove RAF from tracking array when completed
         this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
 
-        // Reset flag after scroll animation completes (typically 500-1000ms for smooth scroll)
+        // Reset flag after scroll animation completes
         const timeoutId1 = window.setTimeout(() => {
           this.isProgrammaticScroll = false;
           // Keep programmaticScrollEndTime set for a bit longer to catch any delayed scroll events
@@ -1004,11 +1017,11 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
             this.programmaticScrollEndTime = 0;
             // Remove from tracking array when completed
             this.activeTimeouts = this.activeTimeouts.filter(id => id !== timeoutId2);
-          }, 500);
+          }, MainEditorContainerComponent.PROGRAMMATIC_SCROLL_CLEANUP_DELAY_MS);
           this.activeTimeouts.push(timeoutId2);
           // Remove from tracking array when completed
           this.activeTimeouts = this.activeTimeouts.filter(id => id !== timeoutId1);
-        }, 2000);
+        }, MainEditorContainerComponent.PROGRAMMATIC_SCROLL_TIMEOUT_MS);
         this.activeTimeouts.push(timeoutId1);
       });
       this.activeAnimationFrames.push(rafId);

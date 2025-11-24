@@ -25,6 +25,14 @@ interface VideoElementWithCleanup extends HTMLVideoElement {
     styleUrls: ['./tutorial-modal.component.scss']
 })
 export class TutorialModalComponent implements AfterViewInit, OnDestroy {
+    // Constants for timing and delays
+    private static readonly VIDEO_INIT_DELAY_MS = 10; // Delay before initializing video to ensure DOM is ready
+    private static readonly VIDEO_RETRY_DELAY_MS = 100; // Delay before retrying video initialization
+    private static readonly POSITION_CHECK_DELAY_MS = 200; // Delay before checking position again for layout shifts
+    private static readonly POSITION_RETRY_INTERVAL_MS = 50; // Interval between position check retries
+    private static readonly POSITION_MAX_RETRIES = 60; // Max retries for position check (3000ms total)
+    private static readonly VIDEO_PLAYBACK_DELAY_MS = 100; // Delay before starting video playback
+
     // Inject services
     protected readonly tutorialService = inject(TutorialService);
     private hlsLoaderService = inject(HlsLoaderService);
@@ -102,12 +110,12 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
                                 } else {
                                     console.warn('Video element not available after retry, modal may not be rendered yet');
                                 }
-                            }, 100);
+                            }, TutorialModalComponent.VIDEO_RETRY_DELAY_MS);
                             this.activeTimeouts.push(retryTimeoutId);
                         }
                     });
                     this.activeAnimationFrames.push(rafId);
-                }, 10);
+                }, TutorialModalComponent.VIDEO_INIT_DELAY_MS);
             } else {
                 // Clean up when modal is hidden or in tip mode
                 // Clear video initialization timeout specifically
@@ -172,7 +180,7 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
                             // Position changed, trigger position recalculation
                             // This will be handled by the main component's effect
                         }
-                    }, 200);
+                    }, TutorialModalComponent.POSITION_CHECK_DELAY_MS);
                     this.activeTimeouts.push(timeoutId1);
 
                     return true;
@@ -182,19 +190,19 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
                 if (!checkPosition()) {
                     // Properties not set yet or words not rendered, retry
                     let retryCount = 0;
-                    const maxRetries = 60; // Max 60 retries (3000ms total)
+                    const maxRetries = TutorialModalComponent.POSITION_MAX_RETRIES;
                     const retryCheck = () => {
                         if (checkPosition()) {
                             return; // Found, stop retrying
                         }
                         if (retryCount < maxRetries) {
                             retryCount++;
-                            const timeoutId = window.setTimeout(retryCheck, 50);
+                            const timeoutId = window.setTimeout(retryCheck, TutorialModalComponent.POSITION_RETRY_INTERVAL_MS);
                             this.activeTimeouts.push(timeoutId);
                         }
                         // If max retries reached, don't show tip (no fallback)
                     };
-                    const timeoutId2 = window.setTimeout(retryCheck, 50);
+                    const timeoutId2 = window.setTimeout(retryCheck, TutorialModalComponent.POSITION_RETRY_INTERVAL_MS);
                     this.activeTimeouts.push(timeoutId2);
                 } else {
                     // Position was already ready, set it immediately
@@ -263,7 +271,7 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
                     // If still not available, the effect will handle it
                     console.warn('Video element not available in ngAfterViewInit');
                 }
-            }, 10);
+            }, TutorialModalComponent.VIDEO_INIT_DELAY_MS);
             this.activeTimeouts.push(timeoutId);
         }
     }
@@ -284,7 +292,7 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
             // Retry after a short delay
             const timeoutId = window.setTimeout(() => {
                 this.initializeVideo();
-            }, 100);
+            }, TutorialModalComponent.VIDEO_RETRY_DELAY_MS);
             this.activeTimeouts.push(timeoutId);
             return;
         }
@@ -319,7 +327,7 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
                                 console.warn('Autoplay was blocked, user interaction required:', error);
                             });
                         }
-                    }, 100);
+                    }, TutorialModalComponent.VIDEO_PLAYBACK_DELAY_MS);
                     this.activeTimeouts.push(timeoutId);
                 },
                 onError: (event, data) => {
