@@ -85,9 +85,10 @@
                 <!-- Content - Show only when loaded and no error -->
                 <div *ngIf="!isLoading() && !hasError()" class="transcript-content-wrapper"
                     [attr.dir]="isRTL() ? 'rtl' : 'ltr'">
-                    <div class="timestamps-container" *ngIf="hasWords()">
-                        <span *ngFor="let timestamp of timestamps()" class="timestamp">
-                            {{ formatTimestamp(timestamp) }}
+                    <div class="timestamps-container" #timestampsContainer *ngIf="hasWords()">
+                        <span *ngFor="let rowData of rowTimestampsReadonly()" class="timestamp"
+                            [style.top.px]="rowData.top">
+                            {{ formatTimestamp(rowData.time) }}
                         </span>
                     </div>
                     <div #wordsContainer class="words-container" [class.preview-mode-disabled]="isPreviewMode()"

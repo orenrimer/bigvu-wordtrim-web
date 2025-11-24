@@ -11,6 +11,7 @@ import { HistoryService } from '../../services/history.service';
 import { VideoDataService } from '../../services/video-data.service';
 import { HlsLoaderService } from '../../services/hls-loader.service';
 import { OutputGeneratorService } from '../../services/output-generator.service';
+import { TimestampService } from '../../services/timestamp.service';
 import { SkeletonLoaderComponent } from '../skeleton-loader/skeleton-loader.component';
 import { WordChipComponent } from '../word-chip/word-chip.component';
 import { ActionBarComponent } from '../action-bar/action-bar.component';
@@ -70,6 +71,9 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
   // ViewChild reference to transcript-content for preview tip modal positioning (Feature 13.11)
   @ViewChild('transcriptContent', { static: false }) transcriptContentRef!: ElementRef<HTMLElement>;
 
+  // ViewChild reference to timestamps-container for row alignment
+  @ViewChild('timestampsContainer', { static: false }) timestampsContainerRef!: ElementRef<HTMLElement>;
+
   // Auto-scroll tracking
   private autoScrollPaused = false; // Whether auto-scroll is paused due to manual scroll
   private isProgrammaticScroll = false; // Flag to distinguish programmatic scrolls from manual ones
@@ -89,6 +93,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
   // Track timeouts and animation frames for cleanup
   private activeTimeouts: number[] = [];
   private activeAnimationFrames: number[] = [];
+
 
   // Feature 13: Preview mode state for start/end trimming
   private readonly _isPreviewMode = signal<boolean>(false);
@@ -196,62 +201,15 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     return errorMsg.includes('empty') || errorMsg.includes('no words found') || errorMsg.includes('no valid words');
   });
 
-  // Dynamic timestamps based on words and video duration
+  // Dynamic timestamps based on first word in each row
   timestamps = computed(() => {
-    const wordsList = this.words();
-    if (!wordsList || wordsList.length === 0) {
-      return [];
-    }
-
-    // Find first and last word
-    const firstWord = wordsList[0];
-    const lastWord = wordsList[wordsList.length - 1];
-    const firstTime = firstWord.start;
-    const lastTime = lastWord.start;
-
-    // Calculate content duration (from first word to last word)
-    const contentDuration = lastTime - firstTime;
-
-    // Calculate number of timestamps based on duration
-    const targetInterval = MainEditorContainerComponent.TIMESTAMP_INTERVAL_SECONDS;
-    const timestampCount = Math.max(2, Math.ceil(contentDuration / targetInterval)); // At least 2 (first and last)
-
-    // If we have fewer words than timestamps, use all words
-    if (wordsList.length <= timestampCount) {
-      return wordsList.map(word => word.start);
-    }
-
-    // Calculate evenly distributed times between first and last
-    const timestamps: number[] = [];
-    timestamps.push(firstTime); // First timestamp is first word
-
-    // Calculate intermediate timestamps
-    for (let i = 1; i < timestampCount - 1; i++) {
-      const ratio = i / (timestampCount - 1);
-      const targetTime = firstTime + (lastTime - firstTime) * ratio;
-
-      // Find the word with start time closest to targetTime
-      let closestWord = wordsList[0];
-      let minDiff = Math.abs(closestWord.start - targetTime);
-
-      for (const word of wordsList) {
-        const diff = Math.abs(word.start - targetTime);
-        if (diff < minDiff) {
-          minDiff = diff;
-          closestWord = word;
-        }
-      }
-
-      timestamps.push(closestWord.start);
-    }
-
-    timestamps.push(lastTime); // Last timestamp is last word
-
-    // Remove duplicates and sort
-    const uniqueTimestamps = Array.from(new Set(timestamps)).sort((a, b) => a - b);
-
-    return uniqueTimestamps;
+    const rowData = this.timestampService.rowTimestamps();
+    // Return just the time values for the template (for backward compatibility)
+    return rowData.map((row: { time: number; top: number }) => row.time);
   });
+
+  // Expose row timestamps for template (includes time and top position)
+  public readonly rowTimestampsReadonly = this.timestampService.rowTimestamps;
 
   /**
    * Format timestamp in MM:SS format
@@ -284,7 +242,8 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     private videoService: VideoPlayerService,
     public timelineService: TimelineService,
     public tutorialService: TutorialService,
-    private historyService: HistoryService
+    private historyService: HistoryService,
+    private timestampService: TimestampService
   ) {
     // Update words-container position when words are loaded AND auto-show tip modal
     // Combined effect to ensure proper sequencing: position calculation -> tip modal display
@@ -340,6 +299,23 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       } else {
         // Clear current playback word when video is paused/stopped
         this.editorState.clearCurrentPlaybackWord();
+      }
+    }, { allowSignalWrites: true });
+
+    // Effect: Recalculate row timestamps when words change
+    effect(() => {
+      const words = this.words();
+      const loadingState = this.loadingState();
+
+      if (words.length > 0 && loadingState === 'success') {
+        // Use requestAnimationFrame to ensure DOM is updated
+        const rafId = requestAnimationFrame(() => {
+          this.calculateRowTimestamps();
+          this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
+        });
+        this.activeAnimationFrames.push(rafId);
+      } else {
+        this.timestampService.clear();
       }
     }, { allowSignalWrites: true });
 
@@ -468,9 +444,14 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
             this.isRTL()
           );
         }
+        // Recalculate row timestamps on resize
+        this.calculateRowTimestamps();
       };
       window.addEventListener('resize', this.windowResizeListener);
     }
+
+    // Setup ResizeObserver for words container to detect row changes
+    this.setupRowDetection();
 
     // Fallback: Setup scroll listener if element is already available and listener not attached
     // The effect in constructor should handle this, but this ensures it works even if timing is off
@@ -492,12 +473,60 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     this.onManualScroll();
   }
 
+  /**
+   * Setup ResizeObserver to detect when word layout changes and recalculate rows
+   */
+  private setupRowDetection(): void {
+    if (!this.wordsContainerRef?.nativeElement) {
+      return;
+    }
+
+    // Setup row detection using timestamp service
+    this.timestampService.setupRowDetection(
+      this.wordsContainerRef.nativeElement,
+      () => this.calculateRowTimestamps()
+    );
+
+    // Initial calculation
+    const rafId = requestAnimationFrame(() => {
+      this.calculateRowTimestamps();
+      this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
+    });
+    this.activeAnimationFrames.push(rafId);
+  }
+
+  /**
+   * Calculate timestamps based on first word in each row
+   */
+  private calculateRowTimestamps(): void {
+    if (!this.wordsContainerRef?.nativeElement || !this.timestampsContainerRef?.nativeElement) {
+      return;
+    }
+
+    const wordsList = this.words();
+    if (!wordsList || wordsList.length === 0) {
+      this.timestampService.clear();
+      return;
+    }
+
+    // Use timestamp service to calculate row timestamps
+    this.timestampService.calculateRowTimestamps(
+      wordsList,
+      this.wordsContainerRef.nativeElement,
+      this.timestampsContainerRef.nativeElement,
+      this.isRTL()
+    );
+  }
+
   ngOnDestroy(): void {
     // Clean up scroll event listener
     if (this.transcriptContentRef?.nativeElement) {
       this.transcriptContentRef.nativeElement.removeEventListener('scroll', this.onManualScrollBound);
       this.scrollListenerAttached = false;
     }
+
+    // Clean up timestamp service
+    this.timestampService.cleanup();
 
     // Cancel any pending scroll timeouts
     this.pendingScrollTimeouts.forEach(timeoutId => {

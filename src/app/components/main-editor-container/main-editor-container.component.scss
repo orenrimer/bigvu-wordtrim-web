@@ -324,7 +324,7 @@
         .transcript-content-wrapper {
             display: flex;
             flex-direction: row;
-            gap: var(--spacing-16);
+            gap: var(--spacing-4); // Reduced gap since timestamps have their own margin
             width: 100%;
             align-items: stretch;
 
@@ -332,6 +332,15 @@
             // timestamps-container will appear on the right side
             &[dir="rtl"] {
                 direction: rtl;
+            }
+
+            // Responsive: Reduce gap on smaller screens
+            @media (max-width: 1024px) {
+                gap: 2px; // 2px gap on medium screens (1024px and below)
+            }
+
+            @media (max-width: 768px) {
+                gap: 1px; // 1px gap on small screens
             }
         }
     }
@@ -359,15 +368,16 @@
     }
 
     .timestamps-container {
-        display: flex;
-        flex-direction: column;
+        position: relative;
         flex-shrink: 0;
         align-self: stretch;
-        justify-content: space-between;
         padding: var(--timestamp-container-padding-y) var(--timestamp-container-padding-x);
         min-width: fit-content;
+        overflow: visible; // Ensure timestamps are not clipped
+        width: auto; // Allow container to grow as needed
 
         .timestamp {
+            position: absolute;
             display: flex;
             width: auto;
             background-color: var(--color-gray-100);
@@ -380,6 +390,7 @@
             padding: var(--timestamp-padding-y) var(--timestamp-padding-x);
             direction: ltr; // Timestamps always LTR (e.g., "00:00s" not "s00:00")
             text-align: left; // Align text to left within timestamp
+            transform: translateY(-50%); // Center vertically on the word chip
 
             &:hover {
                 cursor: default;
@@ -387,19 +398,91 @@
         }
     }
 
-    // Responsive: Adjust timestamps container for smaller screens
+    // LTR: Position timestamps on the right side of container with margin from words
+    .transcript-content-wrapper[dir="ltr"] .timestamps-container .timestamp {
+        right: var(--spacing-4); // 16px margin from right edge (towards words)
+        left: auto; // Ensure left is not set
+    }
+
+    // RTL: Position timestamps on the left side of container with margin from words
+    .transcript-content-wrapper[dir="rtl"] .timestamps-container .timestamp {
+        left: var(--spacing-4); // 16px margin from left edge (towards words)
+        right: auto; // Ensure right is not set
+    }
+
+    // LTR: Ensure timestamps container has enough left padding to prevent clipping
+    .transcript-content-wrapper[dir="ltr"] .timestamps-container {
+        padding-left: var(--spacing-4); // Ensure enough space for timestamps
+        min-width: 60px; // Minimum width to accommodate timestamps (e.g., "00:00s" ~35px + padding + margin)
+    }
+
+    // RTL: Ensure timestamps container has enough right padding to prevent clipping
+    .transcript-content-wrapper[dir="rtl"] .timestamps-container {
+        padding-right: var(--spacing-4); // Ensure enough space for timestamps
+        min-width: 60px; // Minimum width to accommodate timestamps
+    }
+
+    // Responsive: Reduce margin on smaller screens
     @media (max-width: 1024px) {
-        .timestamps-container {
-            padding: calc(var(--timestamp-container-padding-y) * 0.75) calc(var(--timestamp-container-padding-x) * 0.75);
+        .transcript-content-wrapper[dir="ltr"] .timestamps-container .timestamp {
+            right: 2px; // 2px margin on medium screens (1024px and below)
+        }
+
+        .transcript-content-wrapper[dir="rtl"] .timestamps-container .timestamp {
+            left: 2px; // 2px margin on medium screens (1024px and below)
         }
     }
 
     @media (max-width: 768px) {
+        .transcript-content-wrapper[dir="ltr"] .timestamps-container .timestamp {
+            right: 1px; // 1px margin on small screens
+        }
+
+        .transcript-content-wrapper[dir="rtl"] .timestamps-container .timestamp {
+            left: 1px; // 1px margin on small screens
+        }
+    }
+
+    // Responsive: Adjust timestamps container for smaller screens
+    @media (max-width: 1024px) {
+        .transcript-content-wrapper[dir="ltr"] .timestamps-container {
+            padding-left: var(--spacing-2); // Ensure enough left padding for LTR (8px)
+            padding-right: 2px; // Minimal right padding
+            min-width: 50px; // Reduced minimum width but still enough for timestamps
+        }
+
+        .transcript-content-wrapper[dir="rtl"] .timestamps-container {
+            padding-right: var(--spacing-2); // Ensure enough right padding for RTL (8px)
+            padding-left: 2px; // Minimal left padding
+            min-width: 50px; // Reduced minimum width but still enough for timestamps
+        }
+
         .timestamps-container {
-            padding: calc(var(--timestamp-container-padding-y) * 0.5) calc(var(--timestamp-container-padding-x) * 0.5);
+            padding-top: calc(var(--timestamp-container-padding-y) * 0.5);
+            padding-bottom: calc(var(--timestamp-container-padding-y) * 0.5);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .transcript-content-wrapper[dir="ltr"] .timestamps-container {
+            padding-left: var(--spacing-1); // Minimal left padding for LTR (4px)
+            padding-right: 1px; // Minimal right padding
+            min-width: 45px; // Minimum width for small screens
+        }
+
+        .transcript-content-wrapper[dir="rtl"] .timestamps-container {
+            padding-right: var(--spacing-1); // Minimal right padding for RTL (4px)
+            padding-left: 1px; // Minimal left padding
+            min-width: 45px; // Minimum width for small screens
+        }
+
+        .timestamps-container {
+            padding-top: calc(var(--timestamp-container-padding-y) * 0.5);
+            padding-bottom: calc(var(--timestamp-container-padding-y) * 0.5);
 
             .timestamp {
                 font-size: var(--font-size-10);
+                padding: calc(var(--timestamp-padding-y) * 0.5) calc(var(--timestamp-padding-x) * 0.5);
             }
         }
     }
