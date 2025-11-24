@@ -143,4 +143,15 @@
     <app-tutorial-modal
         *ngIf="!isLoading() && (tutorialService.modalState() === 'video' || tutorialService.modalState() === 'preview-tip' || ((!hasError() || isEmptySegmentationError()) && hasWords() && (tutorialService.modalState() !== 'hidden' || !tutorialService.hasClickedWord())))"></app-tutorial-modal>
 
+    <!-- Gap Review Mode Warning Alert (Feature 14) -->
+    @if (showGapModeWarning()) {
+    <div class="gap-mode-warning-alert" role="alert" aria-live="polite">
+        <span class="gap-mode-warning-text">In this mode you can only select Gaps and Ums.</span>
+        <button class="gap-mode-warning-close" (click)="dismissGapModeWarning()" aria-label="Dismiss warning"
+            type="button">
+            <img src="assets/icons/Close.svg" alt="Close" />
+        </button>
+    </div>
+    }
+
 </div>

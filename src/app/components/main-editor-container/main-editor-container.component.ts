@@ -292,6 +292,10 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
   private readonly _isGapReviewMode = signal<boolean>(false);
   public readonly isGapReviewMode = this._isGapReviewMode.asReadonly();
 
+  // Feature 14: Gap Review Mode warning alert state
+  private readonly _showGapModeWarning = signal<boolean>(false);
+  public readonly showGapModeWarning = this._showGapModeWarning.asReadonly();
+
   constructor(
     private videoDataService: VideoDataService,
     private segmentationService: SegmentationLoaderService,
@@ -720,8 +724,17 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
    */
   exitGapReviewMode(): void {
     this._isGapReviewMode.set(false);
+    // Hide warning alert when exiting gap review mode
+    this._showGapModeWarning.set(false);
     // Reset gap states when exiting
     this.gapDetectionService.resetGapStates();
+  }
+
+  /**
+   * Feature 14: Dismiss gap review mode warning alert
+   */
+  dismissGapModeWarning(): void {
+    this._showGapModeWarning.set(false);
   }
 
   /**
@@ -740,24 +753,24 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
   onWordsContainerClick(event: MouseEvent): void {
     // Feature 14.30: Make word-chips-container unclickable during Gap Review Mode
     if (this.isGapReviewMode()) {
-      // Prevent word clicks during gap review mode
+      // Check if click target is a gap bracket - if so, don't show warning
+      const target = event.target as HTMLElement;
+      const isGapBracket = target.closest('app-gap-bracket');
+
+      // If click is on gap bracket, don't show warning (gap brackets handle their own clicks)
+      if (isGapBracket) {
+        return;
+      }
+
+      // If click is not on gap bracket, it means user tried to click on word chip or container
+      // (word chips have pointer-events: none, so clicks pass through to container)
+      // Show warning alert when user tries to click on word chips
       event.stopPropagation();
+      this._showGapModeWarning.set(true);
       return;
     }
-    // Only show tip modal if in preview mode and click is not on a word chip
-    if (this.isPreviewMode()) {
-      // Check if click target is the container itself (not a word chip)
-      const target = event.target as HTMLElement;
-      const isWordChip = target.closest('app-word-chip');
-
-      // If click is directly on container (not on word chip), show tip modal
-      if (!isWordChip) {
-        this.tutorialService.showCustomTip(
-          'Validate New Start & End',
-          'Before editing your video, you must confirm or discard the new start and end positions'
-        );
-      }
-    }
+    // Feature 13.11: Preview tip modal is now only shown when clicking on word chips
+    // (handled in onWordClick), not when clicking on container
   }
 
   /**
@@ -850,6 +863,8 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
 
     // Feature 14.30: Don't allow word selection during gap review mode
     if (this.isGapReviewMode()) {
+      // Show warning alert when user tries to select words
+      this._showGapModeWarning.set(true);
       return; // Don't process word selection during gap review mode
     }
 

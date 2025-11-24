@@ -6,6 +6,7 @@
     display: flex;
     flex-direction: column;
     overflow: hidden; // Prevent scrolling on main container
+    position: relative; // For positioning gap mode warning alert
 
     // Error State Styling
     .error-section {
@@ -501,15 +502,43 @@
     .words-container.preview-mode-disabled {
         // Allow clicks on container to show tip modal, but prevent word selection
         // Individual word chips are still disabled via onWordClick logic
-        // opacity: 0.8; // Visual indication that word selection is disabled
-        cursor: pointer; // Show pointer cursor to indicate clickability
+
+        // Make word chips look non-clickable in preview mode
+        // But keep pointer-events enabled so clicks can trigger preview tip modal
+        ::ng-deep app-word-chip {
+            .word-chip {
+                cursor: default !important; // Change cursor to default (not pointer)
+
+                // Remove hover effects
+                &:hover {
+                    transform: none !important;
+                    box-shadow: none !important;
+                    filter: none !important;
+                }
+
+                // Remove active/press effects
+                &:active {
+                    transform: none !important;
+                }
+
+                // Remove focus outline (word chips are not interactive in preview mode)
+                &:focus-visible {
+                    outline: none !important;
+                }
+            }
+        }
     }
 
     // Feature 14.30: Disable word chips container during gap review mode
     .words-container.gap-review-mode {
         // Prevent word selection during gap review mode
         // Word chips are unclickable, only gap brackets are clickable
-        pointer-events: none;
+        // Container can still receive clicks to detect word chip clicks
+
+        // Disable pointer events only for word chips
+        app-word-chip {
+            pointer-events: none;
+        }
 
         // Re-enable pointer events for gap brackets
         app-gap-bracket {
@@ -559,4 +588,58 @@
     // timestamps-container (first in DOM) will appear on the right
     // words-container (second in DOM) will appear on the left
     // This is the desired layout for RTL languages
+}
+
+/**
+ * Gap Review Mode Warning Alert (Feature 14)
+ * Simple alert notification shown when user tries to select words in gap review mode
+ */
+.gap-mode-warning-alert {
+    position: fixed;
+    bottom: var(--spacing-5);
+    right: var(--spacing-4);
+    background-color: var(--color-bg-warning); // Dark grey (#253658)
+    color: var(--color-text-white);
+    padding: var(--spacing-3) var(--spacing-4);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+    z-index: var(--z-modal);
+    box-shadow: var(--shadow-md);
+    min-width: 300px;
+    max-width: 500px;
+
+    .gap-mode-warning-text {
+        flex: 1;
+        font-size: var(--font-size-14);
+        font-weight: var(--font-weight-regular);
+        line-height: 1.4;
+    }
+
+    .gap-mode-warning-close {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: var(--spacing-1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: opacity 0.2s ease;
+
+        &:hover {
+            opacity: 0.8;
+        }
+
+        &:active {
+            opacity: 0.6;
+        }
+
+        img {
+            width: 13.5x;
+            height: 13.5px;
+            filter: brightness(0) invert(1); // Make icon white
+        }
+    }
 }
