@@ -62,6 +62,9 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
   private isProgrammaticScroll = false; // Flag to distinguish programmatic scrolls from manual ones
   private programmaticScrollEndTime = 0; // Timestamp when programmatic scroll should end
 
+  // Track pending scroll timeouts to cancel them on manual scroll
+  private pendingScrollTimeouts: number[] = [];
+
   // RxJS Subject for debouncing auto-scroll resume
   private autoScrollResumeSubject = new Subject<void>();
   private destroy$ = new Subject<void>();
@@ -381,11 +384,16 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       if (isPlaying && playbackWordIndex !== null && !this.autoScrollPaused) {
         // Use setTimeout to ensure DOM is updated
         const timeoutId = window.setTimeout(() => {
-          this.scrollToActiveWord(playbackWordIndex);
-          // Remove from tracking array when completed
+          // Check again before scrolling - user might have scrolled manually in the meantime
+          if (!this.autoScrollPaused) {
+            this.scrollToActiveWord(playbackWordIndex);
+          }
+          // Remove from tracking arrays when completed
           this.activeTimeouts = this.activeTimeouts.filter(id => id !== timeoutId);
+          this.pendingScrollTimeouts = this.pendingScrollTimeouts.filter(id => id !== timeoutId);
         }, 0);
         this.activeTimeouts.push(timeoutId);
+        this.pendingScrollTimeouts.push(timeoutId);
       }
     });
 
@@ -474,6 +482,12 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     if (this.transcriptContentRef?.nativeElement) {
       this.transcriptContentRef.nativeElement.removeEventListener('scroll', this.onManualScrollBound);
     }
+
+    // Cancel any pending scroll timeouts
+    this.pendingScrollTimeouts.forEach(timeoutId => {
+      window.clearTimeout(timeoutId);
+    });
+    this.pendingScrollTimeouts = [];
 
     // Clean up window resize event listener
     if (this.windowResizeListener && typeof window !== 'undefined') {
@@ -840,6 +854,12 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     // Pause auto-scroll immediately
     this.autoScrollPaused = true;
 
+    // Cancel any pending scroll timeouts to prevent them from executing
+    this.pendingScrollTimeouts.forEach(timeoutId => {
+      window.clearTimeout(timeoutId);
+    });
+    this.pendingScrollTimeouts = [];
+
     // Cancel any ongoing programmatic scroll to prevent interference
     this.isProgrammaticScroll = false;
     this.programmaticScrollEndTime = 0;
@@ -886,8 +906,12 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     const chipRect = targetChip.getBoundingClientRect();
     const containerRect = scrollContainer.getBoundingClientRect();
 
+    // Check if we're on mobile (768px and below) - calculate once and reuse
+    const isMobile = window.innerWidth <= 768;
+
     // Check if chip is already visible (with some padding for better UX)
-    const padding = 50; // Padding in pixels
+    // Use smaller padding on mobile to prevent unnecessary scrolling
+    const padding = isMobile ? 30 : 50; // Smaller padding on mobile
     const isVisible = chipRect.top >= (containerRect.top + padding) &&
       chipRect.bottom <= (containerRect.bottom - padding);
 
@@ -913,25 +937,61 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
           return;
         }
 
-        // Calculate scroll position relative to the transcript-content container
-        // This ensures we only scroll the container, not the entire page
-        const chipOffsetTop = targetChip.offsetTop;
-        const containerScrollTop = scrollContainer.scrollTop;
-        const containerHeight = scrollContainer.clientHeight;
-        const chipHeight = targetChip.offsetHeight;
+        if (isMobile) {
+          // On mobile, use scrollIntoView which handles positioning more reliably
+          // Use 'nearest' to avoid large jumps, then fine-tune if needed
+          targetChip.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'nearest'
+          });
 
-        // Calculate target scroll position to center the chip in the container
-        const targetScrollTop = chipOffsetTop - (containerHeight / 2) + (chipHeight / 2);
+          // Fine-tune position after initial scroll to keep word visible in upper portion
+          const fineTuneTimeoutId = window.setTimeout(() => {
+            const finalChipRect = targetChip.getBoundingClientRect();
+            const finalContainerRect = scrollContainer.getBoundingClientRect();
+            const finalContainerHeight = finalContainerRect.height;
 
-        // Ensure we don't scroll beyond container bounds
-        const maxScrollTop = scrollContainer.scrollHeight - containerHeight;
-        const clampedScrollTop = Math.max(0, Math.min(targetScrollTop, maxScrollTop));
+            // Check if chip is in a good position (within top 40% of container)
+            const chipTopRelative = finalChipRect.top - finalContainerRect.top;
+            const desiredTopPosition = finalContainerHeight * 0.2; // 20% from top for better visibility
 
-        // Scroll only the transcript-content container, not the page
-        scrollContainer.scrollTo({
-          top: clampedScrollTop,
-          behavior: 'smooth'
-        });
+            // Only adjust if chip is outside the visible area or too low
+            if (chipTopRelative < 0 || chipTopRelative > finalContainerHeight * 0.5) {
+              const currentScrollTop = scrollContainer.scrollTop;
+              const adjustment = chipTopRelative - desiredTopPosition;
+              scrollContainer.scrollTo({
+                top: currentScrollTop + adjustment,
+                behavior: 'smooth'
+              });
+            }
+            this.activeTimeouts = this.activeTimeouts.filter(id => id !== fineTuneTimeoutId);
+          }, 150);
+          this.activeTimeouts.push(fineTuneTimeoutId);
+        } else {
+          // Desktop: Use precise calculation
+          const currentChipRect = targetChip.getBoundingClientRect();
+          const currentContainerRect = scrollContainer.getBoundingClientRect();
+          const containerHeight = scrollContainer.clientHeight;
+          const chipHeight = currentChipRect.height;
+
+          // Calculate the chip's position relative to the scroll container
+          const chipRelativeTop = currentChipRect.top - currentContainerRect.top + scrollContainer.scrollTop;
+
+          // Calculate target scroll position - center on desktop
+          const scrollOffset = containerHeight * 0.5;
+          const targetScrollTop = chipRelativeTop - scrollOffset + (chipHeight / 2);
+
+          // Ensure we don't scroll beyond container bounds
+          const maxScrollTop = scrollContainer.scrollHeight - containerHeight;
+          const clampedScrollTop = Math.max(0, Math.min(targetScrollTop, maxScrollTop));
+
+          // Scroll only the transcript-content container, not the page
+          scrollContainer.scrollTo({
+            top: clampedScrollTop,
+            behavior: 'smooth'
+          });
+        }
 
         // Remove RAF from tracking array when completed
         this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
