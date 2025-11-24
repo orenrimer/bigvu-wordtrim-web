@@ -74,6 +74,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
   private autoScrollPaused = false; // Whether auto-scroll is paused due to manual scroll
   private isProgrammaticScroll = false; // Flag to distinguish programmatic scrolls from manual ones
   private programmaticScrollEndTime = 0; // Timestamp when programmatic scroll should end
+  private scrollListenerAttached = false; // Track if scroll listener has been attached
 
   // Track pending scroll timeouts to cancel them on manual scroll
   private pendingScrollTimeouts: number[] = [];
@@ -285,14 +286,6 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     public tutorialService: TutorialService,
     private historyService: HistoryService
   ) {
-    // Setup scroll event listener after next render
-    // Use afterNextRender in constructor (injection context) to ensure DOM is ready
-    afterNextRender(() => {
-      // Check if element is available (will be set in ngAfterViewInit)
-      if (this.transcriptContentRef?.nativeElement) {
-        this.transcriptContentRef.nativeElement.addEventListener('scroll', this.onManualScrollBound, { passive: true });
-      }
-    });
     // Update words-container position when words are loaded AND auto-show tip modal
     // Combined effect to ensure proper sequencing: position calculation -> tip modal display
     effect(() => {
@@ -417,12 +410,24 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       this.autoScrollPaused = false;
     });
 
-    // Setup scroll event listener after next render
-    // Use afterNextRender in constructor (injection context) to ensure DOM is ready
-    afterNextRender(() => {
-      // Check if element is available (will be set in ngAfterViewInit)
-      if (this.transcriptContentRef?.nativeElement) {
-        this.transcriptContentRef.nativeElement.addEventListener('scroll', this.onManualScrollBound, { passive: true });
+    // Effect: Setup scroll listener when transcriptContent element becomes available
+    // This handles the case where the element is conditionally rendered (*ngIf)
+    effect(() => {
+      const isReady = this.isVideoDataReady();
+      if (isReady && !this.scrollListenerAttached) {
+        // Use requestAnimationFrame to ensure DOM is updated after Angular change detection
+        const rafId = requestAnimationFrame(() => {
+          if (this.transcriptContentRef?.nativeElement && !this.scrollListenerAttached) {
+            // Remove any existing listener first to avoid duplicates
+            this.transcriptContentRef.nativeElement.removeEventListener('scroll', this.onManualScrollBound);
+            // Add scroll listener
+            this.transcriptContentRef.nativeElement.addEventListener('scroll', this.onManualScrollBound, { passive: true });
+            this.scrollListenerAttached = true;
+          }
+          // Remove from tracking array when completed
+          this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
+        });
+        this.activeAnimationFrames.push(rafId);
       }
     });
   }
@@ -467,21 +472,19 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       window.addEventListener('resize', this.windowResizeListener);
     }
 
-    // Scroll listener is set up in constructor using afterNextRender
-    // If element wasn't ready then, try again here (should be available in ngAfterViewInit)
-    // Use requestAnimationFrame to ensure DOM is fully rendered
-    const rafId = requestAnimationFrame(() => {
-      if (this.transcriptContentRef?.nativeElement) {
-        // Check if listener wasn't already added
-        if (!this.transcriptContentRef.nativeElement.hasAttribute('data-scroll-listener-added')) {
+    // Fallback: Setup scroll listener if element is already available and listener not attached
+    // The effect in constructor should handle this, but this ensures it works even if timing is off
+    if (this.isVideoDataReady() && !this.scrollListenerAttached) {
+      const rafId = requestAnimationFrame(() => {
+        if (this.transcriptContentRef?.nativeElement && !this.scrollListenerAttached) {
+          this.transcriptContentRef.nativeElement.removeEventListener('scroll', this.onManualScrollBound);
           this.transcriptContentRef.nativeElement.addEventListener('scroll', this.onManualScrollBound, { passive: true });
-          this.transcriptContentRef.nativeElement.setAttribute('data-scroll-listener-added', 'true');
+          this.scrollListenerAttached = true;
         }
-      }
-      // Remove from tracking array when completed
-      this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
-    });
-    this.activeAnimationFrames.push(rafId);
+        this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
+      });
+      this.activeAnimationFrames.push(rafId);
+    }
   }
 
   // Bound scroll handler for cleanup
@@ -493,6 +496,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     // Clean up scroll event listener
     if (this.transcriptContentRef?.nativeElement) {
       this.transcriptContentRef.nativeElement.removeEventListener('scroll', this.onManualScrollBound);
+      this.scrollListenerAttached = false;
     }
 
     // Cancel any pending scroll timeouts
@@ -878,6 +882,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
 
     // Emit to Subject for debounced resume (5 seconds)
     // This will reset autoScrollPaused to false after 5 seconds of no manual scrolling
+    // Each manual scroll resets the 5-second timer (debounce behavior)
     this.autoScrollResumeSubject.next();
   }
 
