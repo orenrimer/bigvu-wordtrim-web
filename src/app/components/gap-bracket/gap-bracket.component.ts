@@ -11,7 +11,7 @@ import { Gap, GapState } from '../../models/gap.interface';
  * - Displays gap duration: (0.4s)
  * - One decimal digit precision
  * - Clickable to toggle gap state
- * - Three states: Active (Remove), Ignored (Keep), Selected (focused)
+ * - States: Active (Remove), Ignored (Keep/Disabled), Deleted
  */
 @Component({
     selector: 'app-gap-bracket',
@@ -32,7 +32,16 @@ export class GapBracketComponent {
      * @returns Formatted string like "0.4s"
      */
     get formattedDuration(): string {
-        return `${this.gap.duration.toFixed(1)}s`;
+        return `${this.gap.duration.toFixed(1)}`;
+    }
+
+    /**
+     * Get just the number part of the duration (without 's')
+     * Used for strikethrough styling in IGNORED state
+     * @returns Formatted string like "0.4"
+     */
+    get durationNumber(): string {
+        return this.gap.duration.toFixed(1);
     }
 
     /**
@@ -50,16 +59,22 @@ export class GapBracketComponent {
     }
 
     /**
-     * Check if gap is in Selected state (currently focused)
+     * Check if gap is in Deleted state
      */
-    get isSelected(): boolean {
-        return this.gap.state === GapState.SELECTED;
+    get isDeleted(): boolean {
+        return this.gap.state === GapState.DELETED;
     }
 
     /**
      * Handle gap bracket click event
+     * Process clicks on ACTIVE and IGNORED gaps (toggle between them)
+     * Don't process clicks on DELETED gaps
      */
     onClick(): void {
+        // Don't process clicks on DELETED gaps
+        if (this.isDeleted) {
+            return;
+        }
         this.gapClicked.emit(this.gap);
     }
 
@@ -67,9 +82,10 @@ export class GapBracketComponent {
      * Get ARIA label for accessibility
      */
     get ariaLabel(): string {
-        const stateText = this.isActive ? 'marked for removal' : 
-                         this.isIgnored ? 'will be preserved' : 
-                         'selected';
+        const stateText = this.isActive ? 'marked for removal' :
+            this.isIgnored ? 'will be preserved' :
+                this.isDeleted ? 'deleted' :
+                    'unknown';
         return `Gap ${this.formattedDuration}, ${stateText}. Click to toggle.`;
     }
 }

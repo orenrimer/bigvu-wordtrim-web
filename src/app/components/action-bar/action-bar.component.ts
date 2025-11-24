@@ -512,15 +512,15 @@ export class ActionBarComponent implements OnInit, OnDestroy {
     }
 
     /**
-     * Feature 14: Remove all gaps (mark all as ACTIVE)
+     * Feature 14: Remove all gaps (mark all as IGNORED - removed from removal list)
      */
     onRemoveAllGaps(): void {
-        // Mark all gaps as ACTIVE (for removal)
-        this.gapDetectionService.markAllGapsAsActive();
+        // Mark all gaps as DELETED
+        this.gapDetectionService.markAllGapsAsDeleted();
 
         // Announce action for screen readers
         const gapsCount = this.gapsWithStates().length;
-        this.actionAnnouncement.set(`Marked all ${gapsCount} ${gapsCount === 1 ? 'gap' : 'gaps'} for removal`);
+        this.actionAnnouncement.set(`Marked all ${gapsCount} ${gapsCount === 1 ? 'gap' : 'gaps'} as deleted`);
     }
 
     /**

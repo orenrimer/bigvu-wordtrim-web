@@ -55,13 +55,13 @@
 
     /**
      * Gap State: IGNORED (Keep)
-     * Gap will be preserved - same as unselected
+     * Gap will be preserved - same as unselected but with strikethrough on entire text
      */
     &[data-state="ignored"],
     &.ignored {
         background-color: var(--color-gap-unselected-bg);
         color: var(--color-primary);
-        border: 1px solid var(--color-border-primary);
+        border: 1px solid transparent; // Maintain same size as unselected state
 
         &:hover {
             background-color: var(--color-gap-unselected-bg);
@@ -70,18 +70,23 @@
     }
 
     /**
-     * Gap State: SELECTED (Focused)
-     * Currently selected gap
+     * Gap State: DELETED
+     * Gap has been deleted/removed
      */
-    &[data-state="selected"],
-    &.selected {
-        background-color: var(--color-secondary);
-        color: var(--color-primary);
+    &[data-state="deleted"],
+    &.deleted {
+        background-color: var(--color-gap-unselected-bg);
+        color: var(--color-gap-disabled-text);
         border: 1px solid transparent; // Maintain same size as unselected state
 
+        // Add strikethrough to the entire text content (including parentheses)
+        .gap-bracket-text {
+            text-decoration: line-through;
+        }
+
         &:hover {
-            background-color: var(--color-secondary);
-            filter: brightness(0.95);
+            background-color: var(--color-gap-unselected-bg);
+            filter: brightness(0.97);
         }
     }
 

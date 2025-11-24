@@ -11,7 +11,7 @@ import { Gap, GapState } from '../models/gap.interface';
  * - Detects gaps between visible words
  * - Configurable threshold (0.1s – 1.0s)
  * - Memoized gap detection for performance
- * - Gap state management (Active/Remove, Ignored/Keep, Selected)
+ * - Gap state management (Active/Remove, Ignored/Keep, Deleted)
  */
 @Injectable()
 export class GapDetectionService {
@@ -165,13 +165,13 @@ export class GapDetectionService {
     }
 
     /**
-     * Toggle gap state between ACTIVE (to be removed) and IGNORED (to be kept)
+     * Toggle gap state
      * Based on PRD Phase 2: Gap Visualization - Click behavior
      * 
      * Logic:
-     * - If gap is ACTIVE (marked for removal) → toggle to IGNORED (keep)
-     * - If gap is IGNORED (keep) → toggle to ACTIVE (marked for removal)
-     * - SELECTED state is used for visual focus/highlight only
+     * - If gap is ACTIVE (marked for removal) → toggle to IGNORED (disabled/removed)
+     * - If gap is IGNORED (disabled/removed) → toggle back to ACTIVE (marked for removal)
+     * - If gap is DELETED → do nothing (for now)
      * 
      * @param gapId ID of the gap to toggle
      */
@@ -179,15 +179,13 @@ export class GapDetectionService {
         const gapStates = new Map(this._gapStates());
         const currentState = gapStates.get(gapId) ?? GapState.ACTIVE; // Default to ACTIVE
 
-        // Toggle between ACTIVE (remove) and IGNORED (keep)
+        // Toggle between ACTIVE and IGNORED
         if (currentState === GapState.ACTIVE) {
             gapStates.set(gapId, GapState.IGNORED);
         } else if (currentState === GapState.IGNORED) {
             gapStates.set(gapId, GapState.ACTIVE);
-        } else {
-            // If SELECTED or unknown state, set to ACTIVE
-            gapStates.set(gapId, GapState.ACTIVE);
         }
+        // If DELETED, do nothing (for now)
 
         this._gapStates.set(gapStates);
     }
@@ -220,6 +218,36 @@ export class GapDetectionService {
 
         gaps.forEach(gap => {
             gapStates.set(gap.id, GapState.ACTIVE);
+        });
+
+        this._gapStates.set(gapStates);
+    }
+
+    /**
+     * Mark all gaps as IGNORED (remove all from removal list)
+     * Used by "Remove All" button in Gap Review Mode
+     */
+    public markAllGapsAsIgnored(): void {
+        const gaps = this.gaps();
+        const gapStates = new Map<number, GapState>();
+
+        gaps.forEach(gap => {
+            gapStates.set(gap.id, GapState.IGNORED);
+        });
+
+        this._gapStates.set(gapStates);
+    }
+
+    /**
+     * Mark all gaps as DELETED
+     * Used by "Remove All" button in Gap Review Mode
+     */
+    public markAllGapsAsDeleted(): void {
+        const gaps = this.gaps();
+        const gapStates = new Map<number, GapState>();
+
+        gaps.forEach(gap => {
+            gapStates.set(gap.id, GapState.DELETED);
         });
 
         this._gapStates.set(gapStates);
