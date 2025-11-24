@@ -1,4 +1,4 @@
-import { Component, inject, HostListener, ViewChild, ElementRef, AfterViewInit, OnDestroy, effect, signal, computed, afterNextRender, afterRender, runInInjectionContext, Injector } from '@angular/core';
+import { Component, inject, HostListener, ViewChild, ElementRef, AfterViewInit, OnDestroy, effect, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TutorialService } from '../../services/tutorial.service';
 import { HlsLoaderService } from '../../services/hls-loader.service';
@@ -28,7 +28,6 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
     // Inject services
     protected readonly tutorialService = inject(TutorialService);
     private hlsLoaderService = inject(HlsLoaderService);
-    private injector = inject(Injector);
 
     // Video element reference
     @ViewChild('tutorialVideo', { static: false }) videoElementRef!: ElementRef<HTMLVideoElement>;
@@ -47,6 +46,12 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
 
     // Track active timeouts for cleanup
     private activeTimeouts: number[] = [];
+
+    // Track active animation frames for cleanup
+    private activeAnimationFrames: number[] = [];
+
+    // Track video initialization timeout separately to prevent it from being cleared prematurely
+    private videoInitTimeoutId: number | null = null;
 
     // Track if position is ready (CSS custom properties are set)
     protected readonly isPositionReady = signal<boolean>(false);
@@ -68,28 +73,51 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
         effect(() => {
             const modalState = this.tutorialService.modalState();
             if (modalState === 'video') {
-                // Use runInInjectionContext to call afterRender from effect
-                // afterRender waits for render completion, ensuring ViewChild is available
-                runInInjectionContext(this.injector, () => {
-                    afterRender(() => {
-                        // ViewChild should be available after render completes
+                // Clear any existing video initialization timeout
+                if (this.videoInitTimeoutId !== null) {
+                    window.clearTimeout(this.videoInitTimeoutId);
+                    this.videoInitTimeoutId = null;
+                }
+
+                // Schedule initialization outside reactive context using setTimeout
+                // This ensures ViewChild is available after Angular's change detection completes
+                // Use a small delay to ensure the component is fully rendered
+                this.videoInitTimeoutId = window.setTimeout(() => {
+                    this.videoInitTimeoutId = null;
+                    // Use requestAnimationFrame to ensure DOM is ready
+                    const rafId = requestAnimationFrame(() => {
+                        // Remove from tracking when executed
+                        const index = this.activeAnimationFrames.indexOf(rafId);
+                        if (index > -1) {
+                            this.activeAnimationFrames.splice(index, 1);
+                        }
+
                         if (this.videoElementRef?.nativeElement) {
                             this.initializeVideo();
                         } else {
-                            // If still not available, use requestAnimationFrame as fallback
-                            // This ensures we wait for the browser's next paint cycle
-                            requestAnimationFrame(() => {
+                            // If still not available, retry with a longer delay
+                            const retryTimeoutId = window.setTimeout(() => {
                                 if (this.videoElementRef?.nativeElement) {
                                     this.initializeVideo();
                                 } else {
-                                    console.warn('Video element not available after render');
+                                    console.warn('Video element not available after retry, modal may not be rendered yet');
                                 }
-                            });
+                            }, 100);
+                            this.activeTimeouts.push(retryTimeoutId);
                         }
                     });
-                });
+                    this.activeAnimationFrames.push(rafId);
+                }, 10);
             } else {
                 // Clean up when modal is hidden or in tip mode
+                // Clear video initialization timeout specifically
+                if (this.videoInitTimeoutId !== null) {
+                    window.clearTimeout(this.videoInitTimeoutId);
+                    this.videoInitTimeoutId = null;
+                }
+                // Clear other timeouts and animation frames (tip-related)
+                this.clearAllTimeouts();
+                this.clearAllAnimationFrames();
                 this.destroyHls();
             }
         });
@@ -174,6 +202,14 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
                 }
             } else {
                 // Reset when not in tip mode
+                // Only clear tip-related timeouts and animation frames, not video initialization timeout
+                // Check if we're switching to video mode - if so, don't clear video timeout
+                const currentModalState = this.tutorialService.modalState();
+                if (currentModalState !== 'video') {
+                    // Only clear tip timeouts and animation frames if not switching to video mode
+                    this.clearAllTimeouts();
+                    this.clearAllAnimationFrames();
+                }
                 this.isPositionReady.set(false);
             }
         }, { allowSignalWrites: true });
@@ -218,8 +254,17 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
      */
     ngAfterViewInit(): void {
         // If modal is already in video mode when component initializes
-        if (this.tutorialService.modalState() === 'video' && this.videoElementRef) {
-            this.initializeVideo();
+        // Use a small delay to ensure ViewChild is fully available
+        if (this.tutorialService.modalState() === 'video') {
+            const timeoutId = window.setTimeout(() => {
+                if (this.videoElementRef?.nativeElement) {
+                    this.initializeVideo();
+                } else {
+                    // If still not available, the effect will handle it
+                    console.warn('Video element not available in ngAfterViewInit');
+                }
+            }, 10);
+            this.activeTimeouts.push(timeoutId);
         }
     }
 
@@ -233,6 +278,17 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
             return;
         }
 
+        // Ensure video element is in the DOM
+        if (!videoElement.isConnected) {
+            console.warn('Tutorial video element is not connected to DOM, retrying...');
+            // Retry after a short delay
+            const timeoutId = window.setTimeout(() => {
+                this.initializeVideo();
+            }, 100);
+            this.activeTimeouts.push(timeoutId);
+            return;
+        }
+
         // Validate video URL
         if (!this.tutorialVideoUrl || this.tutorialVideoUrl.trim() === '') {
             console.error('Tutorial video URL is not configured');
@@ -241,6 +297,11 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
 
         // Clean up existing HLS instance if any
         this.destroyHls();
+
+        // Ensure video element is in a clean state before initialization
+        // Remove any existing src attribute and reset video element
+        videoElement.removeAttribute('src');
+        videoElement.load();
 
         // Initialize HLS using HlsLoaderService
         this.hls = this.hlsLoaderService.initialize(
@@ -287,14 +348,16 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
                                 fatal: isFatal,
                                 url: 'url' in data ? data.url : undefined,
                                 message: 'message' in data ? data.message : undefined,
-                                error: 'error' in data ? data.error : undefined
+                                error: 'error' in data ? data.error : undefined,
+                                videoUrl: this.tutorialVideoUrl
                             });
                         } else {
                             // Log non-fatal but potentially interesting errors as warnings
                             console.warn('Tutorial video HLS warning:', {
                                 type: 'type' in data ? data.type : undefined,
                                 details: hasDetails ? detailsValue : undefined,
-                                message: 'message' in data ? data.message : undefined
+                                message: 'message' in data ? data.message : undefined,
+                                videoUrl: this.tutorialVideoUrl
                             });
                         }
                     }
@@ -302,6 +365,13 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
                 }
             }
         );
+
+        // Check if initialization failed
+        // Note: hls can be null if using native HLS (Safari), which is still valid
+        if (!this.hls && !this.hlsLoaderService.isNativeHlsSupported(videoElement)) {
+            console.error('Tutorial video: HLS is not supported in this browser');
+            return;
+        }
 
         // Attach additional event listeners for video element
         // (similar to VideoPlayerService for consistency)
@@ -355,7 +425,38 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
         // Error event - for debugging
         const onError = () => {
             const error = videoElement.error;
-            console.error('Tutorial video element error:', error);
+            if (error) {
+                let errorMessage = 'Unknown error';
+                switch (error.code) {
+                    case error.MEDIA_ERR_ABORTED:
+                        errorMessage = 'Video loading aborted';
+                        break;
+                    case error.MEDIA_ERR_NETWORK:
+                        errorMessage = 'Network error while loading video';
+                        break;
+                    case error.MEDIA_ERR_DECODE:
+                        errorMessage = 'Error decoding video';
+                        break;
+                    case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                        errorMessage = 'Video format not supported';
+                        break;
+                }
+                console.error('Tutorial video element error:', {
+                    code: error.code,
+                    message: errorMessage,
+                    videoUrl: this.tutorialVideoUrl,
+                    src: videoElement.src,
+                    networkState: videoElement.networkState,
+                    readyState: videoElement.readyState
+                });
+            } else {
+                console.error('Tutorial video element error (no error details available)', {
+                    videoUrl: this.tutorialVideoUrl,
+                    src: videoElement.src,
+                    networkState: videoElement.networkState,
+                    readyState: videoElement.readyState
+                });
+            }
         };
         videoElement.addEventListener('error', onError);
         cleanupFunctions.push(() => videoElement.removeEventListener('error', onError));
@@ -373,6 +474,26 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
             cleanupFunctions.forEach(cleanup => cleanup());
             delete elementWithCleanup._tutorialEventCleanup;
         };
+    }
+
+    /**
+     * Clear all active timeouts
+     */
+    private clearAllTimeouts(): void {
+        this.activeTimeouts.forEach(timeoutId => {
+            window.clearTimeout(timeoutId);
+        });
+        this.activeTimeouts = [];
+    }
+
+    /**
+     * Clear all active animation frames
+     */
+    private clearAllAnimationFrames(): void {
+        this.activeAnimationFrames.forEach(rafId => {
+            cancelAnimationFrame(rafId);
+        });
+        this.activeAnimationFrames = [];
     }
 
     /**
@@ -408,6 +529,19 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
      * Cleanup on component destroy
      */
     ngOnDestroy(): void {
+        // Clear video initialization timeout
+        if (this.videoInitTimeoutId !== null) {
+            window.clearTimeout(this.videoInitTimeoutId);
+            this.videoInitTimeoutId = null;
+        }
+
+        // Clear all active timeouts
+        this.clearAllTimeouts();
+
+        // Clear all active animation frames
+        this.clearAllAnimationFrames();
+
+        // Clean up HLS instance and event listeners
         this.destroyHls();
     }
 }
