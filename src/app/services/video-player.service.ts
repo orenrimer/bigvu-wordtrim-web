@@ -129,6 +129,9 @@ export class VideoPlayerService {
     private loadingTimeout: number | null = null;
     private readonly LOADING_TIMEOUT_MS = 30000; // 30 seconds timeout
 
+    // Track active timeouts for cleanup
+    private activeTimeouts: number[] = [];
+
     /**
      * Clear loading timeout
      */
@@ -930,7 +933,7 @@ export class VideoPlayerService {
 
             // Flag will be cleared by 'seeked' event listener (more accurate)
             // Fallback timeout in case seeked event doesn't fire (shouldn't happen, but safety net)
-            setTimeout(() => {
+            const timeoutId = window.setTimeout(() => {
                 if (this.isSeekingToSkip) {
                     // Seeked event didn't fire or wasn't accurate enough, clear manually
                     this.isSeekingToSkip = false;
@@ -938,6 +941,7 @@ export class VideoPlayerService {
                     this.lastSeekTime = null;
                 }
             }, 200);
+            this.activeTimeouts.push(timeoutId);
         }
     }
 
@@ -1173,12 +1177,13 @@ export class VideoPlayerService {
                         this.sequentialPreviewTimeUpdateListener = null;
                     }
                     // Small delay to ensure smooth transition
-                    setTimeout(() => {
+                    const timeoutId = window.setTimeout(() => {
                         // Check if video element still exists before continuing
                         if (this.videoElement) {
                             playNextSegment();
                         }
                     }, 50);
+                    this.activeTimeouts.push(timeoutId);
                 }
             };
 
@@ -1346,6 +1351,15 @@ export class VideoPlayerService {
             this.videoElement.removeEventListener('timeupdate', this.sequentialPreviewTimeUpdateListener);
             this.sequentialPreviewTimeUpdateListener = null;
         }
+
+        // Clear loading timeout
+        this.clearLoadingTimeout();
+
+        // Clean up all active timeouts
+        this.activeTimeouts.forEach(timeoutId => {
+            clearTimeout(timeoutId);
+        });
+        this.activeTimeouts = [];
 
         this.isSeekingToSkip = false;
 

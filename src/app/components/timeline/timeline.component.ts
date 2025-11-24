@@ -66,6 +66,13 @@ export class TimelineComponent implements OnInit, OnDestroy {
     private handleDragSubject = new Subject<void>();
     private destroy$ = new Subject<void>();
 
+    // ResizeObserver for tracking timeline container width changes
+    private resizeObserver: ResizeObserver | null = null;
+    private lastTimelineWidth = 0;
+
+    // Track active timeouts for cleanup
+    private activeTimeouts: number[] = [];
+
     constructor(
         timelineService: TimelineService,
         editorStateService: EditorStateService,
@@ -165,6 +172,13 @@ export class TimelineComponent implements OnInit, OnDestroy {
         ).subscribe(() => {
             this.updateSelectionFromHandles();
         });
+
+        // Set up ResizeObserver to recalculate thumbnails when timeline width changes
+        // Use setTimeout to ensure ViewChild is available
+        const timeoutId = window.setTimeout(() => {
+            this.setupResizeObserver();
+        }, 0);
+        this.activeTimeouts.push(timeoutId);
     }
 
     /**
@@ -194,6 +208,52 @@ export class TimelineComponent implements OnInit, OnDestroy {
     }
 
     /**
+     * Set up ResizeObserver to watch for timeline container width changes
+     * Recalculates thumbnail count when width changes
+     */
+    private setupResizeObserver(): void {
+        if (!this.timelineTrack?.nativeElement) {
+            return;
+        }
+
+        // Clean up existing observer if any
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+        }
+
+        // Create new ResizeObserver
+        this.resizeObserver = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                const newWidth = entry.contentRect.width;
+                // Only update if width actually changed (avoid unnecessary recalculations)
+                if (Math.abs(newWidth - this.lastTimelineWidth) > 1) {
+                    this.lastTimelineWidth = newWidth;
+                    this.updateFramesOnResize();
+                }
+            }
+        });
+
+        // Observe the timeline-track element
+        this.resizeObserver.observe(this.timelineTrack.nativeElement);
+        // Store initial width
+        this.lastTimelineWidth = this.timelineTrack.nativeElement.offsetWidth;
+    }
+
+    /**
+     * Update video frames when timeline width changes
+     * Reuses existing thumbnail selection logic
+     */
+    private updateFramesOnResize(): void {
+        const duration = this.videoPlayerService.duration();
+        const metadata = this.videoDataService.metadata();
+
+        if (duration > 0) {
+            const thumbnails = metadata?.thumbnails;
+            this.generateVideoFrames(duration, thumbnails);
+        }
+    }
+
+    /**
      * Generate video frame placeholders for timeline display
      * Creates gradient placeholders or uses thumbnails from video metadata
      * 
@@ -209,6 +269,8 @@ export class TimelineComponent implements OnInit, OnDestroy {
         // Try to get actual width from DOM element if available
         if (this.timelineTrack?.nativeElement) {
             timelineTrackWidth = this.timelineTrack.nativeElement.offsetWidth;
+            // Update last known width
+            this.lastTimelineWidth = timelineTrackWidth;
         }
 
         // Calculate number of frames: timeline-track width / frame width
@@ -260,6 +322,18 @@ export class TimelineComponent implements OnInit, OnDestroy {
         // Remove global mouse event listeners
         document.removeEventListener('mousemove', this.boundMouseMove);
         document.removeEventListener('mouseup', this.boundMouseUp);
+
+        // Clean up ResizeObserver
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+            this.resizeObserver = null;
+        }
+
+        // Clean up all active timeouts
+        this.activeTimeouts.forEach(timeoutId => {
+            clearTimeout(timeoutId);
+        });
+        this.activeTimeouts = [];
     }
 
     /**
@@ -472,9 +546,10 @@ export class TimelineComponent implements OnInit, OnDestroy {
                     this.timelineService.updateStartHandle(fineTunedStartTime);
 
                     // Clear flag after restoring position
-                    setTimeout(() => {
+                    const timeoutId = window.setTimeout(() => {
                         this.isRestoringHandlePosition = false;
                     }, 0);
+                    this.activeTimeouts.push(timeoutId);
                 }
             }
 
@@ -528,9 +603,10 @@ export class TimelineComponent implements OnInit, OnDestroy {
                     this.timelineService.updateEndHandle(fineTunedEndTime);
 
                     // Clear flag after restoring position
-                    setTimeout(() => {
+                    const timeoutId = window.setTimeout(() => {
                         this.isRestoringHandlePosition = false;
                     }, 0);
+                    this.activeTimeouts.push(timeoutId);
                 }
             }
 

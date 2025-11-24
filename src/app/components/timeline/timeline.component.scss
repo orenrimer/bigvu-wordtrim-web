@@ -5,9 +5,9 @@
 
 .timeline-container {
     position: relative;
-    width: 352px; // Fixed width for all screen sizes
-    max-width: 352px;
-    min-width: 352px;
+    width: 352px; // Default width for screens 1024px and up
+    max-width: 352px; // Maximum width constraint
+    min-width: 0; // Allow shrinking below 352px if container is smaller
     padding: var(--spacing-base, 8px) 0;
     padding-top: 32px; // Space for time indicator above timeline
     user-select: none;
@@ -17,6 +17,33 @@
     align-items: center; // Center timeline track horizontally
     justify-content: flex-start; // Align to top
     margin: 0 auto; // Center timeline horizontally
+}
+
+// For screens 1024px and up, maintain 352px width (but can shrink if container is smaller)
+@media (min-width: 1024px) {
+    .timeline-container {
+        width: 352px;
+        max-width: 352px;
+        min-width: 0; // Still allow shrinking if container is smaller
+    }
+}
+
+// For screens 769px-1023px, allow timeline to shrink but max-width is 352px
+@media (min-width: 769px) and (max-width: 1023px) {
+    .timeline-container {
+        width: 100%;
+        max-width: 352px;
+        min-width: 0;
+    }
+}
+
+// For screens 768px and below, maintain 352px width
+@media (max-width: 768px) {
+    .timeline-container {
+        width: 352px;
+        max-width: 352px;
+        min-width: 352px;
+    }
 }
 
 .timeline-track {

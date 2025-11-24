@@ -1,7 +1,8 @@
 <!-- Matching video_player.png design -->
 <div>
     <!-- Video Player -->
-    <div class="video-player-container" [style.aspect-ratio]="aspectRatioValue()" [style.height]="containerHeight()">
+    <div class="video-player-container" [style.aspect-ratio]="aspectRatioValue()"
+        [class.video-square]="aspectRatio() === '1:1'" [class.video-vertical]="aspectRatio() === '9:16'">
 
         <video #videoElement playsinline (click)="isEntireSegmentDeleted() ? null : onTogglePlayPause()"
             [style.cursor]="isEntireSegmentDeleted() ? 'not-allowed' : 'pointer'"

@@ -45,6 +45,9 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
     // Video playback state
     protected readonly isPlaying = signal<boolean>(false);
 
+    // Track active timeouts for cleanup
+    private activeTimeouts: number[] = [];
+
     // Track if position is ready (CSS custom properties are set)
     protected readonly isPositionReady = signal<boolean>(false);
 
@@ -133,7 +136,7 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
 
                     // After showing modal, verify position doesn't change due to layout shifts
                     // Check position again after a short delay to catch any layout shifts
-                    setTimeout(() => {
+                    const timeoutId1 = window.setTimeout(() => {
                         const newLeft = getComputedStyle(document.documentElement).getPropertyValue('--words-container-left').trim();
                         const newTop = getComputedStyle(document.documentElement).getPropertyValue('--words-container-top').trim();
 
@@ -142,6 +145,7 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
                             // This will be handled by the main component's effect
                         }
                     }, 200);
+                    this.activeTimeouts.push(timeoutId1);
 
                     return true;
                 };
@@ -157,11 +161,13 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
                         }
                         if (retryCount < maxRetries) {
                             retryCount++;
-                            setTimeout(retryCheck, 50);
+                            const timeoutId = window.setTimeout(retryCheck, 50);
+                            this.activeTimeouts.push(timeoutId);
                         }
                         // If max retries reached, don't show tip (no fallback)
                     };
-                    setTimeout(retryCheck, 50);
+                    const timeoutId2 = window.setTimeout(retryCheck, 50);
+                    this.activeTimeouts.push(timeoutId2);
                 } else {
                     // Position was already ready, set it immediately
                     this.isPositionReady.set(true);
@@ -243,7 +249,7 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
             {
                 onManifestParsed: () => {
                     // Video is ready to play - start playback automatically
-                    setTimeout(() => {
+                    const timeoutId = window.setTimeout(() => {
                         if (videoElement && !videoElement.paused) {
                             // Already playing (autoplay worked)
                         } else {
@@ -253,6 +259,7 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
                             });
                         }
                     }, 100);
+                    this.activeTimeouts.push(timeoutId);
                 },
                 onError: (event, data) => {
                     // Filter out non-fatal errors that HLS.js handles automatically

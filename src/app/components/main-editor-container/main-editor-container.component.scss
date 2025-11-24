@@ -72,7 +72,17 @@
         height: 100vh; // Full viewport height
         overflow: hidden;
 
-        // Left Column: Video Player + Timeline - FIXED/STICKY
+        // Left Column: Video Player + Timeline - Takes remaining width
+        &__video-container {
+            flex: 1; // Take remaining width after transcript
+            min-width: 0; // Allow flex item to shrink
+            display: flex;
+            align-items: center;
+            justify-content: center; // Center video player and timeline horizontally
+            background: var(--color-bg-secondary);
+            overflow: hidden; // Prevent overflow
+        }
+
         &__video {
             position: sticky;
             top: 0;
@@ -84,18 +94,51 @@
             overflow-y: auto;
             box-sizing: border-box;
             align-items: center; // Center video player and timeline horizontally
-            flex-shrink: 0; // Don't shrink - take only needed width
+            justify-content: flex-start; // Align to top
+            width: 100%; // Fill container width
+            max-width: 100%; // Don't exceed container
+            min-width: 0; // Allow flex item to shrink below content size
+
+            // Ensure children can shrink
+            ::ng-deep app-video-player,
+            ::ng-deep app-timeline {
+                width: 100%;
+                max-width: 100%;
+                min-width: 0;
+            }
+
+            // Allow video player container to shrink (but not for mobile)
+            // For mobile (768px and below), video-player-container maintains 352px width (set in video-player component)
+            // Note: video-square and video-vertical have their own width constraints
+            @media (min-width: 769px) {
+                ::ng-deep .video-player-container:not(.video-square):not(.video-vertical) {
+                    width: 100%;
+                    max-width: 100%;
+                    min-width: 0;
+                }
+            }
+
+            // Allow timeline container to shrink (only for screens 769px-1023px)
+            // For screens 1024px and up, timeline-container maintains 352px width (set in timeline component)
+            // For screens 768px and below, timeline-container maintains 352px width (set in timeline component)
+            @media (min-width: 769px) and (max-width: 1023px) {
+                ::ng-deep .timeline-container {
+                    width: 100%;
+                    max-width: 352px;
+                    min-width: 0;
+                }
+            }
+
+            // For screens 1024px and up, ensure timeline can shrink if container is smaller than 352px
+            @media (min-width: 1024px) {
+                ::ng-deep .timeline-container {
+                    max-width: 352px; // Maximum width is 352px
+                    min-width: 0; // Allow shrinking below 352px if needed
+                }
+            }
         }
 
-        &__video-container {
-            background: var(--color-bg-secondary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: auto; // Width determined by content (352px for video/timeline)
-        }
-
-        // Right Column: Transcript Area - Container (no scroll)
+        // Right Column: Transcript Area - Fixed width between breakpoints
         &__transcript {
             display: flex;
             flex-direction: column;
@@ -103,7 +146,8 @@
             padding: 0px;
             border-left: 1px solid var(--color-border-primary);
             overflow: hidden; // No scroll on container
-            flex: 1; // Take remaining space
+            flex-shrink: 0; // Don't shrink - maintain fixed width
+            flex-grow: 0; // Don't grow - maintain fixed width
             min-width: 0; // Allow flex item to shrink below content size
         }
     }
@@ -111,6 +155,10 @@
     // Responsive: Desktop Large (1920px+)
     @media (min-width: 1921px) {
         .editor-layout {
+            &__transcript {
+                width: 1200px; // Fixed width
+            }
+
             &__video {
                 align-items: flex-start; // Align to left on larger screens
             }
@@ -120,6 +168,10 @@
     // Responsive: Desktop Medium (1440px - 1920px)
     @media (min-width: 1441px) and (max-width: 1920px) {
         .editor-layout {
+            &__transcript {
+                width: 1008px; // Fixed width
+            }
+
             &__video {
                 align-items: flex-start; // Align to left on larger screens
             }
@@ -129,6 +181,10 @@
     // Responsive: Desktop Small (1280px - 1440px)
     @media (min-width: 1281px) and (max-width: 1440px) {
         .editor-layout {
+            &__transcript {
+                width: 848px; // Fixed width
+            }
+
             &__video {
                 display: flex;
                 flex-direction: column;
@@ -141,96 +197,37 @@
     // Responsive: Tablet (1024px - 1280px)
     @media (min-width: 1025px) and (max-width: 1280px) {
         .editor-layout {
+            &__transcript {
+                width: 608px; // Fixed width
+            }
+
             &__video {
                 display: flex;
                 flex-direction: column;
                 align-items: center; // Center video player horizontally
                 justify-content: flex-start; // Align to top
             }
-
-            &__transcript {
-                gap: var(--editor-content-gap);
-            }
         }
     }
 
-
-    // Scale down video player when video is horizontal (16:9) or square (1:1)
-    // Applied to screens smaller than 1440px (but not mobile)
-    // Don't scale vertical videos (9:16) as they're already narrow
-    @media (min-width: 769px) and (max-width: 1440px) {
+    // Responsive: Tablet Small (769px - 1024px)
+    @media (min-width: 769px) and (max-width: 1024px) {
         .editor-layout {
-
-            &__video.video-horizontal,
-            &__video.video-square {
-                // Scale down the entire video column (video player + timeline)
-                // This scales the preview while keeping transcript area at full width
-                transform-origin: center top;
-                padding: var(--editor-video-padding-sm);
-            }
-
-            // Ensure transcript area maintains full width (don't shrink)
             &__transcript {
-                min-width: 0; // Keep existing behavior
+                width: 500px; // Fixed width
             }
-        }
 
+            &__video {
 
-        @media (min-width: 1025px) and (max-width: 1280px) {
-            .editor-layout {
-
-                &__video.video-horizontal,
-                &__video.video-square {
-                    transform: scale(0.85);
-                    padding: var(--editor-video-padding-sm) 0;
-
-                    // Counter-scale timeline time indicator to keep it at original size
-                    // Use ::ng-deep to penetrate timeline component's view encapsulation
-                    ::ng-deep .timeline-time-indicator {
-                        transform: scale(1.176) !important; // 1 / 0.85 ≈ 1.176
-                        transform-origin: top left;
-                    }
-                }
-            }
-        }
-
-        @media (min-width: 769px) and (max-width: 1024px) {
-            .editor-layout {
-                &__video {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center; // Center video player horizontally
-                    justify-content: flex-start; // Align to top
-                    padding: var(--editor-video-padding-sm);
-                }
-
-                &__video.video-horizontal,
-                &__video.video-square {
-                    transform: scale(0.85);
-                    padding: var(--editor-video-padding-sm) 0;
-
-                    // Counter-scale timeline time indicator to keep it at original size
-                    // Use ::ng-deep to penetrate timeline component's view encapsulation
-                    ::ng-deep .timeline-time-indicator {
-                        transform: scale(1.176) !important; // 1 / 0.85 ≈ 1.176
-                        transform-origin: top left;
-                    }
-                }
-
-                &__video.video-horizontal {
-                    transform: scale(0.80);
-                    padding: var(--editor-video-padding-sm) 0;
-
-                    // Counter-scale timeline time indicator to keep it at original size
-                    // Use ::ng-deep to penetrate timeline component's view encapsulation
-                    ::ng-deep .timeline-time-indicator {
-                        transform: scale(1.25) !important; // 1 / 0.80 = 1.25
-                        transform-origin: top left;
-                    }
+                // Specific padding for horizontal and square videos
+                &.video-horizontal,
+                &.video-square {
+                    padding: var(--spacing-8);
                 }
             }
         }
     }
+
 
     // Responsive: Stack on smaller screens (Mobile) - Vertical Layout
     @media (max-width: 768px) {
