@@ -54,6 +54,7 @@
         <div class="gap-review-mode-layout">
             <!-- Left: Gap Count Info -->
             <div class="gap-review-mode-layout__left">
+                @if (!isSettingsModalOpen()) {
                 <div class="gap-review-mode-info">
                     <div class="gap-info-item">
                         <span class="gap-info-number">{{ activeGapsCount() }}</span>
@@ -75,8 +76,34 @@
                         <img src="assets/icons/Settings.svg" alt="" class="button-icon" />
                         <span class="button-label">Settings</span>
                     </button>
-
                 </div>
+                }
+
+                <!-- Gap Settings Content (Feature 14) - Inline -->
+                @if (isSettingsModalOpen()) {
+                <div class="gap-settings-content" role="dialog" aria-modal="true" aria-label="Set Minimal Gap Time">
+                    <!-- Label -->
+                    <div class="gap-settings-label">Set Minimal Gap Time to</div>
+
+                    <!-- Input Control -->
+                    <div class="gap-settings-input-control">
+                        <!-- Decrement Button -->
+                        <button class="gap-settings-button gap-settings-decrement" (click)="onDecrementThreshold()"
+                            aria-label="Decrease threshold" [disabled]="tempThreshold() <= 0.1">
+                            <span class="gap-settings-button-icon">−</span>
+                        </button>
+
+                        <!-- Value Display -->
+                        <div class="gap-settings-value">{{ formatThreshold(tempThreshold()) }}</div>
+
+                        <!-- Increment Button -->
+                        <button class="gap-settings-button gap-settings-increment" (click)="onIncrementThreshold()"
+                            aria-label="Increase threshold" [disabled]="tempThreshold() >= 1.0">
+                            <span class="gap-settings-button-icon">+</span>
+                        </button>
+                    </div>
+                </div>
+                }
             </div>
 
             <!-- Right: Action Buttons and Icons -->

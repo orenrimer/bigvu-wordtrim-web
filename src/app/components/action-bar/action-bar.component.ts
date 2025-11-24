@@ -72,6 +72,14 @@ export class ActionBarComponent implements OnInit, OnDestroy {
     protected readonly gapThreshold = this.gapDetectionService.threshold;
     protected readonly activeGapsCount = this.gapDetectionService.activeGapsCount;
 
+    // Feature 14: Gap settings modal state
+    protected readonly _isSettingsModalOpen = signal<boolean>(false);
+    protected readonly isSettingsModalOpen = this._isSettingsModalOpen.asReadonly();
+
+    // Feature 14: Temporary threshold value for settings modal (before applying)
+    protected readonly _tempThreshold = signal<number>(this.gapDetectionService.threshold());
+    protected readonly tempThreshold = this._tempThreshold.asReadonly();
+
     // Computed signals for button states based on selection
 
     /**
@@ -517,14 +525,61 @@ export class ActionBarComponent implements OnInit, OnDestroy {
 
     /**
      * Feature 14: Open gap settings (threshold slider)
-     * This could open a settings modal or show threshold slider
-     * For now, we'll show threshold slider inline or could be a modal
+     * Opens modal with threshold slider
      */
     onGapSettings(): void {
-        // TODO: Could open settings modal with threshold slider
-        // For now, threshold slider is always visible in the layout
-        // This method can be used to toggle visibility or open modal
-        this.actionAnnouncement.set('Gap settings');
+        // Initialize temp threshold with current threshold
+        this._tempThreshold.set(this.gapDetectionService.threshold());
+        this._isSettingsModalOpen.set(true);
+        this.actionAnnouncement.set('Gap settings opened');
+    }
+
+    /**
+     * Feature 14: Close gap settings modal
+     */
+    onCloseSettingsModal(): void {
+        this._isSettingsModalOpen.set(false);
+        // Reset temp threshold to current threshold
+        this._tempThreshold.set(this.gapDetectionService.threshold());
+    }
+
+    /**
+     * Feature 14: Decrement threshold in settings modal
+     */
+    onDecrementThreshold(): void {
+        const current = this._tempThreshold();
+        const min = 0.1;
+        const step = 0.01;
+        const newValue = Math.max(min, current - step);
+        this._tempThreshold.set(Math.round(newValue * 100) / 100); // Round to 2 decimals
+    }
+
+    /**
+     * Feature 14: Increment threshold in settings modal
+     */
+    onIncrementThreshold(): void {
+        const current = this._tempThreshold();
+        const max = 1.0;
+        const step = 0.01;
+        const newValue = Math.min(max, current + step);
+        this._tempThreshold.set(Math.round(newValue * 100) / 100); // Round to 2 decimals
+    }
+
+    /**
+     * Feature 14: Confirm threshold change
+     */
+    onConfirmThreshold(): void {
+        const newThreshold = this._tempThreshold();
+        this.onThresholdChange(newThreshold);
+        this._isSettingsModalOpen.set(false);
+        this.actionAnnouncement.set(`Gap threshold set to ${newThreshold.toFixed(2)}s`);
+    }
+
+    /**
+     * Feature 14: Format threshold value for display (with comma as decimal separator)
+     */
+    formatThreshold(value: number): string {
+        return value.toFixed(2).replace('.', ',') + 's';
     }
 
     /**
