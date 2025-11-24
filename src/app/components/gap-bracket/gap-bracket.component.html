@@ -1,0 +1,12 @@
+<div class="gap-bracket" 
+     [attr.data-state]="gap.state"
+     [class.active]="isActive"
+     [class.ignored]="isIgnored"
+     [class.selected]="isSelected"
+     [attr.aria-label]="ariaLabel"
+     [attr.role]="'button'"
+     [attr.aria-pressed]="isActive"
+     (click)="onClick()">
+    <span class="gap-bracket-text">({{ formattedDuration }})</span>
+</div>
+

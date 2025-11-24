@@ -12,13 +12,16 @@ import { VideoDataService } from '../../services/video-data.service';
 import { HlsLoaderService } from '../../services/hls-loader.service';
 import { OutputGeneratorService } from '../../services/output-generator.service';
 import { TimestampService } from '../../services/timestamp.service';
+import { GapDetectionService } from '../../services/gap-detection.service';
 import { SkeletonLoaderComponent } from '../skeleton-loader/skeleton-loader.component';
 import { WordChipComponent } from '../word-chip/word-chip.component';
+import { GapBracketComponent } from '../gap-bracket/gap-bracket.component';
 import { ActionBarComponent } from '../action-bar/action-bar.component';
 import { VideoPlayerComponent } from '../video-player/video-player.component';
 import { TimelineComponent } from '../timeline/timeline.component';
 import { TutorialModalComponent } from '../tutorial-modal/tutorial-modal.component';
 import { Word, WordState, EditorStateSnapshot } from '../../models';
+import { Gap } from '../../models/gap.interface';
 
 /**
  * Main Editor Container Component
@@ -36,7 +39,7 @@ import { Word, WordState, EditorStateSnapshot } from '../../models';
 @Component({
   selector: 'app-main-editor-container',
   standalone: true,
-  imports: [CommonModule, SkeletonLoaderComponent, WordChipComponent, ActionBarComponent, VideoPlayerComponent, TimelineComponent, TutorialModalComponent],
+  imports: [CommonModule, SkeletonLoaderComponent, WordChipComponent, GapBracketComponent, ActionBarComponent, VideoPlayerComponent, TimelineComponent, TutorialModalComponent],
   providers: [
     EditorStateService,
     VideoPlayerService,
@@ -46,7 +49,8 @@ import { Word, WordState, EditorStateSnapshot } from '../../models';
     VideoDataService,
     HlsLoaderService,
     OutputGeneratorService,
-    SegmentationLoaderService
+    SegmentationLoaderService,
+    GapDetectionService
   ],
   templateUrl: './main-editor-container.component.html',
   styleUrl: './main-editor-container.component.scss'
@@ -186,6 +190,55 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     return [introChip, ...allWords, outroChip];
   });
 
+  // Feature 14: Computed signal for gaps with states (for display)
+  gapsWithStates = computed(() => {
+    if (!this.isGapReviewMode()) {
+      return [];
+    }
+    return this.gapDetectionService.gapsWithStates();
+  });
+
+  // Feature 14: Computed signal for words with gaps interleaved (for Gap Review Mode)
+  wordsWithGaps = computed((): Array<{ type: 'word'; word: Word } | { type: 'gap'; gap: Gap }> => {
+    const words = this.wordsWithIntroOutro();
+    const isGapReview = this.isGapReviewMode();
+
+    // If not in gap review mode, return words as-is
+    if (!isGapReview) {
+      return words.map(word => ({ type: 'word' as const, word }));
+    }
+
+    // Get gaps with states
+    const gaps = this.gapsWithStates();
+    if (gaps.length === 0) {
+      return words.map(word => ({ type: 'word' as const, word }));
+    }
+
+    // Create a map of gap by beforeWordIndex for quick lookup
+    const gapMap = new Map<number, Gap>();
+    gaps.forEach(gap => {
+      gapMap.set(gap.beforeWordIndex, gap);
+    });
+
+    // Interleave words and gaps
+    const items: Array<{ type: 'word'; word: Word } | { type: 'gap'; gap: Gap }> = [];
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+
+      // Add word
+      items.push({ type: 'word', word });
+
+      // Check if there's a gap after this word (before next word)
+      // Skip gaps for intro/outro chips (index -1, -2)
+      if (word.index >= 0 && gapMap.has(word.index)) {
+        const gap = gapMap.get(word.index)!;
+        items.push({ type: 'gap', gap });
+      }
+    }
+
+    return items;
+  });
+
   // Computed signals for template conditionals
   isLoadingVideoData = computed(() => this.videoDataLoadingState() === 'loading');
   hasVideoDataError = computed(() => this.videoDataLoadingState() === 'error');
@@ -235,6 +288,10 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     return error || 'Failed to load video';
   });
 
+  // Feature 14: Gap Review Mode state
+  private readonly _isGapReviewMode = signal<boolean>(false);
+  public readonly isGapReviewMode = this._isGapReviewMode.asReadonly();
+
   constructor(
     private videoDataService: VideoDataService,
     private segmentationService: SegmentationLoaderService,
@@ -243,7 +300,8 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     public timelineService: TimelineService,
     public tutorialService: TutorialService,
     private historyService: HistoryService,
-    private timestampService: TimestampService
+    private timestampService: TimestampService,
+    private gapDetectionService: GapDetectionService
   ) {
     // Update words-container position when words are loaded AND auto-show tip modal
     // Combined effect to ensure proper sequencing: position calculation -> tip modal display
@@ -316,6 +374,17 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
         this.activeAnimationFrames.push(rafId);
       } else {
         this.timestampService.clear();
+      }
+    }, { allowSignalWrites: true });
+
+    // Feature 14: Effect: Update gap detection service when words change
+    effect(() => {
+      const words = this.words();
+      const loadingState = this.loadingState();
+
+      if (words.length > 0 && loadingState === 'success') {
+        // Update gap detection service with current words
+        this.gapDetectionService.updateWords(words);
       }
     }, { allowSignalWrites: true });
 
@@ -597,6 +666,9 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
 
         this.editorState.initializeWords(loadedWords);
 
+        // Feature 14: Initialize gap detection service with words
+        this.gapDetectionService.initializeWords(loadedWords);
+
         // STEP 1: Save initial empty state (after words are loaded)
         // This state is stored separately and will be pushed to undo stack when first action occurs
         const initialSnapshot = this.editorState.captureState(
@@ -635,10 +707,43 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
   }
 
   /**
-   * Handle click on words-container during preview mode (Feature 13.11)
-   * Shows tip modal when clicking on words-container in preview mode
+   * Feature 14: Enter Gap Review Mode
+   */
+  enterGapReviewMode(): void {
+    this._isGapReviewMode.set(true);
+    // Mark all gaps ≥ threshold as ACTIVE (initial state)
+    this.gapDetectionService.markAllGapsAsActive();
+  }
+
+  /**
+   * Feature 14: Exit Gap Review Mode
+   */
+  exitGapReviewMode(): void {
+    this._isGapReviewMode.set(false);
+    // Reset gap states when exiting
+    this.gapDetectionService.resetGapStates();
+  }
+
+  /**
+   * Feature 14: Handle gap bracket click
+   */
+  onGapClick(gap: Gap): void {
+    // Toggle gap state
+    this.gapDetectionService.toggleGapState(gap.id);
+  }
+
+  /**
+   * Handle click on words-container during preview mode and gap review mode
+   * Feature 13.11: Shows tip modal when clicking on words-container in preview mode
+   * Feature 14.30: Prevents word selection during gap review mode
    */
   onWordsContainerClick(event: MouseEvent): void {
+    // Feature 14.30: Make word-chips-container unclickable during Gap Review Mode
+    if (this.isGapReviewMode()) {
+      // Prevent word clicks during gap review mode
+      event.stopPropagation();
+      return;
+    }
     // Only show tip modal if in preview mode and click is not on a word chip
     if (this.isPreviewMode()) {
       // Check if click target is the container itself (not a word chip)
@@ -741,6 +846,11 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
         'Before editing your video, you must confirm or discard the new start and end positions'
       );
       return; // Don't process word selection during preview mode
+    }
+
+    // Feature 14.30: Don't allow word selection during gap review mode
+    if (this.isGapReviewMode()) {
+      return; // Don't process word selection during gap review mode
     }
 
     // Notify tutorial service of word click (dismisses tip on first click)

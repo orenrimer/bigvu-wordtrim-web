@@ -1,0 +1,89 @@
+/**
+ * Gap Bracket Component Styles
+ * Based on DESIGN_GUIDE.md specifications
+ * Uses CSS variables from styles.scss
+ */
+
+.gap-bracket {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--word-chip-padding-y) var(--word-chip-padding-x);
+    margin: 0 calc(var(--word-chip-gap) / 2);
+    border-radius: var(--radius-word-chip);
+    font-size: var(--font-size-24);
+    font-weight: var(--font-weight-regular);
+    font-family: var(--font-family);
+    cursor: pointer;
+    user-select: none;
+    transition: all var(--transition-hover);
+    line-height: 140%;
+
+    // Ensure proper focus outline for accessibility
+    &:focus-visible {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 2px;
+    }
+
+    // Hover effect
+    &:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-sm);
+    }
+
+    // Active/press effect
+    &:active {
+        transform: scale(0.98);
+    }
+
+    /**
+     * Gap State: ACTIVE (Remove)
+     * Gap marked for removal - use danger/primary color
+     */
+    &[data-state="active"],
+    &.active {
+        background-color: var(--color-primary);
+        color: var(--color-text-white);
+
+        &:hover {
+            background-color: var(--color-primary);
+            filter: brightness(0.9);
+        }
+    }
+
+    /**
+     * Gap State: IGNORED (Keep)
+     * Gap will be preserved - use secondary/muted color
+     */
+    &[data-state="ignored"],
+    &.ignored {
+        background-color: var(--color-gray-100);
+        color: var(--color-text-secondary);
+
+        &:hover {
+            background-color: var(--color-gray-100);
+            filter: brightness(0.97);
+        }
+    }
+
+    /**
+     * Gap State: SELECTED (Focused)
+     * Currently focused gap - use highlight color
+     */
+    &[data-state="selected"],
+    &.selected {
+        background-color: var(--color-secondary);
+        color: var(--color-primary);
+        box-shadow: 0 0 0 2px var(--color-primary);
+
+        &:hover {
+            background-color: var(--color-secondary);
+            filter: brightness(0.95);
+        }
+    }
+
+    .gap-bracket-text {
+        white-space: nowrap;
+    }
+}
+

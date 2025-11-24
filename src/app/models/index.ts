@@ -8,4 +8,5 @@ export * from './segment.interface';
 export * from './word-state.enum';
 export * from './state-snapshot.interface';
 export * from './video-player-state.interface';
+export * from './gap.interface';
 

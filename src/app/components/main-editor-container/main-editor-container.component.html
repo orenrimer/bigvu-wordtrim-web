@@ -92,12 +92,29 @@
                         </span>
                     </div>
                     <div #wordsContainer class="words-container" [class.preview-mode-disabled]="isPreviewMode()"
-                        [attr.dir]="isRTL() ? 'rtl' : 'ltr'" role="group" aria-label="Word selection"
+                        [class.gap-review-mode]="isGapReviewMode()" [attr.dir]="isRTL() ? 'rtl' : 'ltr'" role="group"
+                        [attr.aria-label]="isGapReviewMode() ? 'Word selection and gap review' : 'Word selection'"
                         (click)="onWordsContainerClick($event)">
-                        <app-word-chip *ngFor="let word of wordsWithIntroOutro()" [word]="word"
-                            [currentPlaybackWordIndex]="currentPlaybackWordIndex()" (wordClicked)="onWordClick($event)"
-                            (arrowKeyPressed)="onArrowKeyPressed(word, $event)">
-                        </app-word-chip>
+                        <!-- Feature 14: Show words with gaps interleaved in Gap Review Mode -->
+                        <ng-container *ngIf="isGapReviewMode()">
+                            <ng-container *ngFor="let item of wordsWithGaps()">
+                                <app-word-chip *ngIf="item.type === 'word'" [word]="item.word"
+                                    [currentPlaybackWordIndex]="currentPlaybackWordIndex()"
+                                    (wordClicked)="onWordClick($event)"
+                                    (arrowKeyPressed)="onArrowKeyPressed(item.word, $event)">
+                                </app-word-chip>
+                                <app-gap-bracket *ngIf="item.type === 'gap'" [gap]="item.gap"
+                                    (gapClicked)="onGapClick($event)">
+                                </app-gap-bracket>
+                            </ng-container>
+                        </ng-container>
+                        <!-- Regular mode: show words only -->
+                        <ng-container *ngIf="!isGapReviewMode()">
+                            <app-word-chip *ngFor="let word of wordsWithIntroOutro()" [word]="word"
+                                [currentPlaybackWordIndex]="currentPlaybackWordIndex()"
+                                (wordClicked)="onWordClick($event)" (arrowKeyPressed)="onArrowKeyPressed(word, $event)">
+                            </app-word-chip>
+                        </ng-container>
                     </div>
                 </div>
             </div>

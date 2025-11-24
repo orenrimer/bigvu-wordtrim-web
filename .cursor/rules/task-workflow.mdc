@@ -40,10 +40,14 @@ actions:
          - After each subtask, **STOP**, show the diff/created files and a short verification checklist (UI state, tokens used, accessibility).
          - Wait for user feedback before continuing.
 
-      4) Code Standards (Angular)
+      4) Code Standards (Angular + TS)
          - Angular 17 **standalone components** (no NgModules).
          - Prefer **Signals** for local UI state; use **RxJS** for async streams (HTTP, player events, debounced drag).
          - Keep components **presentational** when possible; shared logic in services (e.g., `EditorStore`, `SegmentationLoaderService`).
+         - DO NOT use “any” as a type.
+         - Make sure you clean any event listener on destroy, same for timeouts with clearTimeout.
+         - Use providedIn: 'root' only for services that must be global and persist for the full app lifetime (theme, global     settings, shared stores, static utilities).
+         - Avoid providedIn: 'root' for services that manage component-specific state, DOM interaction, timers, event listeners, or cleanup-sensitive lifecycles.         
          - SCSS per component; **never hard-code design values** — use CSS variables from `styles.scss` (`:root`) that came from `DESIGN_GUIDE.md`.
          - Accessibility: keyboard focus, `aria-*`, `:focus-visible`, and roles where appropriate.
          - i18n/RTL awareness when relevant to layout.

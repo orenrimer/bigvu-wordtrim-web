@@ -1,39 +1,47 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, Optional } from '@angular/core';
 import { EditorStateService } from './editor-state.service';
 import { VideoPlayerService } from './video-player.service';
+import { GapDetectionService } from './gap-detection.service';
 import { OutputSegment } from '../models';
+import { Word, WordState } from '../models';
 
 /**
  * Output Generator Service
  * Generates output format for saved video segments
- * Based on PRD Section 9: Save & Output
+ * Based on PRD Section 9: Save & Output + Phase 2: Gap Removal
  * 
  * Features:
  * - Collects non-deleted segments
  * - Uses fine-tuned handle positions from deleted segments (already stored when segments were deleted)
+ * - Phase 2: Gap removal - splits output into multiple segments based on removed gaps
+ * - Strict start/end timing (no padding): start = firstWord.start, end = lastWord.end
  * - Sorts chronologically
- * - Validates output (no gaps, proper ordering)
+ * - Validates output (proper ordering, non-overlapping, duration > 0)
  * - Handles empty output error
  */
 @Injectable()
 export class OutputGeneratorService {
     private readonly editorState = inject(EditorStateService);
     private readonly videoPlayerService = inject(VideoPlayerService);
+    private readonly gapDetectionService = inject(GapDetectionService, { optional: true });
 
     /**
      * Generate output array of segments to keep
-     * Based on PRD Section 9: Save & Output
+     * Based on PRD Section 9: Save & Output + Phase 2: Gap Removal
      * 
      * Format: [{start: number, end: number}, ...]
      * Rules:
      * - Include only non-deleted segments
      * - Use fine-tuned handle positions from deleted segments (already stored when segments were deleted)
+     * - Phase 2: If gap removal is active, splits output into multiple segments based on removed gaps
+     * - Strict timing: start = firstWord.start, end = lastWord.end (no padding)
      * - Sorted chronologically
-     * - No gaps
+     * - Non-overlapping, duration > 0
      * 
+     * @param useGapRemoval Whether to apply gap removal (Phase 2 feature)
      * @returns Array of output segments or null if empty (all words deleted)
      */
-    public generateOutput(): OutputSegment[] | null {
+    public generateOutput(useGapRemoval: boolean = false): OutputSegment[] | null {
         // Step 1: Get video duration
         const videoDuration = this.videoPlayerService.duration();
         if (!videoDuration || videoDuration <= 0) {
@@ -48,14 +56,20 @@ export class OutputGeneratorService {
             return null; // All words deleted - invalid state
         }
 
-        // Step 4: Create initial segment from 0 to video duration
+        // Step 4: Apply gap removal if enabled (Phase 2)
+        if (useGapRemoval && this.gapDetectionService) {
+            const segments = this.gapDetectionService.generateSegmentsAfterGapRemoval(nonDeletedWords);
+            return segments; // Already in correct format: [{ start: X, end: Y }]
+        }
+
+        // Step 5: Create initial segment from 0 to video duration
         // This includes intro (before first word) and outro (after last word)
         let segments: OutputSegment[] = [{
             start: 0,
             end: videoDuration
         }];
 
-        // Step 5: Apply fine-tuned deleted segment cuts
+        // Step 6: Apply fine-tuned deleted segment cuts
         // According to PRD: "Use the fine-tuned times from timeline handles (not just word boundaries)"
         // When segments were deleted, we saved the fine-tuned handle times
         // Now we need to cut the remaining segments at those exact positions
@@ -66,10 +80,10 @@ export class OutputGeneratorService {
         // So after cutting, the remaining segments are already correct - no need for additional fine-tuning
         segments = this.cutSegmentsAtDeletedBoundaries(segments, deletedSegments);
 
-        // Step 6: Sort chronologically by start time
+        // Step 7: Sort chronologically by start time
         const sortedSegments = this.sortChronologically(segments);
 
-        // Step 7: Validate output (proper ordering, valid ranges)
+        // Step 8: Validate output (proper ordering, valid ranges)
         this.validateOutput(sortedSegments);
         return sortedSegments;
     }
@@ -144,6 +158,7 @@ export class OutputGeneratorService {
     private sortChronologically(segments: OutputSegment[]): OutputSegment[] {
         return [...segments].sort((a, b) => a.start - b.start);
     }
+
 
     /**
      * Validate output segments

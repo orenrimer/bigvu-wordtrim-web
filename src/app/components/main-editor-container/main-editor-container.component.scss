@@ -505,6 +505,18 @@
         cursor: pointer; // Show pointer cursor to indicate clickability
     }
 
+    // Feature 14.30: Disable word chips container during gap review mode
+    .words-container.gap-review-mode {
+        // Prevent word selection during gap review mode
+        // Word chips are unclickable, only gap brackets are clickable
+        pointer-events: none;
+
+        // Re-enable pointer events for gap brackets
+        app-gap-bracket {
+            pointer-events: auto;
+        }
+    }
+
     // Responsive: Adjust words container for smaller screens
     @media (max-width: 1024px) {
         .words-container {

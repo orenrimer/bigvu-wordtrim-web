@@ -49,8 +49,55 @@
         </div>
         }
 
+        <!-- Gap Review Mode Layout (Feature 14) -->
+        @if (isGapReviewModeActive()) {
+        <div class="gap-review-mode-layout">
+            <!-- Left: Gap Count Info -->
+            <div class="gap-review-mode-layout__left">
+                <div class="gap-review-mode-info">
+                    <div class="gap-info-item">
+                        <span class="gap-info-number">{{ activeGapsCount() }}</span>
+                        <span class="gap-info-label">silence gaps</span>
+                    </div>
+                </div>
+
+                <div class="gap-review-mode-layout__left-actions">
+                    <!-- Remove All Button -->
+                    <button class="gap-review-mode-button remove-all-button" (click)="onRemoveAllGaps()"
+                        aria-label="Remove all gaps">
+                        <img src="assets/icons/remove.svg" alt="" class="button-icon" />
+                        <span class="button-label">Remove All</span>
+                    </button>
+
+                    <!-- Settings Button -->
+                    <button class="gap-review-mode-button settings-button" (click)="onGapSettings()"
+                        aria-label="Gap settings">
+                        <img src="assets/icons/Settings.svg" alt="" class="button-icon" />
+                        <span class="button-label">Settings</span>
+                    </button>
+
+                </div>
+            </div>
+
+            <!-- Right: Action Buttons and Icons -->
+            <div class="gap-review-mode-layout__right">
+                <!-- Cancel Icon -->
+                <button class="gap-review-mode-icon-button reject-button" (click)="onCancelGapRemoval()"
+                    aria-label="Cancel gap removal">
+                    <img src="assets/icons/fix_start_reject.svg" alt="" class="icon-button-icon" />
+                </button>
+
+                <!-- Apply Icon -->
+                <button class="gap-review-mode-icon-button confirm-button" (click)="onApplyGapRemoval()"
+                    aria-label="Apply gap removal">
+                    <img src="assets/icons/fix_start_check_mark.svg" alt="" class="icon-button-icon" />
+                </button>
+            </div>
+        </div>
+        }
+
         <!-- Normal Action Bar Items -->
-        @if (!isPreviewModeActive()) {
+        @if (!isPreviewModeActive() && !isGapReviewModeActive()) {
         <div class="action-bar-items">
 
             <!-- Undo Button (Feature 8) -->
@@ -102,15 +149,16 @@
             </app-button>
             }
 
-            <!-- Remove Gaps (Phase 2 - Placeholder) -->
-            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)" [disabled]="true"
-                (clicked)="onRemoveGaps()" aria-label="Remove Gaps (Coming in Phase 2)">
+            <!-- Remove Gaps (Feature 14) -->
+            @if (showRemoveGaps()) {
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
+                (clicked)="onRemoveGaps()" aria-label="Remove Gaps">
                 <div class="action-bar-item">
-                    <img src="assets/icons/Premium.svg" alt="Premium" class="premium-badge" />
                     <img src="assets/icons/remove_gaps.svg" alt="" class="action-icon" />
                     <span class="action-label">Remove<br />Gaps</span>
                 </div>
             </app-button>
+            }
 
             <!-- Remove This Segment (Feature 6 - Conditional Visibility) -->
             @if (showRemove()) {

@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal, Input } from '@angular/core';
+import { Component, computed, inject, signal, Input, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ButtonComponent } from '../button/button.component';
 import { EditorStateService } from '../../services/editor-state.service';
@@ -7,8 +7,11 @@ import { HistoryService } from '../../services/history.service';
 import { TimelineService } from '../../services/timeline.service';
 import { OutputGeneratorService } from '../../services/output-generator.service';
 import { VideoPlayerService } from '../../services/video-player.service';
+import { GapDetectionService } from '../../services/gap-detection.service';
 import { WordState, EditorStateSnapshot } from '../../models';
 import { MainEditorContainerComponent } from '../main-editor-container/main-editor-container.component';
+import { Subject } from 'rxjs';
+import { debounceTime, takeUntil } from 'rxjs/operators';
 
 /**
  * Action Bar Component
@@ -28,7 +31,7 @@ import { MainEditorContainerComponent } from '../main-editor-container/main-edit
     templateUrl: './action-bar.component.html',
     styleUrl: './action-bar.component.scss'
 })
-export class ActionBarComponent {
+export class ActionBarComponent implements OnInit, OnDestroy {
     // Inject services
     private readonly editorState = inject(EditorStateService);
     private readonly tutorialService = inject(TutorialService);
@@ -36,6 +39,11 @@ export class ActionBarComponent {
     private readonly timelineService = inject(TimelineService);
     private readonly outputGenerator = inject(OutputGeneratorService);
     private readonly videoPlayerService = inject(VideoPlayerService);
+    private readonly gapDetectionService = inject(GapDetectionService);
+
+    // Feature 14: Threshold slider debounce
+    private readonly thresholdSubject = new Subject<number>();
+    private readonly destroy$ = new Subject<void>();
 
     // Reference to main editor container for preview mode toggle
     @Input() mainEditorContainer?: MainEditorContainerComponent;
@@ -47,6 +55,22 @@ export class ActionBarComponent {
     protected readonly isPreviewModeActive = computed(() => {
         return this.mainEditorContainer?.isPreviewMode() ?? false;
     });
+
+    // Feature 14: Track gap review mode state
+    protected readonly isGapReviewModeActive = computed(() => {
+        return this.mainEditorContainer?.isGapReviewMode() ?? false;
+    });
+
+    // Feature 14: Gap detection signals
+    protected readonly gapsWithStates = computed(() => {
+        if (!this.isGapReviewModeActive()) {
+            return [];
+        }
+        return this.gapDetectionService.gapsWithStates();
+    });
+
+    protected readonly gapThreshold = this.gapDetectionService.threshold;
+    protected readonly activeGapsCount = this.gapDetectionService.activeGapsCount;
 
     // Computed signals for button states based on selection
 
@@ -387,10 +411,120 @@ export class ActionBarComponent {
 
     // ========== Placeholder handlers for future features ==========
 
+    // ========== Feature 14: Gap Review Mode ==========
+
     /**
-     * Remove Gaps (Phase 2 - not implemented yet)
+     * Initialize component - set up threshold slider debounce
+     */
+    ngOnInit(): void {
+        // Feature 14: Set up debounced threshold updates (300ms debounce)
+        this.thresholdSubject
+            .pipe(
+                debounceTime(300),
+                takeUntil(this.destroy$)
+            )
+            .subscribe(threshold => {
+                this.gapDetectionService.setThreshold(threshold);
+                // On threshold change, recalculate all gaps and reset manual selections
+                this.gapDetectionService.markAllGapsAsActive();
+            });
+    }
+
+    /**
+     * Cleanup on component destroy
+     */
+    ngOnDestroy(): void {
+        this.destroy$.next();
+        this.destroy$.complete();
+    }
+
+    /**
+     * Feature 14: Show Remove Gaps button - visible when not in preview mode and not in gap review mode
+     */
+    protected readonly showRemoveGaps = computed(() => {
+        return !this.isPreviewModeActive() && !this.isGapReviewModeActive();
+    });
+
+    /**
+     * Feature 14: Enter Gap Review Mode
      */
     onRemoveGaps(): void {
+        if (!this.mainEditorContainer) return;
+
+        // Enter gap review mode
+        this.mainEditorContainer.enterGapReviewMode();
+
+        // Mark all gaps ≥ threshold as ACTIVE (initial state)
+        this.gapDetectionService.markAllGapsAsActive();
+
+        // Announce action for screen readers
+        const gapsCount = this.gapsWithStates().length;
+        this.actionAnnouncement.set(`Entered gap review mode. Found ${gapsCount} ${gapsCount === 1 ? 'gap' : 'gaps'}`);
+    }
+
+    /**
+     * Feature 14: Handle threshold slider change
+     */
+    onThresholdChange(value: number): void {
+        // Emit to debounced subject
+        this.thresholdSubject.next(value);
+    }
+
+    /**
+     * Feature 14: Apply gap removal
+     */
+    onApplyGapRemoval(): void {
+        if (!this.mainEditorContainer) return;
+
+        // Exit gap review mode
+        this.mainEditorContainer.exitGapReviewMode();
+
+        // Gap removal is applied when generating output (useGapRemoval = true)
+        // The gaps marked for removal are already stored in GapDetectionService
+
+        // Announce action for screen readers
+        const activeGaps = this.activeGapsCount();
+        this.actionAnnouncement.set(`Applied gap removal. ${activeGaps} ${activeGaps === 1 ? 'gap' : 'gaps'} will be removed`);
+    }
+
+    /**
+     * Feature 14: Cancel gap removal
+     */
+    onCancelGapRemoval(): void {
+        if (!this.mainEditorContainer) return;
+
+        // Exit gap review mode
+        this.mainEditorContainer.exitGapReviewMode();
+
+        // Reset gap states (discard temporary changes)
+        this.gapDetectionService.resetGapStates();
+
+        // Announce action for screen readers
+        this.actionAnnouncement.set('Cancelled gap removal. All changes discarded');
+    }
+
+    /**
+     * Feature 14: Remove all gaps (mark all as ACTIVE)
+     */
+    onRemoveAllGaps(): void {
+        // Mark all gaps as ACTIVE (for removal)
+        this.gapDetectionService.markAllGapsAsActive();
+
+        // Announce action for screen readers
+        const gapsCount = this.gapsWithStates().length;
+        this.actionAnnouncement.set(`Marked all ${gapsCount} ${gapsCount === 1 ? 'gap' : 'gaps'} for removal`);
+    }
+
+    /**
+     * Feature 14: Open gap settings (threshold slider)
+     * This could open a settings modal or show threshold slider
+     * For now, we'll show threshold slider inline or could be a modal
+     */
+    onGapSettings(): void {
+        // TODO: Could open settings modal with threshold slider
+        // For now, threshold slider is always visible in the layout
+        // This method can be used to toggle visibility or open modal
+        this.actionAnnouncement.set('Gap settings');
     }
 
     /**
