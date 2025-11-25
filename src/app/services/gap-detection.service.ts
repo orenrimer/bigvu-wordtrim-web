@@ -204,13 +204,19 @@ export class GapDetectionService {
 
     /**
      * Mark all gaps ≥ threshold as ACTIVE (initial state when entering Gap Review Mode)
+     * Preserves existing gap states - only sets ACTIVE for gaps that don't have a saved state
      */
     public markAllGapsAsActive(): void {
         const gaps = this.gaps();
-        const gapStates = new Map<number, GapState>();
+        const existingStates = this._gapStates();
+        const gapStates = new Map<number, GapState>(existingStates); // Start with existing states
 
+        // Only set ACTIVE for gaps that don't have a saved state
         gaps.forEach(gap => {
-            gapStates.set(gap.id, GapState.ACTIVE);
+            if (!gapStates.has(gap.id)) {
+                gapStates.set(gap.id, GapState.ACTIVE);
+            }
+            // If gap already has a state (IGNORED or ACTIVE), keep it
         });
 
         this._gapStates.set(gapStates);
