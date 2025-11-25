@@ -9,6 +9,7 @@ import { OutputGeneratorService } from '../../services/output-generator.service'
 import { VideoPlayerService } from '../../services/video-player.service';
 import { GapDetectionService } from '../../services/gap-detection.service';
 import { WordState, EditorStateSnapshot } from '../../models';
+import { GapState } from '../../models/gap.interface';
 import { MainEditorContainerComponent } from '../main-editor-container/main-editor-container.component';
 import { Subject } from 'rxjs';
 import { debounceTime, takeUntil } from 'rxjs/operators';
@@ -71,6 +72,7 @@ export class ActionBarComponent implements OnInit, OnDestroy {
 
     protected readonly gapThreshold = this.gapDetectionService.threshold;
     protected readonly activeGapsCount = this.gapDetectionService.activeGapsCount;
+    protected readonly selectedGapId = this.gapDetectionService.selectedGapId;
 
     // Feature 14: Gap settings modal state
     protected readonly _isSettingsModalOpen = signal<boolean>(false);
@@ -580,6 +582,55 @@ export class ActionBarComponent implements OnInit, OnDestroy {
      */
     formatThreshold(value: number): string {
         return value.toFixed(2).replace('.', ',') + 's';
+    }
+
+    /**
+     * Feature 14: Navigate to previous gap
+     */
+    onPreviousGap(): void {
+        this.gapDetectionService.selectPreviousGap();
+        const selectedId = this.selectedGapId();
+        if (selectedId !== null) {
+            this.actionAnnouncement.set(`Selected previous gap`);
+        }
+    }
+
+    /**
+     * Feature 14: Navigate to next gap
+     */
+    onNextGap(): void {
+        this.gapDetectionService.selectNextGap();
+        const selectedId = this.selectedGapId();
+        if (selectedId !== null) {
+            this.actionAnnouncement.set(`Selected next gap`);
+        }
+    }
+
+    /**
+     * Feature 14: Remove this gap (mark as DELETED)
+     */
+    onRemoveThisGap(): void {
+        const selectedId = this.selectedGapId();
+        if (selectedId === null) return;
+
+        this.gapDetectionService.markGapAsDeleted(selectedId);
+        this.actionAnnouncement.set('Gap marked as deleted');
+    }
+
+    /**
+     * Feature 14: Keep this gap (mark as IGNORED)
+     * Only works if the gap is currently DELETED (disabled)
+     */
+    onKeepThisGap(): void {
+        const selectedId = this.selectedGapId();
+        if (selectedId === null) return;
+
+        // Only change state if gap is DELETED (disabled)
+        const currentState = this.gapDetectionService.getGapState(selectedId);
+        if (currentState === GapState.DELETED) {
+            this.gapDetectionService.markGapAsIgnored(selectedId);
+            this.actionAnnouncement.set('Gap marked as kept');
+        }
     }
 
     /**

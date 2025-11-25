@@ -62,6 +62,34 @@
                     </div>
                 </div>
 
+                <!-- Individual Gap Action Controls (Feature 14) -->
+                @if (selectedGapId() !== null) {
+                <div class="gap-individual-actions">
+                    <!-- Previous Gap Button -->
+                    <button class="gap-nav-button" (click)="onPreviousGap()" aria-label="Previous gap">
+                        <img src="assets/icons/Arrow-Left.svg" alt="Confirm" />
+                    </button>
+
+                    <!-- Remove This Gap Button -->
+                    <button class="gap-action-button remove-this-button" (click)="onRemoveThisGap()"
+                        aria-label="Remove this gap">
+                        <img src="assets/icons/remove.svg" alt="" class="button-icon" />
+                        <span class="button-label">Remove This</span>
+                    </button>
+
+                    <!-- Keep This Gap Button -->
+                    <button class="gap-action-button keep-this-button" (click)="onKeepThisGap()"
+                        aria-label="Keep this gap">
+                        <span class="button-label">Keep This</span>
+                    </button>
+
+                    <!-- Next Gap Button -->
+                    <button class="gap-nav-button" (click)="onNextGap()" aria-label="Next gap">
+                        <img src="assets/icons/Arrow-Left.svg" alt="Confirm" style="rotate: 180deg;" />
+                    </button>
+                </div>
+                }
+
                 <div class="gap-review-mode-layout__left-actions">
                     <!-- Remove All Button -->
                     <button class="gap-review-mode-button remove-all-button" (click)="onRemoveAllGaps()"

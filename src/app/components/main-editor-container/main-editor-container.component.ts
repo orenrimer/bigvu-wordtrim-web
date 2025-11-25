@@ -741,6 +741,8 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
    * Feature 14: Handle gap bracket click
    */
   onGapClick(gap: Gap): void {
+    // Select the gap (for individual gap controls in action bar)
+    this.gapDetectionService.selectGap(gap.id);
     // Toggle gap state
     this.gapDetectionService.toggleGapState(gap.id);
   }

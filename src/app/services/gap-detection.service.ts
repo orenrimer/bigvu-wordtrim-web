@@ -262,6 +262,98 @@ export class GapDetectionService {
     }
 
     /**
+     * Navigate to previous gap
+     * @returns ID of previous gap, or null if none
+     */
+    public selectPreviousGap(): number | null {
+        const gaps = this.gapsWithStates();
+        const currentGapId = this._selectedGapId();
+
+        if (gaps.length === 0) return null;
+
+        if (currentGapId === null) {
+            // No gap selected - select last gap
+            const lastGap = gaps[gaps.length - 1];
+            this._selectedGapId.set(lastGap.id);
+            return lastGap.id;
+        }
+
+        // Find current gap index
+        const currentIndex = gaps.findIndex(gap => gap.id === currentGapId);
+        if (currentIndex === -1) {
+            // Current gap not found - select last gap
+            const lastGap = gaps[gaps.length - 1];
+            this._selectedGapId.set(lastGap.id);
+            return lastGap.id;
+        }
+
+        // Select previous gap (wrap to last if at first)
+        const previousIndex = currentIndex === 0 ? gaps.length - 1 : currentIndex - 1;
+        const previousGap = gaps[previousIndex];
+        this._selectedGapId.set(previousGap.id);
+        return previousGap.id;
+    }
+
+    /**
+     * Navigate to next gap
+     * @returns ID of next gap, or null if none
+     */
+    public selectNextGap(): number | null {
+        const gaps = this.gapsWithStates();
+        const currentGapId = this._selectedGapId();
+
+        if (gaps.length === 0) return null;
+
+        if (currentGapId === null) {
+            // No gap selected - select first gap
+            const firstGap = gaps[0];
+            this._selectedGapId.set(firstGap.id);
+            return firstGap.id;
+        }
+
+        // Find current gap index
+        const currentIndex = gaps.findIndex(gap => gap.id === currentGapId);
+        if (currentIndex === -1) {
+            // Current gap not found - select first gap
+            const firstGap = gaps[0];
+            this._selectedGapId.set(firstGap.id);
+            return firstGap.id;
+        }
+
+        // Select next gap (wrap to first if at last)
+        const nextIndex = currentIndex === gaps.length - 1 ? 0 : currentIndex + 1;
+        const nextGap = gaps[nextIndex];
+        this._selectedGapId.set(nextGap.id);
+        return nextGap.id;
+    }
+
+    /**
+     * Mark specific gap as DELETED
+     * @param gapId ID of the gap to mark as deleted
+     */
+    public markGapAsDeleted(gapId: number): void {
+        this.setGapState(gapId, GapState.DELETED);
+    }
+
+    /**
+     * Mark specific gap as IGNORED (Keep)
+     * @param gapId ID of the gap to mark as ignored
+     */
+    public markGapAsIgnored(gapId: number): void {
+        this.setGapState(gapId, GapState.IGNORED);
+    }
+
+    /**
+     * Get current state of a specific gap
+     * @param gapId ID of the gap
+     * @returns Current state of the gap, or ACTIVE if not set
+     */
+    public getGapState(gapId: number): GapState {
+        const gapStates = this._gapStates();
+        return gapStates.get(gapId) ?? GapState.ACTIVE;
+    }
+
+    /**
      * Get gaps that are marked for removal (ACTIVE state)
      * @returns Array of gaps marked for removal
      */
