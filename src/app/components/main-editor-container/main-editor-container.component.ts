@@ -200,7 +200,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
 
   // Feature 14: Computed signal for words with gaps interleaved (for Gap Review Mode)
   wordsWithGaps = computed((): Array<{ type: 'word'; word: Word } | { type: 'gap'; gap: Gap }> => {
-    const words = this.wordsWithIntroOutro();
+    const words = this.words(); // Use regular words, not wordsWithIntroOutro
     const isGapReview = this.isGapReviewMode();
 
     // If not in gap review mode, return words as-is
@@ -214,14 +214,28 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       return words.map(word => ({ type: 'word' as const, word }));
     }
 
-    // Create a map of gap by beforeWordIndex for quick lookup
+    // Find intro and outro gaps
+    const introGap = gaps.find(g => g.id === -1);
+    const outroGap = gaps.find(g => g.id === -2);
+
+    // Create a map of gap by beforeWordIndex for quick lookup (excluding intro/outro)
     const gapMap = new Map<number, Gap>();
     gaps.forEach(gap => {
-      gapMap.set(gap.beforeWordIndex, gap);
+      // Only map regular gaps (not intro/outro)
+      if (gap.id !== -1 && gap.id !== -2) {
+        gapMap.set(gap.beforeWordIndex, gap);
+      }
     });
 
     // Interleave words and gaps
     const items: Array<{ type: 'word'; word: Word } | { type: 'gap'; gap: Gap }> = [];
+
+    // Add intro gap first if it exists
+    if (introGap && words.length > 0) {
+      items.push({ type: 'gap', gap: introGap });
+    }
+
+    // Add words and regular gaps between them
     for (let i = 0; i < words.length; i++) {
       const word = words[i];
 
@@ -229,11 +243,15 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       items.push({ type: 'word', word });
 
       // Check if there's a gap after this word (before next word)
-      // Skip gaps for intro/outro chips (index -1, -2)
       if (word.index >= 0 && gapMap.has(word.index)) {
         const gap = gapMap.get(word.index)!;
         items.push({ type: 'gap', gap });
       }
+    }
+
+    // Add outro gap last if it exists
+    if (outroGap && words.length > 0) {
+      items.push({ type: 'gap', gap: outroGap });
     }
 
     return items;
@@ -295,6 +313,9 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
   // Feature 14: Gap Review Mode warning alert state
   private readonly _showGapModeWarning = signal<boolean>(false);
   public readonly showGapModeWarning = this._showGapModeWarning.asReadonly();
+
+  // Feature 14: Snapshot saved before entering gap review mode (to restore deleted segments)
+  private gapReviewModeSnapshot: EditorStateSnapshot | null = null;
 
   constructor(
     private videoDataService: VideoDataService,
@@ -389,6 +410,15 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       if (words.length > 0 && loadingState === 'success') {
         // Update gap detection service with current words
         this.gapDetectionService.updateWords(words);
+      }
+    }, { allowSignalWrites: true });
+
+    // Feature 14: Effect: Update gap detection service when video duration changes
+    effect(() => {
+      const videoDuration = this.videoService.duration();
+      if (videoDuration > 0) {
+        // Update gap detection service with video duration (needed for intro/outro gaps)
+        this.gapDetectionService.setVideoDuration(videoDuration);
       }
     }, { allowSignalWrites: true });
 
@@ -712,22 +742,56 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
 
   /**
    * Feature 14: Enter Gap Review Mode
+   * Saves a snapshot of current state, then temporarily ignores deleted segments
+   * by restoring all words to NORMAL state and clearing deleted segments
    */
   enterGapReviewMode(): void {
+    // Save snapshot before entering gap review mode (includes deleted segments and word states)
+    const startHandle = this.timelineService.startHandle();
+    const endHandle = this.timelineService.endHandle();
+    this.gapReviewModeSnapshot = this.editorState.captureState(startHandle, endHandle);
+
+    // Temporarily restore all deleted words to NORMAL state (ignore deletions visually and logically)
+    this.editorState.restoreAllWordsToNormal();
+
+    // Clear deleted segments temporarily (so they're ignored during gap detection)
+    this.editorState.clearDeletedSegments();
+
+    // Enter gap review mode
     this._isGapReviewMode.set(true);
-    // Mark all gaps ≥ threshold as SELECTED (initial state)
+
+    // Mark all gaps ≥ threshold as ACTIVE (initial state)
     this.gapDetectionService.markAllGapsAsActive();
   }
 
   /**
    * Feature 14: Exit Gap Review Mode
+   * Restores the snapshot saved before entering gap review mode
+   * This restores deleted segments and word states to what they were before
    */
   exitGapReviewMode(): void {
+    // Exit gap review mode first
     this._isGapReviewMode.set(false);
+
     // Hide warning alert when exiting gap review mode
     this._showGapModeWarning.set(false);
+
     // Reset gap states when exiting
     this.gapDetectionService.resetGapStates();
+
+    // Restore snapshot if it exists (restores deleted segments and word states)
+    if (this.gapReviewModeSnapshot) {
+      this.editorState.restoreState(this.gapReviewModeSnapshot);
+
+      // Restore handles from snapshot
+      this.timelineService.restoreHandles(
+        this.gapReviewModeSnapshot.startHandle,
+        this.gapReviewModeSnapshot.endHandle
+      );
+
+      // Clear snapshot
+      this.gapReviewModeSnapshot = null;
+    }
   }
 
   /**

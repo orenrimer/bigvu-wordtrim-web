@@ -866,6 +866,20 @@ export class EditorStateService {
     }
 
     /**
+     * Temporarily restore all deleted words to NORMAL state
+     * Used when entering gap review mode to ignore deletions
+     * @param words Array of words to restore (if not provided, uses current words)
+     */
+    public restoreAllWordsToNormal(words?: Word[]): void {
+        const wordsToRestore = words ?? this._words();
+        const restoredWords = wordsToRestore.map(word => ({
+            ...word,
+            state: WordState.NORMAL
+        }));
+        this._words.set(restoredWords);
+    }
+
+    /**
      * Remove deleted segments that overlap with restored words
      * Called when user restores deleted words
      * Cuts deleted segments instead of removing them completely if only part is restored

@@ -26,6 +26,12 @@ export class GapDetectionService {
     private readonly _gapStates = signal<Map<number, GapState>>(new Map());
     private readonly _selectedGapId = signal<number | null>(null);
     private readonly _previousStates = new Map<number, GapState>(); // Store previous state before selection
+    private readonly _deletedGaps = signal<Array<{ start: number; end: number }>>([]); // Deleted gaps for preview skipping
+    private readonly _videoDuration = signal<number>(0); // Video duration for intro/outro gap detection
+
+    // Special gap IDs for intro and outro
+    public static readonly INTRO_GAP_ID = -1;
+    public static readonly OUTRO_GAP_ID = -2;
 
     // Memoization cache
     private _memoizedGaps: Gap[] | null = null;
@@ -142,6 +148,15 @@ export class GapDetectionService {
      */
     public updateWords(words: Word[]): void {
         this._words.set([...words]);
+        this.clearMemoization();
+    }
+
+    /**
+     * Set video duration (needed for intro/outro gap detection)
+     * @param duration Video duration in seconds
+     */
+    public setVideoDuration(duration: number): void {
+        this._videoDuration.set(duration);
         this.clearMemoization();
     }
 
@@ -271,6 +286,7 @@ export class GapDetectionService {
         this._gapStates.set(new Map());
         this._selectedGapId.set(null);
         this._previousStates.clear();
+        this._deletedGaps.set([]); // Also clear deleted gaps
     }
 
     /**
@@ -343,18 +359,112 @@ export class GapDetectionService {
 
     /**
      * Mark specific gap as ACTIVE (deleted)
+     * Also adds the gap to deleted gaps array for preview skipping
      * @param gapId ID of the gap to mark as active/deleted
+     * @param videoDuration Optional video duration to check if gap is in middle for preview
+     * @returns Gap information if found, null otherwise. Includes shouldPlayPreview flag if videoDuration provided
      */
-    public markGapAsDeleted(gapId: number): void {
+    public markGapAsDeleted(gapId: number, videoDuration?: number): { gap: Gap; shouldPlayPreview: boolean } | null {
         this.setGapState(gapId, GapState.ACTIVE);
+
+        // Add gap to deleted gaps array for preview skipping
+        const gaps = this.gapsWithStates();
+        const gap = gaps.find(g => g.id === gapId);
+
+        if (!gap) {
+            return null;
+        }
+
+        this.addDeletedGap(gap.start, gap.end);
+
+        // Check if gap can play preview (if videoDuration provided)
+        let shouldPlayPreview = false;
+        if (videoDuration !== undefined) {
+            const PREVIEW_THRESHOLD = 1.5; // seconds - minimum space needed before/after for preview
+
+            // Special handling for intro and outro gaps
+            if (gapId === GapDetectionService.INTRO_GAP_ID) {
+                // Intro gap: Can preview if there's content after the gap (at least 1.5 seconds)
+                shouldPlayPreview = gap.end <= (videoDuration - PREVIEW_THRESHOLD);
+            } else if (gapId === GapDetectionService.OUTRO_GAP_ID) {
+                // Outro gap: Can preview if there's content before the gap (at least 1.5 seconds)
+                shouldPlayPreview = gap.start >= PREVIEW_THRESHOLD;
+            } else {
+                // Regular gap: Need space before and after
+                shouldPlayPreview = gap.start >= PREVIEW_THRESHOLD &&
+                    gap.end <= (videoDuration - PREVIEW_THRESHOLD);
+            }
+        }
+
+        return { gap, shouldPlayPreview };
+    }
+
+    /**
+     * Add a gap to deleted gaps array
+     * Used for preview playback skipping
+     * @param start Gap start time
+     * @param end Gap end time
+     */
+    public addDeletedGap(start: number, end: number): void {
+        const deletedGaps = this._deletedGaps();
+        // Check if gap already exists (avoid duplicates)
+        const exists = deletedGaps.some(g => g.start === start && g.end === end);
+        if (!exists) {
+            this._deletedGaps.set([...deletedGaps, { start, end }]);
+        }
+    }
+
+    /**
+     * Get deleted gaps array
+     * @returns Array of deleted gaps with start and end times
+     */
+    public getDeletedGaps(): Array<{ start: number; end: number }> {
+        return this._deletedGaps();
+    }
+
+    /**
+     * Clear deleted gaps array
+     */
+    public clearDeletedGaps(): void {
+        this._deletedGaps.set([]);
     }
 
     /**
      * Mark specific gap as IGNORED (Keep)
      * @param gapId ID of the gap to mark as ignored
+     * @param videoDuration Optional video duration to check if gap is in middle for preview
+     * @returns Gap information if found, null otherwise. Includes shouldPlayPreview flag if videoDuration provided
      */
-    public markGapAsIgnored(gapId: number): void {
+    public markGapAsIgnored(gapId: number, videoDuration?: number): { gap: Gap; shouldPlayPreview: boolean } | null {
         this.setGapState(gapId, GapState.IGNORED);
+
+        const gaps = this.gapsWithStates();
+        const gap = gaps.find(g => g.id === gapId);
+
+        if (!gap) {
+            return null;
+        }
+
+        // Check if gap can play preview (if videoDuration provided)
+        let shouldPlayPreview = false;
+        if (videoDuration !== undefined) {
+            const PREVIEW_THRESHOLD = 1.5; // seconds - minimum space needed before/after for preview
+
+            // Special handling for intro and outro gaps
+            if (gapId === GapDetectionService.INTRO_GAP_ID) {
+                // Intro gap: Can preview if there's content after the gap (at least 1.5 seconds)
+                shouldPlayPreview = gap.end <= (videoDuration - PREVIEW_THRESHOLD);
+            } else if (gapId === GapDetectionService.OUTRO_GAP_ID) {
+                // Outro gap: Can preview if there's content before the gap (at least 1.5 seconds)
+                shouldPlayPreview = gap.start >= PREVIEW_THRESHOLD;
+            } else {
+                // Regular gap: Need space before and after
+                shouldPlayPreview = gap.start >= PREVIEW_THRESHOLD &&
+                    gap.end <= (videoDuration - PREVIEW_THRESHOLD);
+            }
+        }
+
+        return { gap, shouldPlayPreview };
     }
 
     /**
@@ -502,9 +612,10 @@ export class GapDetectionService {
     }
 
     /**
-     * Detect gaps between words
+     * Detect gaps between words, including intro and outro gaps
      * Formula: GapDuration = NextWord.start - PreviousWord.end
      * Only gaps between visible (non-deleted) words are detected
+     * Also detects intro gap (0 to first word) and outro gap (last word to video end)
      * 
      * @param words Array of words to analyze
      * @param threshold Minimum gap duration to consider valid
@@ -512,6 +623,7 @@ export class GapDetectionService {
      */
     private detectGaps(words: Word[], threshold: number): Gap[] {
         const gaps: Gap[] = [];
+        const videoDuration = this._videoDuration();
 
         // Filter to only visible words (not deleted)
         const visibleWords = words.filter(word =>
@@ -521,8 +633,28 @@ export class GapDetectionService {
             word.state !== WordState.DELETED_SELECTED_RANGE
         );
 
+        if (visibleWords.length === 0) {
+            return gaps; // No words, no gaps
+        }
+
         // Sort by index to ensure proper order
         visibleWords.sort((a, b) => a.index - b.index);
+
+        const firstWord = visibleWords[0];
+        const lastWord = visibleWords[visibleWords.length - 1];
+
+        // Detect intro gap: from 0 to first word start
+        if (firstWord.start >= threshold && videoDuration > 0) {
+            gaps.push({
+                id: GapDetectionService.INTRO_GAP_ID,
+                beforeWordIndex: -1, // Special value for intro
+                afterWordIndex: firstWord.index,
+                duration: firstWord.start,
+                state: GapState.ACTIVE, // Default state
+                start: 0,
+                end: firstWord.start
+            });
+        }
 
         // Detect gaps between consecutive visible words
         for (let i = 0; i < visibleWords.length - 1; i++) {
@@ -545,6 +677,26 @@ export class GapDetectionService {
                 });
             }
         }
+
+        // Detect outro gap: from last word end to video duration
+        if (videoDuration > 0 && lastWord.end < videoDuration) {
+            const outroDuration = videoDuration - lastWord.end;
+            if (outroDuration >= threshold) {
+                gaps.push({
+                    id: GapDetectionService.OUTRO_GAP_ID,
+                    beforeWordIndex: lastWord.index,
+                    afterWordIndex: -2, // Special value for outro
+                    duration: outroDuration,
+                    state: GapState.ACTIVE, // Default state
+                    start: lastWord.end,
+                    end: videoDuration
+                });
+            }
+        }
+
+        // Sort gaps chronologically by start time to ensure proper ordering
+        // This ensures intro gap comes first, then regular gaps, then outro gap
+        gaps.sort((a, b) => a.start - b.start);
 
         return gaps;
     }

@@ -208,6 +208,8 @@ export class VideoPlayerService {
         this.previewEndTime = null;
         if (clearEditedMode) {
             this.isEditedPlaybackMode = false;
+            // Clear deleted segments if clearing edited mode (they'll be recalculated if needed)
+            this.deletedSegments = [];
         }
     }
 
@@ -466,6 +468,112 @@ export class VideoPlayerService {
         });
         this.videoEventListeners = [];
         this.seekedEventListener = null;
+    }
+
+    /**
+     * Play 3-second preview around a gap, excluding the gap itself (for gap removal)
+     * Maximizes the 3-second preview based on available space before and after the gap
+     * @param gapStart Gap start time
+     * @param gapEnd Gap end time
+     * @param videoDuration Total video duration
+     */
+    public playGapPreviewExcludingGap(gapStart: number, gapEnd: number, videoDuration: number): void {
+        if (!this.videoElement) return;
+
+        // If video is currently playing (not in preview mode), stop it first
+        if (this._isPlaying() && !this.isPreviewMode) {
+            this.pause();
+        }
+
+        const PREVIEW_DURATION = 3; // seconds total
+        const HALF_PREVIEW = PREVIEW_DURATION / 2; // 1.5 seconds
+
+        // Calculate available time before and after the gap
+        const availableBefore = gapStart; // Can play from 0 to gapStart
+        const availableAfter = videoDuration - gapEnd; // Can play from gapEnd to videoDuration
+
+        let previewStart: number;
+        let previewEnd: number;
+
+        // Distribute 3 seconds to maximize preview based on available space
+        if (availableBefore >= HALF_PREVIEW && availableAfter >= HALF_PREVIEW) {
+            // Ideal case: 1.5s before and 1.5s after
+            previewStart = gapStart - HALF_PREVIEW;
+            previewEnd = gapEnd + HALF_PREVIEW;
+        } else if (availableBefore < HALF_PREVIEW) {
+            // Limited space before: use all available before, rest after
+            previewStart = 0;
+            const timeAfter = PREVIEW_DURATION - availableBefore;
+            previewEnd = Math.min(videoDuration, gapEnd + timeAfter);
+        } else {
+            // Limited space after: use all available after, rest before
+            previewEnd = videoDuration;
+            const timeBefore = PREVIEW_DURATION - availableAfter;
+            previewStart = Math.max(0, gapStart - timeBefore);
+        }
+
+        // Set up edited playback mode with the gap as a deleted segment to skip
+        this.deletedSegments = [{ start: gapStart, end: gapEnd }];
+        this.isEditedPlaybackMode = true;
+        this.isPreviewMode = true;
+        this.previewEndTime = previewEnd;
+
+        // Seek and play
+        this.seek(previewStart);
+        this.play();
+    }
+
+    /**
+     * Play 3-second preview around a gap, including the gap itself (for gap review mode)
+     * Maximizes the 3-second preview based on available space before and after the gap
+     * The gap duration is separate from the 3 seconds (total = 3s + gap duration)
+     * @param gapStart Gap start time
+     * @param gapEnd Gap end time
+     * @param videoDuration Total video duration
+     */
+    public playGapPreview(gapStart: number, gapEnd: number, videoDuration: number): void {
+        if (!this.videoElement) return;
+
+        // If video is currently playing (not in preview mode), stop it first
+        if (this._isPlaying() && !this.isPreviewMode) {
+            this.pause();
+        }
+
+        const PREVIEW_DURATION = 3; // seconds to distribute around the gap (separate from gap duration)
+        const HALF_PREVIEW = PREVIEW_DURATION / 2; // 1.5 seconds
+
+        // Calculate available time before and after the gap
+        const availableBefore = gapStart; // Can play from 0 to gapStart
+        const availableAfter = videoDuration - gapEnd; // Can play from gapEnd to videoDuration
+
+        let previewStart: number;
+        let previewEnd: number;
+
+        // Distribute 3 seconds around the gap (gap duration is separate)
+        if (availableBefore >= HALF_PREVIEW && availableAfter >= HALF_PREVIEW) {
+            // Ideal case: 1.5s before and 1.5s after
+            previewStart = gapStart - HALF_PREVIEW;
+            previewEnd = gapEnd + HALF_PREVIEW;
+        } else if (availableBefore < HALF_PREVIEW) {
+            // Limited space before: use all available before, rest after
+            previewStart = 0;
+            const timeAfter = PREVIEW_DURATION - availableBefore;
+            previewEnd = Math.min(videoDuration, gapEnd + timeAfter);
+        } else {
+            // Limited space after: use all available after, rest before
+            previewEnd = videoDuration;
+            const timeBefore = PREVIEW_DURATION - availableAfter;
+            previewStart = Math.max(0, gapStart - timeBefore);
+        }
+
+        // Set preview mode
+        this.isPreviewMode = true;
+        this.previewEndTime = previewEnd;
+        this.isEditedPlaybackMode = false;
+
+        // Seek and play
+        this.seek(previewStart);
+        this.play();
     }
 
     /**

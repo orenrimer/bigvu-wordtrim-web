@@ -608,26 +608,57 @@ export class ActionBarComponent implements OnInit, OnDestroy {
 
     /**
      * Feature 14: Remove this gap (mark as ACTIVE/deleted)
+     * Adds gap to deleted gaps array and plays 3-second preview excluding the gap
      */
     onRemoveThisGap(): void {
         const selectedId = this.selectedGapId();
         if (selectedId === null) return;
 
-        this.gapDetectionService.markGapAsDeleted(selectedId);
-        this.actionAnnouncement.set('Gap marked as deleted');
+        // Mark gap as deleted and get preview information (logic handled in service)
+        const videoDuration = this.videoPlayerService.duration();
+        const result = this.gapDetectionService.markGapAsDeleted(selectedId, videoDuration);
+
+        if (result) {
+            const { gap, shouldPlayPreview } = result;
+
+            if (shouldPlayPreview) {
+                // Play preview excluding the gap
+                this.videoPlayerService.playGapPreviewExcludingGap(gap.start, gap.end, videoDuration);
+                this.actionAnnouncement.set('Gap marked as deleted, playing preview');
+            } else {
+                this.actionAnnouncement.set('Gap marked as deleted');
+            }
+        } else {
+            this.actionAnnouncement.set('Gap marked as deleted');
+        }
     }
 
     /**
      * Feature 14: Keep this gap (mark as IGNORED)
      * Changes the selected gap state to IGNORED
+     * If the gap is in the middle, plays a 3-second preview centered on the gap
      */
     onKeepThisGap(): void {
         const selectedId = this.selectedGapId();
         if (selectedId === null) return;
 
-        // Change the selected gap state to IGNORED
-        this.gapDetectionService.markGapAsIgnored(selectedId);
-        this.actionAnnouncement.set('Gap marked as kept');
+        // Mark gap as ignored and get preview information (logic handled in service)
+        const videoDuration = this.videoPlayerService.duration();
+        const result = this.gapDetectionService.markGapAsIgnored(selectedId, videoDuration);
+
+        if (result) {
+            const { gap, shouldPlayPreview } = result;
+
+            if (shouldPlayPreview) {
+                // Play 3-second preview centered on the gap
+                this.videoPlayerService.playGapPreview(gap.start, gap.end, videoDuration);
+                this.actionAnnouncement.set('Gap marked as kept, playing preview');
+            } else {
+                this.actionAnnouncement.set('Gap marked as kept');
+            }
+        } else {
+            this.actionAnnouncement.set('Gap marked as kept');
+        }
     }
 
     /**
