@@ -4,14 +4,14 @@
  * Based on PRD Phase 2: Gap Detection & Review
  */
 export enum GapState {
-    /** Gap is marked for removal (Active/Selected) */
-    ACTIVE = 'active',
+    /** Gap is selected (marked for removal) - visually appears as selected */
+    SELECTED = 'selected',
 
     /** Gap will be preserved (Ignored/Keep) */
     IGNORED = 'ignored',
 
-    /** Gap is deleted/removed */
-    DELETED = 'deleted'
+    /** Gap is active (deleted) - visually appears as deleted */
+    ACTIVE = 'active'
 }
 
 /**

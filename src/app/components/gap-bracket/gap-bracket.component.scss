@@ -38,11 +38,11 @@
 
 
     /**
-     * Gap State: ACTIVE (Marked for removal - visually selected)
+     * Gap State: SELECTED (Marked for removal - visually selected)
      * Gaps marked for removal appear as selected (blue)
      */
-    &[data-state="active"],
-    &.active {
+    &[data-state="selected"],
+    &.selected {
         background-color: var(--color-secondary);
         color: var(--color-primary);
         border: 1px solid transparent; // Maintain same size as unselected state
@@ -70,11 +70,11 @@
     }
 
     /**
-     * Gap State: DELETED
+     * Gap State: ACTIVE (Deleted)
      * Gap has been deleted/removed
      */
-    &[data-state="deleted"],
-    &.deleted {
+    &[data-state="active"],
+    &.active {
         background-color: var(--color-gap-unselected-bg);
         color: var(--color-gap-disabled-text);
         border: 1px solid transparent; // Maintain same size as unselected state

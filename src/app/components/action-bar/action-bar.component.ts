@@ -464,7 +464,7 @@ export class ActionBarComponent implements OnInit, OnDestroy {
         // Enter gap review mode
         this.mainEditorContainer.enterGapReviewMode();
 
-        // Mark all gaps ≥ threshold as ACTIVE (initial state)
+        // Mark all gaps ≥ threshold as SELECTED (initial state)
         this.gapDetectionService.markAllGapsAsActive();
 
         // Announce action for screen readers
@@ -517,7 +517,7 @@ export class ActionBarComponent implements OnInit, OnDestroy {
      * Feature 14: Remove all gaps (mark all as IGNORED - removed from removal list)
      */
     onRemoveAllGaps(): void {
-        // Mark all gaps as DELETED
+        // Mark all gaps as ACTIVE (deleted)
         this.gapDetectionService.markAllGapsAsDeleted();
 
         // Announce action for screen readers
@@ -607,7 +607,7 @@ export class ActionBarComponent implements OnInit, OnDestroy {
     }
 
     /**
-     * Feature 14: Remove this gap (mark as DELETED)
+     * Feature 14: Remove this gap (mark as ACTIVE/deleted)
      */
     onRemoveThisGap(): void {
         const selectedId = this.selectedGapId();
@@ -619,18 +619,15 @@ export class ActionBarComponent implements OnInit, OnDestroy {
 
     /**
      * Feature 14: Keep this gap (mark as IGNORED)
-     * Only works if the gap is currently DELETED (disabled)
+     * Changes the selected gap state to IGNORED
      */
     onKeepThisGap(): void {
         const selectedId = this.selectedGapId();
         if (selectedId === null) return;
 
-        // Only change state if gap is DELETED (disabled)
-        const currentState = this.gapDetectionService.getGapState(selectedId);
-        if (currentState === GapState.DELETED) {
-            this.gapDetectionService.markGapAsIgnored(selectedId);
-            this.actionAnnouncement.set('Gap marked as kept');
-        }
+        // Change the selected gap state to IGNORED
+        this.gapDetectionService.markGapAsIgnored(selectedId);
+        this.actionAnnouncement.set('Gap marked as kept');
     }
 
     /**

@@ -11,7 +11,7 @@ import { Gap, GapState } from '../models/gap.interface';
  * - Detects gaps between visible words
  * - Configurable threshold (0.1s – 1.0s)
  * - Memoized gap detection for performance
- * - Gap state management (Active/Remove, Ignored/Keep, Deleted)
+ * - Gap state management (Selected/Remove, Ignored/Keep, Active/Deleted)
  */
 @Injectable()
 export class GapDetectionService {
@@ -25,6 +25,7 @@ export class GapDetectionService {
     private readonly _words = signal<Word[]>([]);
     private readonly _gapStates = signal<Map<number, GapState>>(new Map());
     private readonly _selectedGapId = signal<number | null>(null);
+    private readonly _previousStates = new Map<number, GapState>(); // Store previous state before selection
 
     // Memoization cache
     private _memoizedGaps: Gap[] | null = null;
@@ -131,6 +132,7 @@ export class GapDetectionService {
         this._words.set([...words]);
         this._gapStates.set(new Map());
         this._selectedGapId.set(null);
+        this._previousStates.clear();
         this.clearMemoization();
     }
 
@@ -164,31 +166,6 @@ export class GapDetectionService {
         this.clearMemoization();
     }
 
-    /**
-     * Toggle gap state
-     * Based on PRD Phase 2: Gap Visualization - Click behavior
-     * 
-     * Logic:
-     * - If gap is ACTIVE (marked for removal) → toggle to IGNORED (disabled/removed)
-     * - If gap is IGNORED (disabled/removed) → toggle back to ACTIVE (marked for removal)
-     * - If gap is DELETED → do nothing (for now)
-     * 
-     * @param gapId ID of the gap to toggle
-     */
-    public toggleGapState(gapId: number): void {
-        const gapStates = new Map(this._gapStates());
-        const currentState = gapStates.get(gapId) ?? GapState.ACTIVE; // Default to ACTIVE
-
-        // Toggle between ACTIVE and IGNORED
-        if (currentState === GapState.ACTIVE) {
-            gapStates.set(gapId, GapState.IGNORED);
-        } else if (currentState === GapState.IGNORED) {
-            gapStates.set(gapId, GapState.ACTIVE);
-        }
-        // If DELETED, do nothing (for now)
-
-        this._gapStates.set(gapStates);
-    }
 
     /**
      * Set gap state explicitly
@@ -203,9 +180,37 @@ export class GapDetectionService {
 
     /**
      * Select a gap (for focus/highlight)
+     * When selecting a gap:
+     * - If another gap was previously selected, restore its previous state
+     * - Save the current state of the new gap as its previous state
+     * - Set the new gap state to SELECTED
      * @param gapId ID of the gap to select, or null to deselect
      */
     public selectGap(gapId: number | null): void {
+        const currentSelectedId = this._selectedGapId();
+        const gapStates = new Map(this._gapStates());
+
+        // If there was a previously selected gap, restore its previous state
+        if (currentSelectedId !== null) {
+            const previousState = this._previousStates.get(currentSelectedId);
+            if (previousState !== undefined) {
+                gapStates.set(currentSelectedId, previousState);
+                this._previousStates.delete(currentSelectedId);
+            }
+        }
+
+        // If selecting a new gap
+        if (gapId !== null) {
+            // Save the current state as the previous state
+            const currentState = gapStates.get(gapId) ?? GapState.ACTIVE;
+            this._previousStates.set(gapId, currentState);
+
+            // Set the gap to SELECTED
+            gapStates.set(gapId, GapState.SELECTED);
+        }
+
+        // Update states and selected gap ID
+        this._gapStates.set(gapStates);
         this._selectedGapId.set(gapId);
     }
 
@@ -239,7 +244,7 @@ export class GapDetectionService {
     }
 
     /**
-     * Mark all gaps as DELETED
+     * Mark all gaps as ACTIVE (deleted)
      * Used by "Remove All" button in Gap Review Mode
      */
     public markAllGapsAsDeleted(): void {
@@ -247,7 +252,7 @@ export class GapDetectionService {
         const gapStates = new Map<number, GapState>();
 
         gaps.forEach(gap => {
-            gapStates.set(gap.id, GapState.DELETED);
+            gapStates.set(gap.id, GapState.ACTIVE);
         });
 
         this._gapStates.set(gapStates);
@@ -259,6 +264,7 @@ export class GapDetectionService {
     public resetGapStates(): void {
         this._gapStates.set(new Map());
         this._selectedGapId.set(null);
+        this._previousStates.clear();
     }
 
     /**
@@ -328,11 +334,11 @@ export class GapDetectionService {
     }
 
     /**
-     * Mark specific gap as DELETED
-     * @param gapId ID of the gap to mark as deleted
+     * Mark specific gap as ACTIVE (deleted)
+     * @param gapId ID of the gap to mark as active/deleted
      */
     public markGapAsDeleted(gapId: number): void {
-        this.setGapState(gapId, GapState.DELETED);
+        this.setGapState(gapId, GapState.ACTIVE);
     }
 
     /**

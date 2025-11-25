@@ -715,7 +715,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
    */
   enterGapReviewMode(): void {
     this._isGapReviewMode.set(true);
-    // Mark all gaps ≥ threshold as ACTIVE (initial state)
+    // Mark all gaps ≥ threshold as SELECTED (initial state)
     this.gapDetectionService.markAllGapsAsActive();
   }
 
@@ -741,10 +741,8 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
    * Feature 14: Handle gap bracket click
    */
   onGapClick(gap: Gap): void {
-    // Select the gap (for individual gap controls in action bar)
+    // Select the gap (this will set it to SELECTED and restore previous gap if any)
     this.gapDetectionService.selectGap(gap.id);
-    // Toggle gap state
-    this.gapDetectionService.toggleGapState(gap.id);
   }
 
   /**

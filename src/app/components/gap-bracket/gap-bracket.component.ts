@@ -11,7 +11,7 @@ import { Gap, GapState } from '../../models/gap.interface';
  * - Displays gap duration: (0.4s)
  * - One decimal digit precision
  * - Clickable to toggle gap state
- * - States: Active (Remove), Ignored (Keep/Disabled), Deleted
+ * - States: Selected (Remove), Ignored (Keep/Disabled), Active (Deleted)
  */
 @Component({
     selector: 'app-gap-bracket',
@@ -45,10 +45,10 @@ export class GapBracketComponent {
     }
 
     /**
-     * Check if gap is in Active state (marked for removal)
+     * Check if gap is in Selected state (marked for removal - blue)
      */
-    get isActive(): boolean {
-        return this.gap.state === GapState.ACTIVE;
+    get isSelected(): boolean {
+        return this.gap.state === GapState.SELECTED;
     }
 
     /**
@@ -59,22 +59,19 @@ export class GapBracketComponent {
     }
 
     /**
-     * Check if gap is in Deleted state
+     * Check if gap is in Active state (deleted - gray with strikethrough)
      */
-    get isDeleted(): boolean {
-        return this.gap.state === GapState.DELETED;
+    get isActive(): boolean {
+        return this.gap.state === GapState.ACTIVE;
     }
 
     /**
      * Handle gap bracket click event
-     * Process clicks on ACTIVE and IGNORED gaps (toggle between them)
-     * Don't process clicks on DELETED gaps
+     * Process clicks on ACTIVE and SELECTED gaps (toggle between them)
+     * IGNORED gaps can also be clicked to toggle
      */
     onClick(): void {
-        // Don't process clicks on DELETED gaps
-        if (this.isDeleted) {
-            return;
-        }
+        // Allow clicks on all gaps - toggle will handle the state logic
         this.gapClicked.emit(this.gap);
     }
 
@@ -82,9 +79,9 @@ export class GapBracketComponent {
      * Get ARIA label for accessibility
      */
     get ariaLabel(): string {
-        const stateText = this.isActive ? 'marked for removal' :
+        const stateText = this.isSelected ? 'marked for removal' :
             this.isIgnored ? 'will be preserved' :
-                this.isDeleted ? 'deleted' :
+                this.isActive ? 'deleted' :
                     'unknown';
         return `Gap ${this.formattedDuration}, ${stateText}. Click to toggle.`;
     }

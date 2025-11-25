@@ -1,11 +1,11 @@
 <div class="gap-bracket" 
      [attr.data-state]="gap.state"
-     [class.active]="isActive"
+     [class.selected]="isSelected"
      [class.ignored]="isIgnored"
-     [class.deleted]="isDeleted"
+     [class.active]="isActive"
      [attr.aria-label]="ariaLabel"
      [attr.role]="'button'"
-     [attr.aria-pressed]="isActive"
+     [attr.aria-pressed]="isSelected"
      (click)="onClick()">
     <span class="gap-bracket-text">(<span class="gap-bracket-number">{{ durationNumber }}</span>s)</span>
 </div>
