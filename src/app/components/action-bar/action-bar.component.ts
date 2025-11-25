@@ -490,6 +490,9 @@ export class ActionBarComponent implements OnInit, OnDestroy {
      * Feature 14: Apply gap removal
      */
     onApplyGapRemoval(): void {
+        // Clear selected gap before exiting
+        this.gapDetectionService.selectGap(null);
+
         // Exit gap review mode (restores snapshot and state)
         this.editorState.exitGapReviewMode(this.timelineService);
 
@@ -548,24 +551,17 @@ export class ActionBarComponent implements OnInit, OnDestroy {
     }
 
     /**
-     * Feature 14: Decrement threshold in settings modal
+     * Feature 14: Adjust threshold in settings modal
+     * @param increment True to increment, false to decrement
      */
-    onDecrementThreshold(): void {
+    onAdjustThreshold(increment: boolean): void {
         const current = this._tempThreshold();
         const min = 0.1;
-        const step = 0.01;
-        const newValue = Math.max(min, current - step);
-        this._tempThreshold.set(Math.round(newValue * 100) / 100); // Round to 2 decimals
-    }
-
-    /**
-     * Feature 14: Increment threshold in settings modal
-     */
-    onIncrementThreshold(): void {
-        const current = this._tempThreshold();
         const max = 1.0;
-        const step = 0.01;
-        const newValue = Math.min(max, current + step);
+        const step = 0.1;
+        const newValue = increment
+            ? Math.min(max, current + step)
+            : Math.max(min, current - step);
         this._tempThreshold.set(Math.round(newValue * 100) / 100); // Round to 2 decimals
     }
 

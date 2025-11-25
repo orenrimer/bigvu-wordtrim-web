@@ -763,6 +763,9 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     // Hide warning alert when exiting gap review mode
     this._showGapModeWarning.set(false);
 
+    // Clear selected gap before resetting states
+    this.gapDetectionService.selectGap(null);
+
     // Reset gap states when exiting
     this.gapDetectionService.resetGapStates();
 
