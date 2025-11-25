@@ -15,6 +15,8 @@ export class EditorStateService {
     private readonly _selectionEnd = signal<Word | null>(null);
     private readonly _currentPlaybackWordIndex = signal<number | null>(null);
     private readonly _deletedSegments = signal<Array<{ start: number; end: number }>>([]);
+    private readonly _isGapReviewMode = signal<boolean>(false);
+    private readonly _isPreviewMode = signal<boolean>(false);
 
     // Public read-only signals
     public readonly words = this._words.asReadonly();
@@ -22,6 +24,8 @@ export class EditorStateService {
     public readonly selectionEnd = this._selectionEnd.asReadonly();
     public readonly currentPlaybackWordIndex = this._currentPlaybackWordIndex.asReadonly();
     public readonly deletedSegments = this._deletedSegments.asReadonly();
+    public readonly isGapReviewMode = this._isGapReviewMode.asReadonly();
+    public readonly isPreviewMode = this._isPreviewMode.asReadonly();
 
     // Computed signal: selected words array (all words between start and end inclusive)
     public readonly selectedWords = computed(() => {
@@ -1051,6 +1055,69 @@ export class EditorStateService {
         // Merge adjacent segments after removal
         const mergedSegments = this.mergeAdjacentSegments(resultSegments);
         this._deletedSegments.set(mergedSegments);
+    }
+
+    // ========== Feature 13: Preview Mode State Management ==========
+
+    /**
+     * Toggle preview mode for start/end trimming
+     * @returns The new preview mode state after toggling
+     */
+    public togglePreviewMode(): boolean {
+        const newState = !this._isPreviewMode();
+        this._isPreviewMode.set(newState);
+        return newState;
+    }
+
+    // ========== Feature 14: Gap Review Mode State Management ==========
+
+    // Snapshot saved before entering gap review mode (to restore deleted segments)
+    private gapReviewModeSnapshot: EditorStateSnapshot | null = null;
+
+    /**
+     * Enter gap review mode
+     * Saves a snapshot of current state, then temporarily ignores deleted segments
+     * by restoring all words to NORMAL state and clearing deleted segments
+     * @param startHandle Timeline start handle position (or null)
+     * @param endHandle Timeline end handle position (or null)
+     */
+    public enterGapReviewMode(startHandle: HandlePosition | null, endHandle: HandlePosition | null): void {
+        // Save snapshot before entering gap review mode (includes deleted segments and word states)
+        this.gapReviewModeSnapshot = this.captureState(startHandle, endHandle);
+
+        // Temporarily restore all deleted words to NORMAL state (ignore deletions visually and logically)
+        this.restoreAllWordsToNormal();
+
+        // Clear deleted segments temporarily (so they're ignored during gap detection)
+        this.clearDeletedSegments();
+
+        // Enter gap review mode
+        this._isGapReviewMode.set(true);
+    }
+
+    /**
+     * Exit gap review mode
+     * Restores the snapshot saved before entering gap review mode
+     * This restores deleted segments and word states to what they were before
+     * @param timelineService TimelineService instance to restore handles (required for handle restoration)
+     */
+    public exitGapReviewMode(timelineService: { restoreHandles: (startHandle: HandlePosition | null, endHandle: HandlePosition | null) => void }): void {
+        // Exit gap review mode first
+        this._isGapReviewMode.set(false);
+
+        // Restore snapshot if it exists (restores deleted segments and word states)
+        if (this.gapReviewModeSnapshot) {
+            this.restoreState(this.gapReviewModeSnapshot);
+
+            // Restore handles from snapshot
+            timelineService.restoreHandles(
+                this.gapReviewModeSnapshot.startHandle,
+                this.gapReviewModeSnapshot.endHandle
+            );
+
+            // Clear snapshot
+            this.gapReviewModeSnapshot = null;
+        }
     }
 
     // ========== Feature 8: Undo/Redo State Management ==========

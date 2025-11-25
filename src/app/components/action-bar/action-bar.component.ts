@@ -52,15 +52,11 @@ export class ActionBarComponent implements OnInit, OnDestroy {
     // Signal for ARIA live region announcements
     public readonly actionAnnouncement = signal<string>('');
 
-    // Feature 13: Track preview mode state
-    protected readonly isPreviewModeActive = computed(() => {
-        return this.mainEditorContainer?.isPreviewMode() ?? false;
-    });
+    // Feature 13: Track preview mode state (from EditorStateService)
+    protected readonly isPreviewModeActive = this.editorState.isPreviewMode;
 
-    // Feature 14: Track gap review mode state
-    protected readonly isGapReviewModeActive = computed(() => {
-        return this.mainEditorContainer?.isGapReviewMode() ?? false;
-    });
+    // Feature 14: Track gap review mode state (from EditorStateService)
+    protected readonly isGapReviewModeActive = this.editorState.isGapReviewMode;
 
     // Feature 14: Gap detection signals
     protected readonly gapsWithStates = computed(() => {
@@ -330,9 +326,13 @@ export class ActionBarComponent implements OnInit, OnDestroy {
             this.videoPlayerService.pause();
         }
 
+        // Toggle preview mode - delegate to main editor container which handles
+        // both state update and tutorial modal position side effects
         if (this.mainEditorContainer) {
-            // Just toggle preview mode - tip modal will show when clicking words-container
             this.mainEditorContainer.togglePreviewMode();
+        } else {
+            // Fallback: toggle in service if mainEditorContainer not available
+            this.editorState.togglePreviewMode();
         }
     }
 
@@ -379,9 +379,11 @@ export class ActionBarComponent implements OnInit, OnDestroy {
         // Update effective duration in video player (Feature 13)
         this.videoPlayerService.updateEffectiveDuration(introLength, outroLength);
 
-        // Close preview mode
+        // Close preview mode (toggle in service, handle side effects if mainEditorContainer available)
         if (this.mainEditorContainer) {
             this.mainEditorContainer.togglePreviewMode();
+        } else {
+            this.editorState.togglePreviewMode();
         }
 
         // Announce action for screen readers
@@ -410,9 +412,11 @@ export class ActionBarComponent implements OnInit, OnDestroy {
         // Reset effective duration to original video duration (Feature 13)
         this.videoPlayerService.resetEffectiveDuration();
 
-        // Close preview mode
+        // Close preview mode (toggle in service, handle side effects if mainEditorContainer available)
         if (this.mainEditorContainer) {
             this.mainEditorContainer.togglePreviewMode();
+        } else {
+            this.editorState.togglePreviewMode();
         }
 
         // Announce action for screen readers
@@ -459,10 +463,12 @@ export class ActionBarComponent implements OnInit, OnDestroy {
      * Feature 14: Enter Gap Review Mode
      */
     onRemoveGaps(): void {
-        if (!this.mainEditorContainer) return;
+        // Get handle positions from timeline service
+        const startHandle = this.timelineService.startHandle();
+        const endHandle = this.timelineService.endHandle();
 
-        // Enter gap review mode
-        this.mainEditorContainer.enterGapReviewMode();
+        // Enter gap review mode (manages snapshot and state restoration)
+        this.editorState.enterGapReviewMode(startHandle, endHandle);
 
         // Mark all gaps ≥ threshold as SELECTED (initial state)
         this.gapDetectionService.markAllGapsAsActive();
@@ -484,10 +490,8 @@ export class ActionBarComponent implements OnInit, OnDestroy {
      * Feature 14: Apply gap removal
      */
     onApplyGapRemoval(): void {
-        if (!this.mainEditorContainer) return;
-
-        // Exit gap review mode
-        this.mainEditorContainer.exitGapReviewMode();
+        // Exit gap review mode (restores snapshot and state)
+        this.editorState.exitGapReviewMode(this.timelineService);
 
         // Gap removal is applied when generating output (useGapRemoval = true)
         // The gaps marked for removal are already stored in GapDetectionService
@@ -501,13 +505,11 @@ export class ActionBarComponent implements OnInit, OnDestroy {
      * Feature 14: Cancel gap removal
      */
     onCancelGapRemoval(): void {
-        if (!this.mainEditorContainer) return;
-
-        // Exit gap review mode
-        this.mainEditorContainer.exitGapReviewMode();
-
         // Reset gap states (discard temporary changes)
         this.gapDetectionService.resetGapStates();
+
+        // Exit gap review mode (restores snapshot and state)
+        this.editorState.exitGapReviewMode(this.timelineService);
 
         // Announce action for screen readers
         this.actionAnnouncement.set('Cancelled gap removal. All changes discarded');

@@ -99,9 +99,8 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
   private activeAnimationFrames: number[] = [];
 
 
-  // Feature 13: Preview mode state for start/end trimming
-  private readonly _isPreviewMode = signal<boolean>(false);
-  public readonly isPreviewMode = this._isPreviewMode.asReadonly();
+  // Feature 13: Preview mode state (managed by EditorStateService)
+  public readonly isPreviewMode = this.editorState.isPreviewMode;
 
   // RTL language detection (Arabic, Hebrew)
   public readonly isRTL = computed(() => {
@@ -306,16 +305,12 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     return error || 'Failed to load video';
   });
 
-  // Feature 14: Gap Review Mode state
-  private readonly _isGapReviewMode = signal<boolean>(false);
-  public readonly isGapReviewMode = this._isGapReviewMode.asReadonly();
-
   // Feature 14: Gap Review Mode warning alert state
   private readonly _showGapModeWarning = signal<boolean>(false);
   public readonly showGapModeWarning = this._showGapModeWarning.asReadonly();
 
-  // Feature 14: Snapshot saved before entering gap review mode (to restore deleted segments)
-  private gapReviewModeSnapshot: EditorStateSnapshot | null = null;
+  // Feature 14: Gap Review Mode state (managed by EditorStateService)
+  public readonly isGapReviewMode = this.editorState.isGapReviewMode;
 
   constructor(
     private videoDataService: VideoDataService,
@@ -719,9 +714,11 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
 
   /**
    * Toggle preview mode for start/end trimming (Feature 13)
+   * Delegates to EditorStateService to manage preview mode state
    */
   togglePreviewMode(): void {
-    this._isPreviewMode.update(mode => !mode);
+    // Toggle preview mode in service
+    this.editorState.togglePreviewMode();
 
     // Feature 13.11: Update preview tip modal position when preview mode changes
     if (this.tutorialService.modalState() === 'preview-tip') {
@@ -736,29 +733,20 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
         this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
       });
       this.activeAnimationFrames.push(rafId);
-      this.activeAnimationFrames.push(rafId);
     }
   }
 
   /**
    * Feature 14: Enter Gap Review Mode
-   * Saves a snapshot of current state, then temporarily ignores deleted segments
-   * by restoring all words to NORMAL state and clearing deleted segments
+   * Delegates to EditorStateService to manage gap review mode state
    */
   enterGapReviewMode(): void {
-    // Save snapshot before entering gap review mode (includes deleted segments and word states)
+    // Get handle positions from timeline service
     const startHandle = this.timelineService.startHandle();
     const endHandle = this.timelineService.endHandle();
-    this.gapReviewModeSnapshot = this.editorState.captureState(startHandle, endHandle);
 
-    // Temporarily restore all deleted words to NORMAL state (ignore deletions visually and logically)
-    this.editorState.restoreAllWordsToNormal();
-
-    // Clear deleted segments temporarily (so they're ignored during gap detection)
-    this.editorState.clearDeletedSegments();
-
-    // Enter gap review mode
-    this._isGapReviewMode.set(true);
+    // Enter gap review mode (manages snapshot and state restoration)
+    this.editorState.enterGapReviewMode(startHandle, endHandle);
 
     // Mark all gaps ≥ threshold as ACTIVE (initial state)
     this.gapDetectionService.markAllGapsAsActive();
@@ -766,32 +754,17 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
 
   /**
    * Feature 14: Exit Gap Review Mode
-   * Restores the snapshot saved before entering gap review mode
-   * This restores deleted segments and word states to what they were before
+   * Delegates to EditorStateService to restore state
    */
   exitGapReviewMode(): void {
-    // Exit gap review mode first
-    this._isGapReviewMode.set(false);
-
     // Hide warning alert when exiting gap review mode
     this._showGapModeWarning.set(false);
 
     // Reset gap states when exiting
     this.gapDetectionService.resetGapStates();
 
-    // Restore snapshot if it exists (restores deleted segments and word states)
-    if (this.gapReviewModeSnapshot) {
-      this.editorState.restoreState(this.gapReviewModeSnapshot);
-
-      // Restore handles from snapshot
-      this.timelineService.restoreHandles(
-        this.gapReviewModeSnapshot.startHandle,
-        this.gapReviewModeSnapshot.endHandle
-      );
-
-      // Clear snapshot
-      this.gapReviewModeSnapshot = null;
-    }
+    // Exit gap review mode (restores snapshot and state)
+    this.editorState.exitGapReviewMode(this.timelineService);
   }
 
   /**
