@@ -3,6 +3,8 @@
      [class.selected]="isSelected"
      [class.ignored]="isIgnored"
      [class.active]="isActive"
+     [class.selected-active]="isSelected && isActive"
+     [class.selected-ignored]="isSelected && isIgnored"
      [attr.aria-label]="ariaLabel"
      [attr.role]="'button'"
      [attr.aria-pressed]="isSelected"

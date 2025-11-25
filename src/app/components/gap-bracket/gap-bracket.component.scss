@@ -38,10 +38,9 @@
 
 
     /**
-     * Gap State: SELECTED (Marked for removal - visually selected)
-     * Gaps marked for removal appear as selected (blue)
+     * Visual Selection (independent of logical state)
+     * Selected gaps appear with blue background and primary text color
      */
-    &[data-state="selected"],
     &.selected {
         background-color: var(--color-secondary);
         color: var(--color-primary);
@@ -71,7 +70,7 @@
 
     /**
      * Gap State: ACTIVE (Deleted)
-     * Gap has been deleted/removed
+     * Gap has been deleted/removed - shows strikethrough
      */
     &[data-state="active"],
     &.active {
@@ -83,10 +82,42 @@
         .gap-bracket-text {
             text-decoration: line-through;
         }
+    }
+
+    /**
+     * Gap State: ACTIVE + Selected (Deleted but visually selected)
+     * Shows selection styling (blue background) with strikethrough
+     */
+    &.selected-active {
+        background-color: var(--color-secondary);
+        color: var(--color-primary);
+        border: 1px solid transparent;
+
+        // Strikethrough is inherited from .active class
+        .gap-bracket-text {
+            text-decoration: line-through;
+        }
 
         &:hover {
-            background-color: var(--color-gap-unselected-bg);
-            filter: brightness(0.97);
+            background-color: var(--color-secondary);
+            filter: brightness(0.95);
+        }
+    }
+
+    /**
+     * Gap State: IGNORED + Selected (Preserved but visually selected)
+     * Shows selection styling (blue background) without strikethrough
+     */
+    &.selected-ignored {
+        background-color: var(--color-secondary);
+        color: var(--color-primary);
+        border: 1px solid transparent;
+
+        // No strikethrough for ignored gaps, even when selected
+
+        &:hover {
+            background-color: var(--color-secondary);
+            filter: brightness(0.95);
         }
     }
 

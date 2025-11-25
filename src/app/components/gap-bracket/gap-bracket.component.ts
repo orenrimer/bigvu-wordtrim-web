@@ -24,6 +24,9 @@ export class GapBracketComponent {
     /** Gap object containing duration, state, and position information */
     @Input({ required: true }) gap!: Gap;
 
+    /** ID of the currently selected gap (for visual selection only) */
+    @Input() selectedGapId: number | null = null;
+
     /** Emits when the gap bracket is clicked */
     @Output() gapClicked = new EventEmitter<Gap>();
 
@@ -45,10 +48,11 @@ export class GapBracketComponent {
     }
 
     /**
-     * Check if gap is in Selected state (marked for removal - blue)
+     * Check if gap is visually selected (for highlighting)
+     * Selection is independent of logical state (ACTIVE/IGNORED)
      */
     get isSelected(): boolean {
-        return this.gap.state === GapState.SELECTED;
+        return this.selectedGapId === this.gap.id;
     }
 
     /**
@@ -79,11 +83,11 @@ export class GapBracketComponent {
      * Get ARIA label for accessibility
      */
     get ariaLabel(): string {
-        const stateText = this.isSelected ? 'marked for removal' :
-            this.isIgnored ? 'will be preserved' :
-                this.isActive ? 'deleted' :
-                    'unknown';
-        return `Gap ${this.formattedDuration}, ${stateText}. Click to toggle.`;
+        const stateText = this.isIgnored ? 'will be preserved' :
+            this.isActive ? 'deleted' :
+                'marked for removal';
+        const selectedText = this.isSelected ? ', selected' : '';
+        return `Gap ${this.formattedDuration}, ${stateText}${selectedText}. Click to toggle.`;
     }
 }
 

@@ -25,7 +25,6 @@ export class GapDetectionService {
     private readonly _words = signal<Word[]>([]);
     private readonly _gapStates = signal<Map<number, GapState>>(new Map());
     private readonly _selectedGapId = signal<number | null>(null);
-    private readonly _previousStates = new Map<number, GapState>(); // Store previous state before selection
     private readonly _deletedGaps = signal<Array<{ start: number; end: number }>>([]); // Deleted gaps for preview skipping
     private readonly _videoDuration = signal<number>(0); // Video duration for intro/outro gap detection
 
@@ -138,7 +137,6 @@ export class GapDetectionService {
         this._words.set([...words]);
         this._gapStates.set(new Map());
         this._selectedGapId.set(null);
-        this._previousStates.clear();
         this.clearMemoization();
     }
 
@@ -191,47 +189,16 @@ export class GapDetectionService {
         const gapStates = new Map(this._gapStates());
         gapStates.set(gapId, state);
         this._gapStates.set(gapStates);
-
-        // If this gap is currently selected and we're changing its state,
-        // update the previous state so it returns to the new state when deselected
-        if (this._selectedGapId() === gapId) {
-            this._previousStates.set(gapId, state);
-        }
+        // Note: Selection is independent of state, so we don't need to update anything else
     }
 
     /**
-     * Select a gap (for focus/highlight)
-     * When selecting a gap:
-     * - If another gap was previously selected, restore its previous state
-     * - Save the current state of the new gap as its previous state
-     * - Set the new gap state to SELECTED
+     * Select a gap (for visual focus/highlight only)
+     * Selection is purely visual - does not change the gap's logical state (ACTIVE/IGNORED)
      * @param gapId ID of the gap to select, or null to deselect
      */
     public selectGap(gapId: number | null): void {
-        const currentSelectedId = this._selectedGapId();
-        const gapStates = new Map(this._gapStates());
-
-        // If there was a previously selected gap, restore its previous state
-        if (currentSelectedId !== null) {
-            const previousState = this._previousStates.get(currentSelectedId);
-            if (previousState !== undefined) {
-                gapStates.set(currentSelectedId, previousState);
-                this._previousStates.delete(currentSelectedId);
-            }
-        }
-
-        // If selecting a new gap
-        if (gapId !== null) {
-            // Save the current state as the previous state
-            const currentState = gapStates.get(gapId) ?? GapState.ACTIVE;
-            this._previousStates.set(gapId, currentState);
-
-            // Set the gap to SELECTED
-            gapStates.set(gapId, GapState.SELECTED);
-        }
-
-        // Update states and selected gap ID
-        this._gapStates.set(gapStates);
+        // Only update the selected gap ID - don't change gap states
         this._selectedGapId.set(gapId);
     }
 
@@ -285,7 +252,6 @@ export class GapDetectionService {
     public resetGapStates(): void {
         this._gapStates.set(new Map());
         this._selectedGapId.set(null);
-        this._previousStates.clear();
         this._deletedGaps.set([]); // Also clear deleted gaps
     }
 

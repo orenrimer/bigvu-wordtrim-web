@@ -197,6 +197,9 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     return this.gapDetectionService.gapsWithStates();
   });
 
+  // Feature 14: Selected gap ID (for visual selection only)
+  selectedGapId = this.gapDetectionService.selectedGapId;
+
   // Feature 14: Computed signal for words with gaps interleaved (for Gap Review Mode)
   wordsWithGaps = computed((): Array<{ type: 'word'; word: Word } | { type: 'gap'; gap: Gap }> => {
     const words = this.words(); // Use regular words, not wordsWithIntroOutro

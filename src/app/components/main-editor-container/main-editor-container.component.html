@@ -104,7 +104,7 @@
                                     (arrowKeyPressed)="onArrowKeyPressed(item.word, $event)">
                                 </app-word-chip>
                                 <app-gap-bracket *ngIf="item.type === 'gap'" [gap]="item.gap"
-                                    (gapClicked)="onGapClick($event)">
+                                    [selectedGapId]="selectedGapId()" (gapClicked)="onGapClick($event)">
                                 </app-gap-bracket>
                             </ng-container>
                         </ng-container>
