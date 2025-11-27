@@ -68,6 +68,7 @@ export class ActionBarComponent implements OnInit, OnDestroy {
 
     protected readonly gapThreshold = this.gapDetectionService.threshold;
     protected readonly activeGapsCount = this.gapDetectionService.activeGapsCount;
+    protected readonly fillerWordsCount = this.gapDetectionService.fillerWordsCount;
     protected readonly selectedGapId = this.gapDetectionService.selectedGapId;
 
     // Feature 14: Gap settings modal state
@@ -614,7 +615,7 @@ export class ActionBarComponent implements OnInit, OnDestroy {
 
         // Mark gap as deleted and get preview information (logic handled in service)
         const videoDuration = this.videoPlayerService.duration();
-        const result = this.gapDetectionService.markGapAsDeleted(selectedId, videoDuration);
+        const result = this.gapDetectionService.markGapAsDeleted(selectedId);
 
         if (result) {
             const { gap, shouldPlayPreview } = result;
@@ -642,7 +643,7 @@ export class ActionBarComponent implements OnInit, OnDestroy {
 
         // Mark gap as ignored and get preview information (logic handled in service)
         const videoDuration = this.videoPlayerService.duration();
-        const result = this.gapDetectionService.markGapAsIgnored(selectedId, videoDuration);
+        const result = this.gapDetectionService.markGapAsIgnored(selectedId);
 
         if (result) {
             const { gap, shouldPlayPreview } = result;

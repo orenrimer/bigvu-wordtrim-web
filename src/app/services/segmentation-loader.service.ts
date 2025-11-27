@@ -18,11 +18,13 @@ export class SegmentationLoaderService {
     // Signal-based state management for reactive UI updates
     private _loadingState = signal<'idle' | 'loading' | 'success' | 'error'>('idle');
     private _words = signal<Word[]>([]);
+    private _fillerWords = signal<Word[]>([]); // Separate array for filler words
     private _error = signal<string | null>(null);
 
     // Public read-only signals
     readonly loadingState = this._loadingState.asReadonly();
     readonly words = this._words.asReadonly();
+    readonly fillerWords = this._fillerWords.asReadonly();
     readonly error = this._error.asReadonly();
 
     constructor(private http: HttpClient) { }
@@ -63,10 +65,11 @@ export class SegmentationLoaderService {
                     this._error.set(errorMsg);
                     this._loadingState.set('error');
                     this._words.set([]);
+                    this._fillerWords.set([]);
                     return throwError(() => new Error(errorMsg));
                 }
 
-                const flattenedWords = this.flattenSegments(segments);
+                const { words: flattenedWords, fillerWords } = this.flattenSegments(segments);
 
                 // Check if flattened words array is empty
                 if (!flattenedWords || flattenedWords.length === 0) {
@@ -74,10 +77,12 @@ export class SegmentationLoaderService {
                     this._error.set(errorMsg);
                     this._loadingState.set('error');
                     this._words.set([]);
+                    this._fillerWords.set([]);
                     return throwError(() => new Error(errorMsg));
                 }
 
                 this._words.set(flattenedWords);
+                this._fillerWords.set(fillerWords);
                 this._loadingState.set('success');
 
                 return of(segments);
@@ -99,12 +104,15 @@ export class SegmentationLoaderService {
     /**
      * Flatten nested segment structure into a single array of words
      * Based on PRD: Processing Requirements - Flatten structure into single array
+     * Separates filler words from regular words
      * @param segments Array of segments from JSON
-     * @returns Flat array of Word objects with indices
+     * @returns Object containing regular words and filler words arrays
      */
-    private flattenSegments(segments: Segment[]): Word[] {
+    private flattenSegments(segments: Segment[]): { words: Word[]; fillerWords: Word[] } {
         const words: Word[] = [];
+        const fillerWords: Word[] = [];
         let globalIndex = 0;
+        let fillerIndex = 0; // Separate index counter for filler words
 
         for (const segment of segments) {
             if (!segment.words || segment.words.length === 0) {
@@ -119,14 +127,19 @@ export class SegmentationLoaderService {
                     end: rawWord.end,
                     confidence: rawWord.confidence,
                     state: WordState.NORMAL, // Default state
-                    index: globalIndex++
+                    index: rawWord.filler ? -1000 - fillerIndex++ : globalIndex++ // Use negative IDs for filler words
                 };
 
-                words.push(word);
+                // Separate filler words from regular words
+                if (rawWord.filler === true) {
+                    fillerWords.push(word);
+                } else {
+                    words.push(word);
+                }
             }
         }
 
-        return words;
+        return { words, fillerWords };
     }
 
     /**
@@ -160,6 +173,7 @@ export class SegmentationLoaderService {
     reset(): void {
         this._loadingState.set('idle');
         this._words.set([]);
+        this._fillerWords.set([]);
         this._error.set(null);
     }
 }

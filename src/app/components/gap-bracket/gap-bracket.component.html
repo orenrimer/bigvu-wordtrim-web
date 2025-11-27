@@ -9,6 +9,6 @@
      [attr.role]="'button'"
      [attr.aria-pressed]="isSelected"
      (click)="onClick()">
-    <span class="gap-bracket-text">(<span class="gap-bracket-number">{{ durationNumber }}</span>s)</span>
+    <span class="gap-bracket-text">{{ displayText }}</span>
 </div>
 

@@ -411,14 +411,6 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       }
     }, { allowSignalWrites: true });
 
-    // Feature 14: Effect: Update gap detection service when video duration changes
-    effect(() => {
-      const videoDuration = this.videoService.duration();
-      if (videoDuration > 0) {
-        // Update gap detection service with video duration (needed for intro/outro gaps)
-        this.gapDetectionService.setVideoDuration(videoDuration);
-      }
-    }, { allowSignalWrites: true });
 
     // Effect: Stop video player when tutorial video modal opens
     effect(() => {
@@ -688,6 +680,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       next: () => {
         // Initialize editor state with loaded words
         const loadedWords = this.segmentationService.words();
+        const fillerWords = this.segmentationService.fillerWords();
 
         // Check if words array is empty
         if (!loadedWords || loadedWords.length === 0) {
@@ -698,8 +691,9 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
 
         this.editorState.initializeWords(loadedWords);
 
-        // Feature 14: Initialize gap detection service with words
-        this.gapDetectionService.initializeWords(loadedWords);
+        // Feature 14: Initialize gap detection service with words and filler words
+        // Filler words will be treated as gaps in gap review mode
+        this.gapDetectionService.initializeWords(loadedWords, fillerWords);
 
         // STEP 1: Save initial empty state (after words are loaded)
         // This state is stored separately and will be pushed to undo stack when first action occurs

@@ -31,6 +31,14 @@ export class GapBracketComponent {
     @Output() gapClicked = new EventEmitter<Gap>();
 
     /**
+     * Check if this gap represents a filler word
+     * @returns true if gap has filler word text
+     */
+    get isFillerWord(): boolean {
+        return !!this.gap.fillerWordText;
+    }
+
+    /**
      * Format gap duration for display with one decimal digit precision
      * @returns Formatted string like "0.4s"
      */
@@ -45,6 +53,18 @@ export class GapBracketComponent {
      */
     get durationNumber(): string {
         return this.gap.duration.toFixed(1);
+    }
+
+    /**
+     * Get display text for the gap bracket
+     * Returns filler word text if available, otherwise returns duration
+     * @returns Display text like "(um)" or "(0.4s)"
+     */
+    get displayText(): string {
+        if (this.isFillerWord && this.gap.fillerWordText) {
+            return `(${this.gap.fillerWordText})`;
+        }
+        return `(${this.durationNumber}s)`;
     }
 
     /**
@@ -87,7 +107,10 @@ export class GapBracketComponent {
             this.isActive ? 'deleted' :
                 'marked for removal';
         const selectedText = this.isSelected ? ', selected' : '';
-        return `Gap ${this.formattedDuration}, ${stateText}${selectedText}. Click to toggle.`;
+        const gapDescription = this.isFillerWord && this.gap.fillerWordText
+            ? `Filler word "${this.gap.fillerWordText}"`
+            : `Gap ${this.formattedDuration}`;
+        return `${gapDescription}, ${stateText}${selectedText}. Click to toggle.`;
     }
 }
 

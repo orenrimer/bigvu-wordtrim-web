@@ -1,6 +1,7 @@
-import { Injectable, signal, computed, effect } from '@angular/core';
+import { Injectable, signal, computed, effect, inject } from '@angular/core';
 import { Word, WordState } from '../models';
 import { Gap, GapState } from '../models/gap.interface';
+import { VideoPlayerService } from './video-player.service';
 
 /**
  * Gap Detection Service
@@ -15,6 +16,9 @@ import { Gap, GapState } from '../models/gap.interface';
  */
 @Injectable()
 export class GapDetectionService {
+    // Inject services
+    private readonly videoPlayerService = inject(VideoPlayerService);
+
     // Constants
     private static readonly DEFAULT_THRESHOLD = 0.1; // seconds
     private static readonly MIN_THRESHOLD = 0.1; // seconds
@@ -23,19 +27,21 @@ export class GapDetectionService {
     // Private writable signals
     private readonly _threshold = signal<number>(GapDetectionService.DEFAULT_THRESHOLD);
     private readonly _words = signal<Word[]>([]);
+    private readonly _fillerWords = signal<Word[]>([]); // Filler words treated as gaps
     private readonly _gapStates = signal<Map<number, GapState>>(new Map());
     private readonly _selectedGapId = signal<number | null>(null);
     private readonly _deletedGaps = signal<Array<{ start: number; end: number }>>([]); // Deleted gaps for preview skipping
-    private readonly _videoDuration = signal<number>(0); // Video duration for intro/outro gap detection
 
     // Special gap IDs for intro and outro
     public static readonly INTRO_GAP_ID = -1;
     public static readonly OUTRO_GAP_ID = -2;
+    // Filler words use IDs starting from -1000 (set in segmentation-loader.service.ts)
 
     // Memoization cache
     private _memoizedGaps: Gap[] | null = null;
     private _memoizedWordsHash: string = '';
     private _memoizedThreshold: number = -1;
+    private _memoizedVideoDuration: number = -1;
 
     // Public read-only signals
     public readonly threshold = this._threshold.asReadonly();
@@ -77,29 +83,36 @@ export class GapDetectionService {
 
     /**
      * Computed signal: All detected gaps based on current words and threshold
+     * Includes regular gaps between words AND filler words as gaps
      * Uses memoization for performance optimization
      */
     public readonly gaps = computed(() => {
         const words = this._words();
+        const fillerWords = this._fillerWords();
         const threshold = this._threshold();
+        const videoDuration = this.videoPlayerService.duration(); // Track video duration for memoization
 
         // Check if we can use memoized result
         const wordsHash = this.getWordsHash(words);
+        const fillerWordsHash = this.getWordsHash(fillerWords);
+        const combinedHash = `${wordsHash}|${fillerWordsHash}`;
         if (
             this._memoizedGaps !== null &&
-            wordsHash === this._memoizedWordsHash &&
-            threshold === this._memoizedThreshold
+            combinedHash === this._memoizedWordsHash &&
+            threshold === this._memoizedThreshold &&
+            videoDuration === this._memoizedVideoDuration
         ) {
             return this._memoizedGaps;
         }
 
-        // Calculate gaps
-        const gaps = this.detectGaps(words, threshold);
+        // Calculate gaps (includes regular gaps and filler words)
+        const gaps = this.detectGaps(words, threshold, fillerWords);
 
         // Update memoization cache
         this._memoizedGaps = gaps;
-        this._memoizedWordsHash = wordsHash;
+        this._memoizedWordsHash = combinedHash;
         this._memoizedThreshold = threshold;
+        this._memoizedVideoDuration = videoDuration;
 
         return gaps;
     });
@@ -130,11 +143,20 @@ export class GapDetectionService {
     });
 
     /**
-     * Initialize service with words
-     * @param words Array of words from editor state
+     * Computed signal: Count of filler words (gaps with fillerWordText)
      */
-    public initializeWords(words: Word[]): void {
+    public readonly fillerWordsCount = computed(() => {
+        return this.gapsWithStates().filter(gap => gap.fillerWordText).length;
+    });
+
+    /**
+     * Initialize service with words and filler words
+     * @param words Array of words from editor state
+     * @param fillerWords Array of filler words (optional)
+     */
+    public initializeWords(words: Word[], fillerWords: Word[] = []): void {
         this._words.set([...words]);
+        this._fillerWords.set([...fillerWords]);
         this._gapStates.set(new Map());
         this._selectedGapId.set(null);
         this.clearMemoization();
@@ -150,13 +172,14 @@ export class GapDetectionService {
     }
 
     /**
-     * Set video duration (needed for intro/outro gap detection)
-     * @param duration Video duration in seconds
+     * Update filler words array
+     * @param fillerWords Updated filler words array
      */
-    public setVideoDuration(duration: number): void {
-        this._videoDuration.set(duration);
+    public updateFillerWords(fillerWords: Word[]): void {
+        this._fillerWords.set([...fillerWords]);
         this.clearMemoization();
     }
+
 
     /**
      * Set threshold for gap detection
@@ -254,11 +277,13 @@ export class GapDetectionService {
 
     /**
      * Reset all gap states (clear manual selections)
+     * Note: Filler words are not cleared, only their states are reset
      */
     public resetGapStates(): void {
         this._gapStates.set(new Map());
         this._selectedGapId.set(null);
         this._deletedGaps.set([]); // Also clear deleted gaps
+        // Note: Filler words persist - they are part of the segmentation data
     }
 
     /**
@@ -333,10 +358,9 @@ export class GapDetectionService {
      * Mark specific gap as ACTIVE (deleted)
      * Also adds the gap to deleted gaps array for preview skipping
      * @param gapId ID of the gap to mark as active/deleted
-     * @param videoDuration Optional video duration to check if gap is in middle for preview
-     * @returns Gap information if found, null otherwise. Includes shouldPlayPreview flag if videoDuration provided
+     * @returns Gap information if found, null otherwise. Includes shouldPlayPreview flag
      */
-    public markGapAsDeleted(gapId: number, videoDuration?: number): { gap: Gap; shouldPlayPreview: boolean } | null {
+    public markGapAsDeleted(gapId: number): { gap: Gap; shouldPlayPreview: boolean } | null {
         this.setGapState(gapId, GapState.ACTIVE);
 
         // Add gap to deleted gaps array for preview skipping
@@ -349,9 +373,12 @@ export class GapDetectionService {
 
         this.addDeletedGap(gap.start, gap.end);
 
-        // Check if gap can play preview (if videoDuration provided)
+        // Get video duration from video player service
+        const videoDuration = this.videoPlayerService.duration();
+
+        // Check if gap can play preview
         let shouldPlayPreview = false;
-        if (videoDuration !== undefined) {
+        if (videoDuration > 0) {
             const PREVIEW_THRESHOLD = 1.5; // seconds - minimum space needed before/after for preview
 
             // Special handling for intro and outro gaps
@@ -404,10 +431,9 @@ export class GapDetectionService {
     /**
      * Mark specific gap as IGNORED (Keep)
      * @param gapId ID of the gap to mark as ignored
-     * @param videoDuration Optional video duration to check if gap is in middle for preview
-     * @returns Gap information if found, null otherwise. Includes shouldPlayPreview flag if videoDuration provided
+     * @returns Gap information if found, null otherwise. Includes shouldPlayPreview flag
      */
-    public markGapAsIgnored(gapId: number, videoDuration?: number): { gap: Gap; shouldPlayPreview: boolean } | null {
+    public markGapAsIgnored(gapId: number): { gap: Gap; shouldPlayPreview: boolean } | null {
         this.setGapState(gapId, GapState.IGNORED);
 
         const gaps = this.gapsWithStates();
@@ -417,9 +443,12 @@ export class GapDetectionService {
             return null;
         }
 
-        // Check if gap can play preview (if videoDuration provided)
+        // Get video duration from video player service
+        const videoDuration = this.videoPlayerService.duration();
+
+        // Check if gap can play preview
         let shouldPlayPreview = false;
-        if (videoDuration !== undefined) {
+        if (videoDuration > 0) {
             const PREVIEW_THRESHOLD = 1.5; // seconds - minimum space needed before/after for preview
 
             // Special handling for intro and outro gaps
@@ -491,8 +520,15 @@ export class GapDetectionService {
         // Sort words by index to ensure proper order
         const sortedWords = [...words].sort((a, b) => a.index - b.index);
 
-        // Create a set of gap IDs for quick lookup
+        // Create a set of gap IDs for quick lookup (for regular gaps)
         const gapIdsToRemove = new Set(gapsToRemove.map(gap => gap.id));
+
+        // Create a set of time ranges for removed gaps (including filler words)
+        // This helps us identify if there's a gap (regular or filler) that should be removed
+        const removedGapRanges = new Set<string>();
+        gapsToRemove.forEach(gap => {
+            removedGapRanges.add(`${gap.start}-${gap.end}`);
+        });
 
         // Split words into segments based on removed gaps
         const segments: Array<{ start: number; end: number }> = [];
@@ -503,8 +539,18 @@ export class GapDetectionService {
             currentSegmentWords.push(word);
 
             // Check if there's a gap after this word that should be removed
-            // Gap ID is the index of the word before the gap
-            const hasGapToRemove = gapIdsToRemove.has(word.index);
+            // For regular gaps: Gap ID is the index of the word before the gap
+            // For filler words: Check if there's a removed gap that overlaps with the space after this word
+            let hasGapToRemove = gapIdsToRemove.has(word.index);
+
+            // Also check for filler word gaps that overlap with the space after this word
+            if (!hasGapToRemove && i < sortedWords.length - 1) {
+                const nextWord = sortedWords[i + 1];
+                const gapStart = word.end;
+                const gapEnd = nextWord.start;
+                const gapRangeKey = `${gapStart}-${gapEnd}`;
+                hasGapToRemove = removedGapRanges.has(gapRangeKey);
+            }
 
             // If gap should be removed, or this is the last word, finalize current segment
             if (hasGapToRemove || i === sortedWords.length - 1) {
@@ -585,35 +631,33 @@ export class GapDetectionService {
 
     /**
      * Detect gaps between words, including intro and outro gaps
+     * Also includes filler words as gaps
      * Formula: GapDuration = NextWord.start - PreviousWord.end
      * Only gaps between visible (non-deleted) words are detected
      * Also detects intro gap (0 to first word) and outro gap (last word to video end)
+     * Filler words are treated as gaps with their own IDs (negative IDs starting from -1000)
      * 
      * @param words Array of words to analyze
      * @param threshold Minimum gap duration to consider valid
-     * @returns Array of detected gaps
+     * @param fillerWords Array of filler words to include as gaps
+     * @returns Array of detected gaps (regular gaps + filler words)
      */
-    private detectGaps(words: Word[], threshold: number): Gap[] {
+    private detectGaps(words: Word[], threshold: number, fillerWords: Word[] = []): Gap[] {
         const gaps: Gap[] = [];
-        const videoDuration = this._videoDuration();
+        const videoDuration = this.videoPlayerService.duration();
 
-        // Filter to only visible words (not deleted)
-        const visibleWords = words.filter(word =>
-            word.state !== WordState.DELETED &&
-            word.state !== WordState.DELETED_SELECTED_START &&
-            word.state !== WordState.DELETED_SELECTED_END &&
-            word.state !== WordState.DELETED_SELECTED_RANGE
-        );
+        // Gap detection is only called in gap review mode, so ignore word states
+        // Treat all words as visible (deleted words are temporarily restored in gap review mode)
 
-        if (visibleWords.length === 0) {
+        if (words.length === 0) {
             return gaps; // No words, no gaps
         }
 
         // Sort by index to ensure proper order
-        visibleWords.sort((a, b) => a.index - b.index);
+        const sortedWords = [...words].sort((a, b) => a.index - b.index);
 
-        const firstWord = visibleWords[0];
-        const lastWord = visibleWords[visibleWords.length - 1];
+        const firstWord = sortedWords[0];
+        const lastWord = sortedWords[sortedWords.length - 1];
 
         // Detect intro gap: from 0 to first word start
         if (firstWord.start >= threshold && videoDuration > 0) {
@@ -628,10 +672,10 @@ export class GapDetectionService {
             });
         }
 
-        // Detect gaps between consecutive visible words
-        for (let i = 0; i < visibleWords.length - 1; i++) {
-            const currentWord = visibleWords[i];
-            const nextWord = visibleWords[i + 1];
+        // Detect gaps between consecutive words
+        for (let i = 0; i < sortedWords.length - 1; i++) {
+            const currentWord = sortedWords[i];
+            const nextWord = sortedWords[i + 1];
 
             // Calculate gap duration
             const gapDuration = nextWord.start - currentWord.end;
@@ -666,11 +710,60 @@ export class GapDetectionService {
             }
         }
 
+        // Add filler words as gaps
+        // Filler words are treated as gaps and can be marked for removal
+        fillerWords.forEach(fillerWord => {
+            // Filler words already have negative IDs (starting from -1000)
+            // They are treated as gaps, so we create a Gap object for each filler word
+            gaps.push({
+                id: fillerWord.index, // Use the filler word's index (negative ID)
+                beforeWordIndex: this.findWordBeforeFiller(fillerWord, sortedWords),
+                afterWordIndex: this.findWordAfterFiller(fillerWord, sortedWords),
+                duration: fillerWord.end - fillerWord.start,
+                state: GapState.ACTIVE, // Default state (will be overridden by effect if state exists)
+                start: fillerWord.start,
+                end: fillerWord.end,
+                fillerWordText: fillerWord.word // Store the filler word text for display
+            });
+        });
+
         // Sort gaps chronologically by start time to ensure proper ordering
-        // This ensures intro gap comes first, then regular gaps, then outro gap
+        // This ensures intro gap comes first, then regular gaps and filler words, then outro gap
         gaps.sort((a, b) => a.start - b.start);
 
         return gaps;
+    }
+
+    /**
+     * Find the word index before a filler word
+     * @param fillerWord The filler word to find the previous word for
+     * @param words Array of words (sorted by index)
+     * @returns Index of the word before the filler, or -1 if at start
+     */
+    private findWordBeforeFiller(fillerWord: Word, words: Word[]): number {
+        // Find the last word that ends before or at the filler word start
+        for (let i = words.length - 1; i >= 0; i--) {
+            if (words[i].end <= fillerWord.start) {
+                return words[i].index;
+            }
+        }
+        return -1; // No word before (at start)
+    }
+
+    /**
+     * Find the word index after a filler word
+     * @param fillerWord The filler word to find the next word for
+     * @param words Array of words (sorted by index)
+     * @returns Index of the word after the filler, or -2 if at end
+     */
+    private findWordAfterFiller(fillerWord: Word, words: Word[]): number {
+        // Find the first word that starts after or at the filler word end
+        for (let i = 0; i < words.length; i++) {
+            if (words[i].start >= fillerWord.end) {
+                return words[i].index;
+            }
+        }
+        return -2; // No word after (at end)
     }
 
     /**
@@ -690,6 +783,7 @@ export class GapDetectionService {
         this._memoizedGaps = null;
         this._memoizedWordsHash = '';
         this._memoizedThreshold = -1;
+        this._memoizedVideoDuration = -1;
     }
 
 }

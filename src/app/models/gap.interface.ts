@@ -39,5 +39,8 @@ export interface Gap {
 
     /** End time of the gap (start time of next word) */
     end: number;
+
+    /** Optional filler word text (e.g., "um", "uh") - if present, display this instead of duration */
+    fillerWordText?: string;
 }
 

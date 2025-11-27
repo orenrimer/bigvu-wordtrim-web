@@ -32,5 +32,6 @@ export interface WordRaw {
     start: number;
     end: number;
     confidence: number;
+    filler?: boolean; // Indicates if this is a filler word (e.g., "um", "uh")
 }
 
