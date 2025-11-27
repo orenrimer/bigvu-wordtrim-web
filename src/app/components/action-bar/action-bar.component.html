@@ -96,11 +96,22 @@
 
                 <div class="gap-review-mode-layout__left-actions">
                     <!-- Remove All Button -->
+                    @if (!showRestoreAll()) {
                     <button class="gap-review-mode-button remove-all-button" (click)="onRemoveAllGaps()"
                         aria-label="Remove all gaps">
                         <img src="assets/icons/remove.svg" alt="" class="button-icon" />
                         <span class="button-label">Remove All</span>
                     </button>
+                    }
+
+                    <!-- Restore All Button -->
+                    @if (showRestoreAll()) {
+                    <button class="gap-review-mode-button restore-all-button" (click)="onRestoreAllGaps()"
+                        aria-label="Restore all gaps">
+                        <img src="assets/icons/Restore.svg" alt="" class="button-icon" />
+                        <span class="button-label">Restore</span>
+                    </button>
+                    }
 
                     <!-- Settings Button -->
                     <button class="gap-review-mode-button settings-button" (click)="onGapSettings()"

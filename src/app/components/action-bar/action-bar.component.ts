@@ -71,6 +71,10 @@ export class ActionBarComponent implements OnInit, OnDestroy {
     protected readonly fillerWordsCount = this.gapDetectionService.fillerWordsCount;
     protected readonly selectedGapId = this.gapDetectionService.selectedGapId;
 
+    // Feature 14: Track if "Remove All" was pressed (to show "Restore All" instead)
+    private readonly _showRestoreAll = signal<boolean>(false);
+    protected readonly showRestoreAll = this._showRestoreAll.asReadonly();
+
     // Feature 14: Gap settings modal state
     protected readonly _isSettingsModalOpen = signal<boolean>(false);
     protected readonly isSettingsModalOpen = this._isSettingsModalOpen.asReadonly();
@@ -494,6 +498,9 @@ export class ActionBarComponent implements OnInit, OnDestroy {
         // Clear selected gap before exiting
         this.gapDetectionService.selectGap(null);
 
+        // Reset "Restore All" button state when exiting gap review mode
+        this._showRestoreAll.set(false);
+
         // Exit gap review mode (restores snapshot and state)
         this.editorState.exitGapReviewMode(this.timelineService);
 
@@ -512,6 +519,9 @@ export class ActionBarComponent implements OnInit, OnDestroy {
         // Reset gap states (discard temporary changes)
         this.gapDetectionService.resetGapStates();
 
+        // Reset "Restore All" button state when exiting gap review mode
+        this._showRestoreAll.set(false);
+
         // Exit gap review mode (restores snapshot and state)
         this.editorState.exitGapReviewMode(this.timelineService);
 
@@ -520,15 +530,35 @@ export class ActionBarComponent implements OnInit, OnDestroy {
     }
 
     /**
-     * Feature 14: Remove all gaps (mark all as IGNORED - removed from removal list)
+     * Feature 14: Remove all gaps (mark all as ACTIVE - deleted)
+     * Shows "Restore All" button after pressing
      */
     onRemoveAllGaps(): void {
         // Mark all gaps as ACTIVE (deleted)
         this.gapDetectionService.markAllGapsAsDeleted();
 
+        // Show "Restore All" button instead of "Remove All"
+        this._showRestoreAll.set(true);
+
         // Announce action for screen readers
         const gapsCount = this.gapsWithStates().length;
         this.actionAnnouncement.set(`Marked all ${gapsCount} ${gapsCount === 1 ? 'gap' : 'gaps'} as deleted`);
+    }
+
+    /**
+     * Feature 14: Restore all gaps (mark all as IGNORED - kept)
+     * Shows "Remove All" button after pressing
+     */
+    onRestoreAllGaps(): void {
+        // Mark all gaps as IGNORED (kept)
+        this.gapDetectionService.markAllGapsAsIgnored();
+
+        // Show "Remove All" button instead of "Restore All"
+        this._showRestoreAll.set(false);
+
+        // Announce action for screen readers
+        const gapsCount = this.gapsWithStates().length;
+        this.actionAnnouncement.set(`Restored all ${gapsCount} ${gapsCount === 1 ? 'gap' : 'gaps'}`);
     }
 
     /**
