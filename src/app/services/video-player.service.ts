@@ -1,12 +1,14 @@
-import { Injectable, signal, computed, effect, inject, OnDestroy } from '@angular/core';
+import { Injectable, signal, computed, effect, inject, OnDestroy, Injector } from '@angular/core';
 import { Subject } from 'rxjs';
 import { debounceTime, takeUntil } from 'rxjs/operators';
 import Hls from 'hls.js';
 import { Word, WordState } from '../models';
+import { GapState } from '../models/gap.interface';
 import { EditorStateService } from './editor-state.service';
 import { TimelineService } from './timeline.service';
 import { HlsLoaderService } from './hls-loader.service';
 import { VideoDataService } from './video-data.service';
+import { GapDetectionService } from './gap-detection.service';
 
 /**
  * Aspect Ratio Types
@@ -33,6 +35,17 @@ export class VideoPlayerService {
     private timelineService = inject(TimelineService);
     private hlsLoaderService = inject(HlsLoaderService);
     private videoDataService = inject(VideoDataService);
+    private injector = inject(Injector);
+
+    // Lazy reference for GapDetectionService to avoid circular dependency
+    // GapDetectionService injects VideoPlayerService, so we need lazy injection
+    private _gapDetectionService: GapDetectionService | null = null;
+    private get gapDetectionService(): GapDetectionService {
+        if (!this._gapDetectionService) {
+            this._gapDetectionService = this.injector.get(GapDetectionService);
+        }
+        return this._gapDetectionService;
+    }
 
     // HLS.js instance
     private hls: Hls | null = null;
@@ -855,19 +868,37 @@ export class VideoPlayerService {
      * Get deleted segments from editor state service
      * Uses fine-tuned handle positions stored in editor state
      * These segments contain the exact deletion boundaries (including fine-tuned positions)
+     * In gap review mode, also includes active gaps that should be skipped
+     * In gap review mode, uses deleted segments from snapshot (before entering gap review mode) to skip deleted words
      * @param words Array of words with states (unused, kept for compatibility)
-     * @returns Array of deleted time segments with exact boundaries
+     * @returns Array of deleted time segments with exact boundaries (includes active gaps in gap review mode)
      */
     private calculateDeletedSegments(words: Word[]): Array<{ start: number; end: number }> {
-        // Use deleted segments from editor state service
-        // These segments already contain fine-tuned handle positions
-        // No need to recalculate - just return the exact segments
-        return this.editorStateService.deletedSegments();
+        // Get deleted segments for playback (includes snapshot segments in gap review mode)
+        // This ensures deleted words are still skipped even in gap review mode
+        const deletedSegments = [...this.editorStateService.getDeletedSegmentsForPlayback()];
+
+        // If in gap review mode, add active gaps to the segments to skip
+        if (this.editorStateService.isGapReviewMode()) {
+            const gapsWithStates = this.gapDetectionService.gapsWithStates();
+            const activeGaps = gapsWithStates.filter(gap => gap.state === GapState.ACTIVE);
+
+            // Add active gaps to deleted segments
+            activeGaps.forEach(gap => {
+                deletedSegments.push({ start: gap.start, end: gap.end });
+            });
+        }
+
+        // Sort segments by start time for easier processing
+        deletedSegments.sort((a, b) => a.start - b.start);
+
+        return deletedSegments;
     }
 
     /**
      * Get the first non-deleted start time
      * Returns 0 if the beginning is not deleted, otherwise returns the end of the first deleted segment
+     * In gap review mode, considers both deleted words and active gaps
      * @param words Array of words (used to get deleted segments)
      * @returns Start time (0 or end of first deleted segment if beginning is deleted)
      */
@@ -883,6 +914,37 @@ export class VideoPlayerService {
         } else {
             // Beginning is not deleted - start from 0
             return 0;
+        }
+    }
+
+    /**
+     * Get play start time based on selected gap (for gap review mode)
+     * If a gap is selected:
+     * - If gap is ACTIVE: start from gap.end (exclude the gap)
+     * - If gap is IGNORED: start from gap.start (include the gap)
+     * If no gap is selected, returns null
+     * @returns Play start time, or null if no gap is selected
+     */
+    private getPlayStartTimeFromSelectedGap(): number | null {
+        const selectedGapId = this.gapDetectionService.selectedGapId();
+        if (selectedGapId === null) {
+            return null;
+        }
+
+        const gapsWithStates = this.gapDetectionService.gapsWithStates();
+        const selectedGap = gapsWithStates.find(gap => gap.id === selectedGapId);
+
+        if (!selectedGap) {
+            return null;
+        }
+
+        // If gap is ACTIVE (marked for removal), start from gap.end (skip the gap)
+        // If gap is IGNORED (kept), start from gap.start (include the gap)
+        if (selectedGap.state === GapState.ACTIVE) {
+            return selectedGap.end;
+        } else {
+            // Gap is IGNORED - include it in playback
+            return selectedGap.start;
         }
     }
 
@@ -1321,6 +1383,10 @@ export class VideoPlayerService {
 
     /**
      * Execute toggle play/pause logic (called after debounce)
+     * In gap review mode:
+     * - If there's a selected gap, start from that gap (exclude if active, include if ignored)
+     * - If no selected gap, start from first non-deleted segment
+     * - Always skip active gaps and deleted words during playback
      */
     private executeTogglePlayPause(): void {
         if (this._isPlaying()) {
@@ -1329,7 +1395,27 @@ export class VideoPlayerService {
             // Get all words from editor state for deleted segment skipping
             const words = this.editorStateService.words();
 
-            // Check if there's a selection
+            // Check if we're in gap review mode
+            const isGapReviewMode = this.editorStateService.isGapReviewMode();
+
+            // In gap review mode, handle gap-based playback
+            if (isGapReviewMode) {
+                const playStartFromGap = this.getPlayStartTimeFromSelectedGap();
+
+                if (playStartFromGap !== null) {
+                    // There's a selected gap - start from that gap
+                    // Active gaps are already included in deletedSegments, so they'll be skipped
+                    this.playEditedVideo(words, playStartFromGap);
+                    return;
+                } else {
+                    // No selected gap - start from first non-deleted segment
+                    const startTime = this.getFirstNonDeletedStartTime(words);
+                    this.playEditedVideo(words, startTime);
+                    return;
+                }
+            }
+
+            // Regular mode: check if there's a selection
             const selectionStart = this.editorStateService.selectionStart();
             const selectionEnd = this.editorStateService.selectionEnd();
 

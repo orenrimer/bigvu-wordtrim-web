@@ -1,6 +1,7 @@
-import { Injectable, signal, computed, effect, inject } from '@angular/core';
+import { Injectable, signal, computed, effect, inject, Injector } from '@angular/core';
 import { Word, WordState, EditorStateSnapshot } from '../models';
 import { HandlePosition } from './timeline.service';
+import { VideoPlayerService } from './video-player.service';
 
 /**
  * Editor State Service
@@ -1074,6 +1075,16 @@ export class EditorStateService {
     // Snapshot saved before entering gap review mode (to restore deleted segments)
     private gapReviewModeSnapshot: EditorStateSnapshot | null = null;
 
+    // Lazy injection for VideoPlayerService to avoid circular dependency
+    private injector = inject(Injector);
+    private _videoPlayerService: VideoPlayerService | null = null;
+    private get videoPlayerService(): VideoPlayerService {
+        if (!this._videoPlayerService) {
+            this._videoPlayerService = this.injector.get(VideoPlayerService);
+        }
+        return this._videoPlayerService;
+    }
+
     /**
      * Enter gap review mode
      * Saves a snapshot of current state, then temporarily ignores deleted segments
@@ -1090,6 +1101,13 @@ export class EditorStateService {
 
         // Clear deleted segments temporarily (so they're ignored during gap detection)
         this.clearDeletedSegments();
+
+        // Clear current selection when entering gap review mode
+        // Selection will be restored when exiting gap review mode via restoreState()
+        this.clearSelection();
+
+        // Pause video playback when entering gap review mode
+        this.videoPlayerService.pause();
 
         // Enter gap review mode
         this._isGapReviewMode.set(true);
@@ -1118,6 +1136,21 @@ export class EditorStateService {
             // Clear snapshot
             this.gapReviewModeSnapshot = null;
         }
+    }
+
+    /**
+     * Get deleted segments for playback skipping
+     * In gap review mode, returns deleted segments from the snapshot (before entering gap review mode)
+     * Otherwise, returns current deleted segments
+     * @returns Array of deleted segments
+     */
+    public getDeletedSegmentsForPlayback(): Array<{ start: number; end: number }> {
+        // If in gap review mode, return deleted segments from snapshot
+        if (this._isGapReviewMode() && this.gapReviewModeSnapshot) {
+            return (this.gapReviewModeSnapshot.deletedSegments || []).map(seg => ({ ...seg }));
+        }
+        // Otherwise, return current deleted segments
+        return this._deletedSegments();
     }
 
     // ========== Feature 8: Undo/Redo State Management ==========

@@ -57,13 +57,14 @@
                 @if (!isSettingsModalOpen()) {
                 <div class="gap-review-mode-info">
                     <div class="gap-info-item">
-                        <span class="gap-info-number">{{ activeGapsCount() }}</span>
-                        <span class="gap-info-label">silence gaps</span>
-                    </div>
-                    <div class="gap-info-item">
                         <span class="gap-info-number">{{ fillerWordsCount() }}</span>
                         <span class="gap-info-label">filler words</span>
                     </div>
+                    <div class="gap-info-item">
+                        <span class="gap-info-number">{{ activeGapsCount() }}</span>
+                        <span class="gap-info-label">silence gaps</span>
+                    </div>
+
                 </div>
 
                 <!-- Individual Gap Action Controls (Feature 14) -->
