@@ -2,6 +2,7 @@ import { Injectable, signal, computed, effect, inject, Injector } from '@angular
 import { Word, WordState, EditorStateSnapshot } from '../models';
 import { HandlePosition } from './timeline.service';
 import { VideoPlayerService } from './video-player.service';
+import { GapSegmentMergerService } from './gap-segment-merger.service';
 
 /**
  * Editor State Service
@@ -1075,6 +1076,9 @@ export class EditorStateService {
     // Snapshot saved before entering gap review mode (to restore deleted segments)
     private gapReviewModeSnapshot: EditorStateSnapshot | null = null;
 
+    // Inject services
+    private readonly gapSegmentMerger = inject(GapSegmentMergerService);
+
     // Lazy injection for VideoPlayerService to avoid circular dependency
     private injector = inject(Injector);
     private _videoPlayerService: VideoPlayerService | null = null;
@@ -1151,6 +1155,27 @@ export class EditorStateService {
         }
         // Otherwise, return current deleted segments
         return this._deletedSegments();
+    }
+
+    /**
+     * Merge active gaps with deleted segments and remove ignored gaps from deleted segments
+     * Called when applying gap removal to merge gaps into deleted segments array
+     * Delegates to GapSegmentMergerService for the actual merging logic
+     * 
+     * @param activeGaps Array of active gaps to merge (gaps with GapState.ACTIVE)
+     * @param ignoredGaps Array of ignored gaps to remove (gaps with GapState.IGNORED)
+     */
+    public mergeGapsWithDeletedSegments(
+        activeGaps: Array<{ start: number; end: number }>,
+        ignoredGaps: Array<{ start: number; end: number }> = []
+    ): void {
+        const currentSegments = this._deletedSegments();
+        const mergedSegments = this.gapSegmentMerger.mergeGapsWithDeletedSegments(
+            currentSegments,
+            activeGaps,
+            ignoredGaps
+        );
+        this._deletedSegments.set(mergedSegments);
     }
 
     // ========== Feature 8: Undo/Redo State Management ==========

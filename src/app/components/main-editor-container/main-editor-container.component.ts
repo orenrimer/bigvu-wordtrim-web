@@ -13,6 +13,7 @@ import { HlsLoaderService } from '../../services/hls-loader.service';
 import { OutputGeneratorService } from '../../services/output-generator.service';
 import { TimestampService } from '../../services/timestamp.service';
 import { GapDetectionService } from '../../services/gap-detection.service';
+import { GapSegmentMergerService } from '../../services/gap-segment-merger.service';
 import { SkeletonLoaderComponent } from '../skeleton-loader/skeleton-loader.component';
 import { WordChipComponent } from '../word-chip/word-chip.component';
 import { GapBracketComponent } from '../gap-bracket/gap-bracket.component';
@@ -50,7 +51,8 @@ import { Gap } from '../../models/gap.interface';
     HlsLoaderService,
     OutputGeneratorService,
     SegmentationLoaderService,
-    GapDetectionService
+    GapDetectionService,
+    GapSegmentMergerService
   ],
   templateUrl: './main-editor-container.component.html',
   styleUrl: './main-editor-container.component.scss'
@@ -745,8 +747,8 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     // Enter gap review mode (manages snapshot and state restoration)
     this.editorState.enterGapReviewMode(startHandle, endHandle);
 
-    // Mark all gaps ≥ threshold as ACTIVE (initial state)
-    this.gapDetectionService.markAllGapsAsActive();
+    // Gaps default to IGNORED state (kept by default)
+    // Users can manually mark gaps as ACTIVE if they want to remove them
   }
 
   /**

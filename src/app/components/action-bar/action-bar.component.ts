@@ -444,8 +444,8 @@ export class ActionBarComponent implements OnInit, OnDestroy {
             )
             .subscribe(threshold => {
                 this.gapDetectionService.setThreshold(threshold);
-                // On threshold change, recalculate all gaps and reset manual selections
-                this.gapDetectionService.markAllGapsAsActive();
+                // On threshold change, gaps are recalculated and default to IGNORED state
+                // Users can manually mark gaps as ACTIVE if they want to remove them
             });
     }
 
@@ -475,8 +475,8 @@ export class ActionBarComponent implements OnInit, OnDestroy {
         // Enter gap review mode (manages snapshot and state restoration)
         this.editorState.enterGapReviewMode(startHandle, endHandle);
 
-        // Mark all gaps ≥ threshold as SELECTED (initial state)
-        this.gapDetectionService.markAllGapsAsActive();
+        // Gaps default to IGNORED state (kept by default)
+        // Users can manually mark gaps as ACTIVE if they want to remove them
 
         // Announce action for screen readers
         const gapsCount = this.gapsWithStates().length;
@@ -501,15 +501,35 @@ export class ActionBarComponent implements OnInit, OnDestroy {
         // Reset "Restore All" button state when exiting gap review mode
         this._showRestoreAll.set(false);
 
+        // Get active and ignored gaps BEFORE exiting gap review mode
+        // These gaps are detected based on words in gap review mode (all words visible)
+        const gapsWithStates = this.gapsWithStates();
+        const activeGaps = gapsWithStates
+            .filter(gap => gap.state === GapState.ACTIVE)
+            .map(gap => ({ start: gap.start, end: gap.end }));
+        const ignoredGaps = gapsWithStates
+            .filter(gap => gap.state === GapState.IGNORED)
+            .map(gap => ({ start: gap.start, end: gap.end }));
+
         // Exit gap review mode (restores snapshot and state)
+        // This restores deleted segments from before entering gap review mode
         this.editorState.exitGapReviewMode(this.timelineService);
+
+        // Merge active gaps with deleted segments and remove ignored gaps from deleted segments
+        // This ensures gaps are merged/removed with the restored deleted segments
+        this.editorState.mergeGapsWithDeletedSegments(activeGaps, ignoredGaps);
+
+        // Log deleted segments array after applying gap removal
+        const deletedSegments = this.editorState.deletedSegments();
+        console.log('Deleted Segments after Apply Gap Removal:', JSON.stringify(deletedSegments, null, 2));
+        console.log(`Active gaps: ${activeGaps.length}, Ignored gaps: ${ignoredGaps.length}`);
 
         // Gap removal is applied when generating output (useGapRemoval = true)
         // The gaps marked for removal are already stored in GapDetectionService
 
         // Announce action for screen readers
-        const activeGaps = this.activeGapsCount();
-        this.actionAnnouncement.set(`Applied gap removal. ${activeGaps} ${activeGaps === 1 ? 'gap' : 'gaps'} will be removed`);
+        const activeGapsCount = activeGaps.length;
+        this.actionAnnouncement.set(`Applied gap removal. ${activeGapsCount} ${activeGapsCount === 1 ? 'gap' : 'gaps'} will be removed`);
     }
 
     /**
@@ -776,4 +796,6 @@ export class ActionBarComponent implements OnInit, OnDestroy {
         this.timelineService.restoreHandles(snapshot.startHandle, snapshot.endHandle);
     }
 }
+
+
 

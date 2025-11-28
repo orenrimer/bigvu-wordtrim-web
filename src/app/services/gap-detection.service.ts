@@ -48,37 +48,40 @@ export class GapDetectionService {
     public readonly selectedGapId = this._selectedGapId.asReadonly();
 
     constructor() {
-        // Effect: Automatically mark all gaps as ACTIVE when first detected
-        // This ensures all gaps start with ACTIVE state (marked for removal)
-        effect(() => {
-            const gaps = this.gaps();
-            const gapStates = this._gapStates();
-            const updatedStates = new Map(gapStates);
-            let statesChanged = false;
+        // Effect: Automatically mark all gaps as IGNORED when first detected
+        // This ensures all gaps start with IGNORED state (kept by default)
+        effect(
+            () => {
+                const gaps = this.gaps();
+                const gapStates = this._gapStates();
+                const updatedStates = new Map(gapStates);
+                let statesChanged = false;
 
-            // Ensure all gaps have ACTIVE state (for removal)
-            gaps.forEach(gap => {
-                if (!updatedStates.has(gap.id)) {
-                    // New gap detected - mark as ACTIVE automatically (to be removed)
-                    updatedStates.set(gap.id, GapState.ACTIVE);
-                    statesChanged = true;
+                // Ensure all gaps have IGNORED state (kept by default)
+                gaps.forEach(gap => {
+                    if (!updatedStates.has(gap.id)) {
+                        // New gap detected - mark as IGNORED automatically (kept by default)
+                        updatedStates.set(gap.id, GapState.IGNORED);
+                        statesChanged = true;
+                    }
+                });
+
+                // Remove states for gaps that no longer exist
+                const gapIds = new Set(gaps.map(g => g.id));
+                updatedStates.forEach((state, gapId) => {
+                    if (!gapIds.has(gapId)) {
+                        updatedStates.delete(gapId);
+                        statesChanged = true;
+                    }
+                });
+
+                // Update states if changes were detected
+                if (statesChanged) {
+                    this._gapStates.set(updatedStates);
                 }
-            });
-
-            // Remove states for gaps that no longer exist
-            const gapIds = new Set(gaps.map(g => g.id));
-            updatedStates.forEach((state, gapId) => {
-                if (!gapIds.has(gapId)) {
-                    updatedStates.delete(gapId);
-                    statesChanged = true;
-                }
-            });
-
-            // Update states if changes were detected
-            if (statesChanged) {
-                this._gapStates.set(updatedStates);
-            }
-        });
+            },
+            { allowSignalWrites: true }
+        );
     }
 
     /**
@@ -119,18 +122,18 @@ export class GapDetectionService {
 
     /**
      * Computed signal: Gaps with their current states applied
-     * All gaps are automatically marked as ACTIVE when first detected (via effect)
+     * All gaps are automatically marked as IGNORED when first detected (via effect)
      */
     public readonly gapsWithStates = computed(() => {
         const gaps = this.gaps();
         const gapStates = this._gapStates();
 
         return gaps.map(gap => {
-            // Apply stored state, or default to ACTIVE if not set (shouldn't happen due to effect)
+            // Apply stored state, or default to IGNORED if not set (shouldn't happen due to effect)
             const storedState = gapStates.get(gap.id);
             return {
                 ...gap,
-                state: storedState ?? GapState.ACTIVE
+                state: storedState ?? GapState.IGNORED
             };
         });
     });
@@ -226,7 +229,8 @@ export class GapDetectionService {
     }
 
     /**
-     * Mark all gaps ≥ threshold as ACTIVE (initial state when entering Gap Review Mode)
+     * Mark all gaps as ACTIVE (marked for removal)
+     * Used by "Remove All" button in Gap Review Mode
      * Preserves existing gap states - only sets ACTIVE for gaps that don't have a saved state
      */
     public markAllGapsAsActive(): void {
@@ -471,11 +475,11 @@ export class GapDetectionService {
     /**
      * Get current state of a specific gap
      * @param gapId ID of the gap
-     * @returns Current state of the gap, or ACTIVE if not set
+     * @returns Current state of the gap, or IGNORED if not set
      */
     public getGapState(gapId: number): GapState {
         const gapStates = this._gapStates();
-        return gapStates.get(gapId) ?? GapState.ACTIVE;
+        return gapStates.get(gapId) ?? GapState.IGNORED;
     }
 
     /**
@@ -666,7 +670,7 @@ export class GapDetectionService {
                 beforeWordIndex: -1, // Special value for intro
                 afterWordIndex: firstWord.index,
                 duration: firstWord.start,
-                state: GapState.ACTIVE, // Default state
+                state: GapState.IGNORED, // Default state
                 start: 0,
                 end: firstWord.start
             });
@@ -687,7 +691,7 @@ export class GapDetectionService {
                     beforeWordIndex: currentWord.index,
                     afterWordIndex: nextWord.index,
                     duration: gapDuration,
-                    state: GapState.ACTIVE, // Default state
+                    state: GapState.IGNORED, // Default state
                     start: currentWord.end,
                     end: nextWord.start
                 });
@@ -703,7 +707,7 @@ export class GapDetectionService {
                     beforeWordIndex: lastWord.index,
                     afterWordIndex: -2, // Special value for outro
                     duration: outroDuration,
-                    state: GapState.ACTIVE, // Default state
+                    state: GapState.IGNORED, // Default state
                     start: lastWord.end,
                     end: videoDuration
                 });
@@ -720,7 +724,7 @@ export class GapDetectionService {
                 beforeWordIndex: this.findWordBeforeFiller(fillerWord, sortedWords),
                 afterWordIndex: this.findWordAfterFiller(fillerWord, sortedWords),
                 duration: fillerWord.end - fillerWord.start,
-                state: GapState.ACTIVE, // Default state (will be overridden by effect if state exists)
+                state: GapState.IGNORED, // Default state (will be overridden by effect if state exists)
                 start: fillerWord.start,
                 end: fillerWord.end,
                 fillerWordText: fillerWord.word // Store the filler word text for display
