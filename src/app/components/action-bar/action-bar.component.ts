@@ -338,6 +338,9 @@ export class ActionBarComponent implements OnInit, OnDestroy {
             this.videoPlayerService.pause();
         }
 
+        // Hide tip modal when entering preview mode
+        this.tutorialService.hide();
+
         // Toggle preview mode - delegate to main editor container which handles
         // both state update and tutorial modal position side effects
         if (this.mainEditorContainer) {
@@ -479,6 +482,9 @@ export class ActionBarComponent implements OnInit, OnDestroy {
         const startHandle = this.timelineService.startHandle();
         const endHandle = this.timelineService.endHandle();
 
+        // Hide tip modal when entering gap review mode
+        this.tutorialService.hide();
+
         // Enter gap review mode (manages snapshot and state restoration)
         this.editorState.enterGapReviewMode(startHandle, endHandle);
 
@@ -517,6 +523,11 @@ export class ActionBarComponent implements OnInit, OnDestroy {
         // Save gap states before exiting (so they persist for next gap review mode session)
         this.gapDetectionService.saveGapStates();
 
+        // Pause video before exiting gap review mode
+        if (this.videoPlayerService.isPlaying()) {
+            this.videoPlayerService.pause();
+        }
+
         // Exit gap review mode (restores snapshot and state)
         // This restores deleted segments from before entering gap review mode
         this.editorState.exitGapReviewMode(this.timelineService);
@@ -549,6 +560,11 @@ export class ActionBarComponent implements OnInit, OnDestroy {
 
         // Restore gap states from snapshot (discard any changes made during this session)
         this.gapDetectionService.restoreGapStatesSnapshot();
+
+        // Pause video before exiting gap review mode
+        if (this.videoPlayerService.isPlaying()) {
+            this.videoPlayerService.pause();
+        }
 
         // Exit gap review mode (restores snapshot and state)
         this.editorState.exitGapReviewMode(this.timelineService);

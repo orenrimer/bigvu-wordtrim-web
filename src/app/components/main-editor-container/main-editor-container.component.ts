@@ -329,6 +329,8 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       const loadingState = this.loadingState();
       const hasError = this.hasError();
       const rtl = this.isRTL();
+      const isGapReview = this.isGapReviewMode();
+      const isPreview = this.isPreviewMode();
 
       // Set RTL mode as class on html element for CSS to use
       if (rtl) {
@@ -353,9 +355,13 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
             // 1. Position was calculated successfully
             // 2. No error occurred
             // 3. User hasn't clicked a word before (first visit)
+            // 4. Not in gap review mode
+            // 5. Not in preview mode
             if (positionSuccess &&
               !hasError &&
-              !this.tutorialService.hasClickedWord()) {
+              !this.tutorialService.hasClickedWord() &&
+              !isGapReview &&
+              !isPreview) {
               // Show modal immediately - position is already calculated and set
               this.tutorialService.showTip();
             }
@@ -710,6 +716,9 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
    * Delegates to EditorStateService to manage preview mode state
    */
   togglePreviewMode(): void {
+    // Hide tip modal when entering preview mode
+    this.tutorialService.hide();
+
     // Toggle preview mode in service
     this.editorState.togglePreviewMode();
 
@@ -737,6 +746,9 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     // Get handle positions from timeline service
     const startHandle = this.timelineService.startHandle();
     const endHandle = this.timelineService.endHandle();
+
+    // Hide tip modal when entering gap review mode
+    this.tutorialService.hide();
 
     // Enter gap review mode (manages snapshot and state restoration)
     this.editorState.enterGapReviewMode(startHandle, endHandle);
