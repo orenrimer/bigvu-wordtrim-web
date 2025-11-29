@@ -100,6 +100,11 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
   private activeTimeouts: number[] = [];
   private activeAnimationFrames: number[] = [];
 
+  // Memoization cache for wordsWithGaps interleaving
+  private _memoizedWordsWithGaps: Array<{ type: 'word'; word: Word } | { type: 'gap'; gap: Gap }> | null = null;
+  private _memoizedWordsArrayRef: Word[] | null = null;
+  private _memoizedGapsArrayRef: Gap[] | null = null;
+
 
   // Feature 13: Preview mode state (managed by EditorStateService)
   public readonly isPreviewMode = this.editorState.isPreviewMode;
@@ -203,19 +208,54 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
   selectedGapId = this.gapDetectionService.selectedGapId;
 
   // Feature 14: Computed signal for words with gaps interleaved (for Gap Review Mode)
+  // Optimized: Memoized interleaving result to avoid unnecessary array recreation
   wordsWithGaps = computed((): Array<{ type: 'word'; word: Word } | { type: 'gap'; gap: Gap }> => {
     const words = this.words(); // Use regular words, not wordsWithIntroOutro
     const isGapReview = this.isGapReviewMode();
 
     // If not in gap review mode, return words as-is
     if (!isGapReview) {
-      return words.map(word => ({ type: 'word' as const, word }));
+      // Check memoization for non-gap-review mode
+      if (
+        this._memoizedWordsWithGaps !== null &&
+        this._memoizedWordsArrayRef === words &&
+        this._memoizedGapsArrayRef === null
+      ) {
+        return this._memoizedWordsWithGaps;
+      }
+      const result = words.map(word => ({ type: 'word' as const, word }));
+      this._memoizedWordsWithGaps = result;
+      this._memoizedWordsArrayRef = words;
+      this._memoizedGapsArrayRef = null;
+      return result;
     }
 
     // Get gaps with states
     const gaps = this.gapsWithStates();
     if (gaps.length === 0) {
-      return words.map(word => ({ type: 'word' as const, word }));
+      // Check memoization for empty gaps case
+      if (
+        this._memoizedWordsWithGaps !== null &&
+        this._memoizedWordsArrayRef === words &&
+        this._memoizedGapsArrayRef !== null &&
+        this._memoizedGapsArrayRef.length === 0
+      ) {
+        return this._memoizedWordsWithGaps;
+      }
+      const result = words.map(word => ({ type: 'word' as const, word }));
+      this._memoizedWordsWithGaps = result;
+      this._memoizedWordsArrayRef = words;
+      this._memoizedGapsArrayRef = [];
+      return result;
+    }
+
+    // Check if we can use memoized result
+    if (
+      this._memoizedWordsWithGaps !== null &&
+      this._memoizedWordsArrayRef === words &&
+      this._memoizedGapsArrayRef === gaps
+    ) {
+      return this._memoizedWordsWithGaps;
     }
 
     // Find intro and outro gaps using service constants
@@ -251,6 +291,11 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     if (outroGap && words.length > 0) {
       items.push({ type: 'gap', gap: outroGap });
     }
+
+    // Update memoization cache
+    this._memoizedWordsWithGaps = items;
+    this._memoizedWordsArrayRef = words;
+    this._memoizedGapsArrayRef = gaps;
 
     return items;
   });

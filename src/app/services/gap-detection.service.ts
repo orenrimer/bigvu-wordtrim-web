@@ -2,6 +2,7 @@ import { Injectable, signal, computed, effect, inject } from '@angular/core';
 import { Word, WordState } from '../models';
 import { Gap, GapState } from '../models/gap.interface';
 import { VideoPlayerService } from './video-player.service';
+import { EditorStateService } from './editor-state.service';
 
 /**
  * Gap Detection Service
@@ -18,6 +19,7 @@ import { VideoPlayerService } from './video-player.service';
 export class GapDetectionService {
     // Inject services
     private readonly videoPlayerService = inject(VideoPlayerService);
+    private readonly editorStateService = inject(EditorStateService);
 
     // Constants
     private static readonly DEFAULT_THRESHOLD = 0.1; // seconds
@@ -45,11 +47,24 @@ export class GapDetectionService {
     public static readonly OUTRO_GAP_ID = -2;
     // Filler words use IDs starting from -1000 (set in segmentation-loader.service.ts)
 
-    // Memoization cache
+    // Memoization cache for gaps calculation
     private _memoizedGaps: Gap[] | null = null;
     private _memoizedWordsHash: string = '';
     private _memoizedThreshold: number = -1;
     private _memoizedVideoDuration: number = -1;
+    private _memoizedSelectionStartIndex: number | null = null;
+    private _memoizedSelectionEndIndex: number | null = null;
+
+    // Memoization cache for gapsWithStates mapping
+    private _memoizedGapsWithStates: Gap[] | null = null;
+    private _memoizedGapsArrayRef: Gap[] | null = null;
+    private _memoizedGapStatesHash: string = '';
+
+    // Memoization cache for helper methods
+    private _memoizedIntroGap: Gap | undefined | null = null;
+    private _memoizedOutroGap: Gap | undefined | null = null;
+    private _memoizedGapMap: Map<number, Gap> | null = null;
+    private _memoizedGapMapGapsRef: Gap[] | null = null;
 
     // Public read-only signals
     public readonly threshold = this._threshold.asReadonly();
@@ -103,6 +118,8 @@ export class GapDetectionService {
      * Computed signal: All detected gaps based on current words and threshold
      * Includes regular gaps between words AND filler words as gaps
      * Uses memoization for performance optimization
+     * Optimized: Hash calculation only happens when threshold/duration match cached values
+     * Cache invalidates when word selection changes
      */
     public readonly gaps = computed(() => {
         const words = this._words();
@@ -110,18 +127,44 @@ export class GapDetectionService {
         const threshold = this._threshold();
         const videoDuration = this.videoPlayerService.duration(); // Track video duration for memoization
 
-        // Check if we can use memoized result
+        // Track word selection for cache invalidation
+        const selectionStart = this.editorStateService.selectionStart();
+        const selectionEnd = this.editorStateService.selectionEnd();
+        const selectionStartIndex = selectionStart?.index ?? null;
+        const selectionEndIndex = selectionEnd?.index ?? null;
+
+        // Check if threshold, duration, and selection match cached values first (fast check)
+        const thresholdMatches = threshold === this._memoizedThreshold;
+        const durationMatches = videoDuration === this._memoizedVideoDuration;
+        const selectionMatches =
+            selectionStartIndex === this._memoizedSelectionStartIndex &&
+            selectionEndIndex === this._memoizedSelectionEndIndex;
+
+        // Only calculate hash if we have a cached result AND threshold/duration/selection match
+        // This avoids expensive hash calculation when we know we need to recalculate anyway
+        if (
+            this._memoizedGaps !== null &&
+            thresholdMatches &&
+            durationMatches &&
+            selectionMatches
+        ) {
+            // Threshold, duration, and selection match - check hash to see if words changed
+            const wordsHash = this.getWordsHash(words);
+            const fillerWordsHash = this.getWordsHash(fillerWords);
+            const combinedHash = `${wordsHash}|${fillerWordsHash}`;
+
+            if (combinedHash === this._memoizedWordsHash) {
+                // Everything matches - return cached result
+                return this._memoizedGaps;
+            }
+            // Hash doesn't match - fall through to recalculate
+        }
+
+        // Need to recalculate (either no cache, or threshold/duration/selection/hash changed)
+        // Calculate hash for new cache entry
         const wordsHash = this.getWordsHash(words);
         const fillerWordsHash = this.getWordsHash(fillerWords);
         const combinedHash = `${wordsHash}|${fillerWordsHash}`;
-        if (
-            this._memoizedGaps !== null &&
-            combinedHash === this._memoizedWordsHash &&
-            threshold === this._memoizedThreshold &&
-            videoDuration === this._memoizedVideoDuration
-        ) {
-            return this._memoizedGaps;
-        }
 
         // Calculate gaps (includes regular gaps and filler words)
         const gaps = this.detectGaps(words, threshold, fillerWords);
@@ -131,6 +174,8 @@ export class GapDetectionService {
         this._memoizedWordsHash = combinedHash;
         this._memoizedThreshold = threshold;
         this._memoizedVideoDuration = videoDuration;
+        this._memoizedSelectionStartIndex = selectionStartIndex;
+        this._memoizedSelectionEndIndex = selectionEndIndex;
 
         return gaps;
     });
@@ -138,12 +183,26 @@ export class GapDetectionService {
     /**
      * Computed signal: Gaps with their current states applied
      * All gaps are automatically marked as IGNORED when first detected (via effect)
+     * Optimized: Memoized mapping result to avoid unnecessary array recreation
      */
     public readonly gapsWithStates = computed(() => {
         const gaps = this.gaps();
         const gapStates = this._gapStates();
 
-        return gaps.map(gap => {
+        // Generate hash for gap states map to detect changes
+        const gapStatesHash = this.getGapStatesHash(gapStates);
+
+        // Check if we can use memoized result
+        if (
+            this._memoizedGapsWithStates !== null &&
+            this._memoizedGapsArrayRef === gaps &&
+            gapStatesHash === this._memoizedGapStatesHash
+        ) {
+            return this._memoizedGapsWithStates;
+        }
+
+        // Map gaps with states
+        const gapsWithStates = gaps.map(gap => {
             // Apply stored state, or default to IGNORED if not set (shouldn't happen due to effect)
             const storedState = gapStates.get(gap.id);
             return {
@@ -151,6 +210,19 @@ export class GapDetectionService {
                 state: storedState ?? GapState.IGNORED
             };
         });
+
+        // Update memoization cache
+        this._memoizedGapsWithStates = gapsWithStates;
+        this._memoizedGapsArrayRef = gaps;
+        this._memoizedGapStatesHash = gapStatesHash;
+
+        // Clear helper method caches since gaps array changed
+        this._memoizedIntroGap = null;
+        this._memoizedOutroGap = null;
+        this._memoizedGapMap = null;
+        this._memoizedGapMapGapsRef = null;
+
+        return gapsWithStates;
     });
 
     /**
@@ -175,11 +247,9 @@ export class GapDetectionService {
     });
 
     /**
-     * Computed signal: Total filler words count
+     * Computed signal: Total filler words count (alias for fillerWordsCount)
      */
-    public readonly totalFillerWordsCount = computed(() => {
-        return this.gapsWithStates().filter(gap => gap.fillerWordText).length;
-    });
+    public readonly totalFillerWordsCount = this.fillerWordsCount;
 
     /**
      * Computed signal: Check if any gaps have been manually marked for removal (ACTIVE state)
@@ -260,29 +330,54 @@ export class GapDetectionService {
 
     /**
      * Get intro gap from gaps with states
+     * Optimized: Memoized result based on gapsWithStates array reference
      * @returns Intro gap if exists, undefined otherwise
      */
     public getIntroGap(): Gap | undefined {
         const gaps = this.gapsWithStates();
-        return gaps.find(gap => gap.id === GapDetectionService.INTRO_GAP_ID);
+
+        // Check memoization cache
+        if (this._memoizedIntroGap !== null && this._memoizedGapsArrayRef === gaps) {
+            return this._memoizedIntroGap === undefined ? undefined : this._memoizedIntroGap;
+        }
+
+        const introGap = gaps.find(gap => gap.id === GapDetectionService.INTRO_GAP_ID);
+        this._memoizedIntroGap = introGap;
+        return introGap;
     }
 
     /**
      * Get outro gap from gaps with states
+     * Optimized: Memoized result based on gapsWithStates array reference
      * @returns Outro gap if exists, undefined otherwise
      */
     public getOutroGap(): Gap | undefined {
         const gaps = this.gapsWithStates();
-        return gaps.find(gap => gap.id === GapDetectionService.OUTRO_GAP_ID);
+
+        // Check memoization cache
+        if (this._memoizedOutroGap !== null && this._memoizedGapsArrayRef === gaps) {
+            return this._memoizedOutroGap === undefined ? undefined : this._memoizedOutroGap;
+        }
+
+        const outroGap = gaps.find(gap => gap.id === GapDetectionService.OUTRO_GAP_ID);
+        this._memoizedOutroGap = outroGap;
+        return outroGap;
     }
 
     /**
      * Get a map of gaps by beforeWordIndex (excluding intro/outro gaps)
      * Useful for interleaving words and gaps in UI
+     * Optimized: Memoized result based on gapsWithStates array reference
      * @returns Map of beforeWordIndex to Gap
      */
     public getGapMapByBeforeWordIndex(): Map<number, Gap> {
         const gaps = this.gapsWithStates();
+
+        // Check memoization cache
+        if (this._memoizedGapMap !== null && this._memoizedGapMapGapsRef === gaps) {
+            return this._memoizedGapMap;
+        }
+
         const gapMap = new Map<number, Gap>();
         gaps.forEach(gap => {
             // Only map regular gaps (not intro/outro)
@@ -290,6 +385,11 @@ export class GapDetectionService {
                 gapMap.set(gap.beforeWordIndex, gap);
             }
         });
+
+        // Update memoization cache
+        this._memoizedGapMap = gapMap;
+        this._memoizedGapMapGapsRef = gaps;
+
         return gapMap;
     }
 
@@ -416,9 +516,11 @@ export class GapDetectionService {
 
     /**
      * Mark all gaps as ACTIVE (deleted)
+     * Alias for markAllGapsAsActive() - sets all gaps to ACTIVE state
      * Used by "Remove All" button in Gap Review Mode
      */
     public markAllGapsAsDeleted(): void {
+        // Same as markAllGapsAsActive but clears existing states first
         const gaps = this.gaps();
         const gapStates = new Map<number, GapState>();
 
@@ -567,27 +669,8 @@ export class GapDetectionService {
 
         this.addDeletedGap(gap.start, gap.end);
 
-        // Get video duration from video player service
-        const videoDuration = this.videoPlayerService.duration();
-
-        // Check if gap can play preview
-        let shouldPlayPreview = false;
-        if (videoDuration > 0) {
-            const PREVIEW_THRESHOLD = 1.5; // seconds - minimum space needed before/after for preview
-
-            // Special handling for intro and outro gaps
-            if (gapId === GapDetectionService.INTRO_GAP_ID) {
-                // Intro gap: Can preview if there's content after the gap (at least 1.5 seconds)
-                shouldPlayPreview = gap.end <= (videoDuration - PREVIEW_THRESHOLD);
-            } else if (gapId === GapDetectionService.OUTRO_GAP_ID) {
-                // Outro gap: Can preview if there's content before the gap (at least 1.5 seconds)
-                shouldPlayPreview = gap.start >= PREVIEW_THRESHOLD;
-            } else {
-                // Regular gap: Need space before and after
-                shouldPlayPreview = gap.start >= PREVIEW_THRESHOLD &&
-                    gap.end <= (videoDuration - PREVIEW_THRESHOLD);
-            }
-        }
+        // Calculate preview capability
+        const shouldPlayPreview = this.calculateGapPreviewCapability(gapId, gap);
 
         return { gap, shouldPlayPreview };
     }
@@ -637,29 +720,39 @@ export class GapDetectionService {
             return null;
         }
 
-        // Get video duration from video player service
-        const videoDuration = this.videoPlayerService.duration();
-
-        // Check if gap can play preview
-        let shouldPlayPreview = false;
-        if (videoDuration > 0) {
-            const PREVIEW_THRESHOLD = 1.5; // seconds - minimum space needed before/after for preview
-
-            // Special handling for intro and outro gaps
-            if (gapId === GapDetectionService.INTRO_GAP_ID) {
-                // Intro gap: Can preview if there's content after the gap (at least 1.5 seconds)
-                shouldPlayPreview = gap.end <= (videoDuration - PREVIEW_THRESHOLD);
-            } else if (gapId === GapDetectionService.OUTRO_GAP_ID) {
-                // Outro gap: Can preview if there's content before the gap (at least 1.5 seconds)
-                shouldPlayPreview = gap.start >= PREVIEW_THRESHOLD;
-            } else {
-                // Regular gap: Need space before and after
-                shouldPlayPreview = gap.start >= PREVIEW_THRESHOLD &&
-                    gap.end <= (videoDuration - PREVIEW_THRESHOLD);
-            }
-        }
+        // Calculate preview capability
+        const shouldPlayPreview = this.calculateGapPreviewCapability(gapId, gap);
 
         return { gap, shouldPlayPreview };
+    }
+
+    /**
+     * Calculate whether a gap can play preview based on its position and video duration
+     * @param gapId ID of the gap
+     * @param gap The gap object
+     * @returns true if gap can play preview, false otherwise
+     */
+    private calculateGapPreviewCapability(gapId: number, gap: Gap): boolean {
+        const videoDuration = this.videoPlayerService.duration();
+
+        if (videoDuration <= 0) {
+            return false;
+        }
+
+        const PREVIEW_THRESHOLD = 1.5; // seconds - minimum space needed before/after for preview
+
+        // Special handling for intro and outro gaps
+        if (gapId === GapDetectionService.INTRO_GAP_ID) {
+            // Intro gap: Can preview if there's content after the gap (at least 1.5 seconds)
+            return gap.end <= (videoDuration - PREVIEW_THRESHOLD);
+        } else if (gapId === GapDetectionService.OUTRO_GAP_ID) {
+            // Outro gap: Can preview if there's content before the gap (at least 1.5 seconds)
+            return gap.start >= PREVIEW_THRESHOLD;
+        } else {
+            // Regular gap: Need space before and after
+            return gap.start >= PREVIEW_THRESHOLD &&
+                gap.end <= (videoDuration - PREVIEW_THRESHOLD);
+        }
     }
 
     /**
@@ -674,154 +767,17 @@ export class GapDetectionService {
 
     /**
      * Get gaps that are marked for removal (ACTIVE state)
+     * Optimized: Early return if no removed gaps
      * @returns Array of gaps marked for removal
      */
     public getGapsToRemove(): Gap[] {
+        // Early return if no removed gaps
+        if (!this.hasRemovedGaps()) {
+            return [];
+        }
         return this.gapsWithStates().filter(gap => gap.state === GapState.ACTIVE);
     }
 
-    /**
-     * Generate segments after gap removal
-     * Based on PRD Phase 2: Gap Removal & Timing Optimization
-     * 
-     * Algorithm:
-     * 1. Get gaps marked for removal
-     * 2. Split words into segments based on removed gaps
-     * 3. For each segment: start = firstWord.start, end = lastWord.end (strict timing, no padding)
-     * 4. If all gaps removed → forms a single segment
-     * 
-     * @param words Array of words to process (should be non-deleted words)
-     * @returns Array of segments with strict timing, or null if empty
-     */
-    public generateSegmentsAfterGapRemoval(words: Word[]): Array<{ start: number; end: number }> | null {
-        if (words.length === 0) {
-            return null;
-        }
-
-        // Get gaps marked for removal (ACTIVE state)
-        const gapsToRemove = this.getGapsToRemove();
-
-        // If no gaps to remove, return single segment with strict timing
-        if (gapsToRemove.length === 0) {
-            // Single segment: start = firstWord.start, end = lastWord.end
-            const sortedWords = [...words].sort((a, b) => a.index - b.index);
-            return [{
-                start: sortedWords[0].start,
-                end: sortedWords[sortedWords.length - 1].end
-            }];
-        }
-
-        // Sort words by index to ensure proper order
-        const sortedWords = [...words].sort((a, b) => a.index - b.index);
-
-        // Create a set of gap IDs for quick lookup (for regular gaps)
-        const gapIdsToRemove = new Set(gapsToRemove.map(gap => gap.id));
-
-        // Create a set of time ranges for removed gaps (including filler words)
-        // This helps us identify if there's a gap (regular or filler) that should be removed
-        const removedGapRanges = new Set<string>();
-        gapsToRemove.forEach(gap => {
-            removedGapRanges.add(`${gap.start}-${gap.end}`);
-        });
-
-        // Split words into segments based on removed gaps
-        const segments: Array<{ start: number; end: number }> = [];
-        let currentSegmentWords: Word[] = [];
-
-        for (let i = 0; i < sortedWords.length; i++) {
-            const word = sortedWords[i];
-            currentSegmentWords.push(word);
-
-            // Check if there's a gap after this word that should be removed
-            // For regular gaps: Gap ID is the index of the word before the gap
-            // For filler words: Check if there's a removed gap that overlaps with the space after this word
-            let hasGapToRemove = gapIdsToRemove.has(word.index);
-
-            // Also check for filler word gaps that overlap with the space after this word
-            if (!hasGapToRemove && i < sortedWords.length - 1) {
-                const nextWord = sortedWords[i + 1];
-                const gapStart = word.end;
-                const gapEnd = nextWord.start;
-                const gapRangeKey = `${gapStart}-${gapEnd}`;
-                hasGapToRemove = removedGapRanges.has(gapRangeKey);
-            }
-
-            // If gap should be removed, or this is the last word, finalize current segment
-            if (hasGapToRemove || i === sortedWords.length - 1) {
-                if (currentSegmentWords.length > 0) {
-                    // Strict timing: start = firstWord.start, end = lastWord.end (no padding)
-                    const firstWord = currentSegmentWords[0];
-                    const lastWord = currentSegmentWords[currentSegmentWords.length - 1];
-
-                    segments.push({
-                        start: firstWord.start,
-                        end: lastWord.end
-                    });
-                }
-                currentSegmentWords = [];
-            }
-        }
-
-        // Validate and return
-        if (segments.length === 0) {
-            return null;
-        }
-
-        // Sort chronologically (should already be sorted, but ensure it)
-        const sortedSegments = segments.sort((a, b) => a.start - b.start);
-
-        // Validate segments (proper ordering, non-overlapping, duration > 0)
-        this.validateSegments(sortedSegments);
-
-        return sortedSegments;
-    }
-
-    /**
-     * Validate segments after gap removal
-     * Ensures:
-     * - Proper time ordering
-     * - Valid time ranges (start < end, duration > 0)
-     * - Non-overlapping segments
-     * @param segments Array of segments to validate
-     * @throws Error if validation fails
-     */
-    private validateSegments(segments: Array<{ start: number; end: number }>): void {
-        if (segments.length === 0) {
-            throw new Error('Segments array is empty');
-        }
-
-        // Validate each segment
-        for (let i = 0; i < segments.length; i++) {
-            const segment = segments[i];
-
-            // Check valid time range (start < end)
-            if (segment.start >= segment.end) {
-                throw new Error(`Invalid segment at index ${i}: start (${segment.start}) >= end (${segment.end})`);
-            }
-
-            // Check duration > 0
-            const duration = segment.end - segment.start;
-            if (duration <= 0) {
-                throw new Error(`Invalid segment at index ${i}: duration (${duration}) <= 0`);
-            }
-
-            // Check proper ordering and non-overlapping (segments should be sorted by start time)
-            if (i > 0) {
-                const previousSegment = segments[i - 1];
-
-                // Check ordering
-                if (segment.start < previousSegment.start) {
-                    throw new Error(`Segments not properly ordered: segment at index ${i} starts before previous segment`);
-                }
-
-                // Check non-overlapping (previous segment end should be <= current segment start)
-                // Note: With gap removal, segments should not overlap, but they may be adjacent
-                if (previousSegment.end > segment.start) {
-                    throw new Error(`Segments overlap: segment at index ${i} starts before previous segment ends`);
-                }
-            }
-        }
-    }
 
     /**
      * Detect gaps between words, including intro and outro gaps
@@ -847,8 +803,21 @@ export class GapDetectionService {
             return gaps; // No words, no gaps
         }
 
-        // Sort by index to ensure proper order
-        const sortedWords = [...words].sort((a, b) => a.index - b.index);
+        // Optimize: Check if words are already sorted before sorting
+        let sortedWords: Word[];
+        let isSorted = true;
+        for (let i = 1; i < words.length; i++) {
+            if (words[i - 1].index > words[i].index) {
+                isSorted = false;
+                break;
+            }
+        }
+
+        if (isSorted) {
+            sortedWords = words; // Already sorted, use original array
+        } else {
+            sortedWords = [...words].sort((a, b) => a.index - b.index);
+        }
 
         const firstWord = sortedWords[0];
         const lastWord = sortedWords[sortedWords.length - 1];
@@ -971,6 +940,33 @@ export class GapDetectionService {
     }
 
     /**
+     * Generate a hash for gap states map for memoization
+     * Optimized: Cache map size and hash to avoid recalculation
+     * @param gapStates Map of gap states
+     * @returns Hash string
+     */
+    private getGapStatesHash(gapStates: Map<number, GapState>): string {
+        // Early return for empty map
+        if (gapStates.size === 0) {
+            return '';
+        }
+
+        // Create a hash from sorted entries for consistent hashing
+        // For small maps, direct iteration is faster than Array.from + sort
+        const entries: Array<[number, GapState]> = [];
+        gapStates.forEach((state, id) => {
+            entries.push([id, state]);
+        });
+
+        // Only sort if more than one entry (single entry is already sorted)
+        if (entries.length > 1) {
+            entries.sort((a, b) => a[0] - b[0]);
+        }
+
+        return entries.map(([id, state]) => `${id}:${state}`).join(',');
+    }
+
+    /**
      * Clear memoization cache
      */
     private clearMemoization(): void {
@@ -978,6 +974,17 @@ export class GapDetectionService {
         this._memoizedWordsHash = '';
         this._memoizedThreshold = -1;
         this._memoizedVideoDuration = -1;
+        this._memoizedSelectionStartIndex = null;
+        this._memoizedSelectionEndIndex = null;
+        // Also clear gapsWithStates memoization
+        this._memoizedGapsWithStates = null;
+        this._memoizedGapsArrayRef = null;
+        this._memoizedGapStatesHash = '';
+        // Clear helper method caches
+        this._memoizedIntroGap = null;
+        this._memoizedOutroGap = null;
+        this._memoizedGapMap = null;
+        this._memoizedGapMapGapsRef = null;
     }
 
 }

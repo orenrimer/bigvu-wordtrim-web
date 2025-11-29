@@ -1,9 +1,7 @@
-import { Injectable, inject, Optional } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { EditorStateService } from './editor-state.service';
 import { VideoPlayerService } from './video-player.service';
-import { GapDetectionService } from './gap-detection.service';
 import { OutputSegment } from '../models';
-import { Word, WordState } from '../models';
 
 /**
  * Output Generator Service
@@ -13,7 +11,8 @@ import { Word, WordState } from '../models';
  * Features:
  * - Collects non-deleted segments
  * - Uses fine-tuned handle positions from deleted segments (already stored when segments were deleted)
- * - Phase 2: Gap removal - splits output into multiple segments based on removed gaps
+     * - Phase 2: Gap removal is handled automatically - removed gaps are merged into deletedSegments
+     *   via GapSegmentMergerService, so the same cutting logic applies
  * - Strict start/end timing (no padding): start = firstWord.start, end = lastWord.end
  * - Sorts chronologically
  * - Validates output (proper ordering, non-overlapping, duration > 0)
@@ -23,7 +22,6 @@ import { Word, WordState } from '../models';
 export class OutputGeneratorService {
     private readonly editorState = inject(EditorStateService);
     private readonly videoPlayerService = inject(VideoPlayerService);
-    private readonly gapDetectionService = inject(GapDetectionService, { optional: true });
 
     /**
      * Generate output array of segments to keep
@@ -33,12 +31,13 @@ export class OutputGeneratorService {
      * Rules:
      * - Include only non-deleted segments
      * - Use fine-tuned handle positions from deleted segments (already stored when segments were deleted)
-     * - Phase 2: If gap removal is active, splits output into multiple segments based on removed gaps
+     * - Phase 2: Gap removal is handled automatically - removed gaps are merged into deletedSegments
+     *   via GapSegmentMergerService, so the same cutting logic applies
      * - Strict timing: start = firstWord.start, end = lastWord.end (no padding)
      * - Sorted chronologically
      * - Non-overlapping, duration > 0
      * 
-     * @param useGapRemoval Whether to apply gap removal (Phase 2 feature)
+     * @param useGapRemoval Deprecated - gap removal is now handled automatically via deletedSegments
      * @returns Array of output segments or null if empty (all words deleted)
      */
     public generateOutput(useGapRemoval: boolean = false): OutputSegment[] | null {
@@ -56,34 +55,32 @@ export class OutputGeneratorService {
             return null; // All words deleted - invalid state
         }
 
-        // Step 4: Apply gap removal if enabled (Phase 2)
-        if (useGapRemoval && this.gapDetectionService) {
-            const segments = this.gapDetectionService.generateSegmentsAfterGapRemoval(nonDeletedWords);
-            return segments; // Already in correct format: [{ start: X, end: Y }]
-        }
-
-        // Step 5: Create initial segment from 0 to video duration
+        // Step 4: Create initial segment from 0 to video duration
         // This includes intro (before first word) and outro (after last word)
         let segments: OutputSegment[] = [{
             start: 0,
             end: videoDuration
         }];
 
-        // Step 6: Apply fine-tuned deleted segment cuts
+        // Step 5: Apply fine-tuned deleted segment cuts
         // According to PRD: "Use the fine-tuned times from timeline handles (not just word boundaries)"
         // When segments were deleted, we saved the fine-tuned handle times
-        // Now we need to cut the remaining segments at those exact positions
+        // When gaps are removed, they're merged into deletedSegments via GapSegmentMergerService
+        // So deletedSegments already contains both deleted word segments AND removed gaps
+        // We just need to cut the remaining segments at those exact positions
         const deletedSegments = this.editorState.getDeletedSegments();
 
         // Cut segments at deleted segment boundaries
-        // The deleted segments already contain fine-tuned handle times from when segments were deleted
+        // The deleted segments already contain:
+        // - Fine-tuned handle times from when segments were deleted
+        // - Active gaps merged via GapSegmentMergerService.mergeGapsWithDeletedSegments()
         // So after cutting, the remaining segments are already correct - no need for additional fine-tuning
         segments = this.cutSegmentsAtDeletedBoundaries(segments, deletedSegments);
 
-        // Step 7: Sort chronologically by start time
+        // Step 6: Sort chronologically by start time
         const sortedSegments = this.sortChronologically(segments);
 
-        // Step 8: Validate output (proper ordering, valid ranges)
+        // Step 7: Validate output (proper ordering, valid ranges)
         this.validateOutput(sortedSegments);
         return sortedSegments;
     }

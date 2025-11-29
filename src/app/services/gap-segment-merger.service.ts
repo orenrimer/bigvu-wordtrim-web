@@ -302,5 +302,6 @@ export class GapSegmentMergerService {
 
         return mergedSegments;
     }
+
 }
 
