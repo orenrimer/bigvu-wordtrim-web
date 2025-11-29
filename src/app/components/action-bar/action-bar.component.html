@@ -33,18 +33,20 @@
 
 
             <!-- Right: Action Buttons -->
-            <div class="preview-mode-actions">
-                <!-- Reject Button -->
-                <button class="preview-action-button reject-button" (click)="onRejectPreview()"
-                    aria-label="Reject preview">
-                    <img src="assets/icons/fix_start_reject.svg" alt="Reject" />
-                </button>
+            <div class="preview-mode-layout__right">
+                <div class="preview-mode-actions">
+                    <!-- Reject Button -->
+                    <button class="preview-action-button reject-button" (click)="onRejectPreview()"
+                        aria-label="Reject preview">
+                        <img src="assets/icons/fix_start_reject.svg" alt="Reject" />
+                    </button>
 
-                <!-- Confirm Button -->
-                <button class="preview-action-button confirm-button" (click)="onConfirmPreview()"
-                    aria-label="Confirm preview">
-                    <img src="assets/icons/fix_start_check_mark.svg" alt="Confirm" />
-                </button>
+                    <!-- Confirm Button -->
+                    <button class="preview-action-button confirm-button" (click)="onConfirmPreview()"
+                        aria-label="Confirm preview">
+                        <img src="assets/icons/fix_start_check_mark.svg" alt="Confirm" />
+                    </button>
+                </div>
             </div>
         </div>
         }
@@ -248,15 +250,13 @@
             }
 
             <!-- Fix Start/End (Feature 13) -->
-            @if (showPreviewStartEnd()) {
             <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
-                [disabled]="!canPreviewStartEnd()" (clicked)="onFixStartEnd()" aria-label="Fix Start/End">
+                (clicked)="onFixStartEnd()" aria-label="Fix Start/End">
                 <div class="action-bar-item">
                     <img src="assets/icons/fix_start_end.svg" alt="" class="action-icon" />
                     <span class="action-label">Fix<br />Start/End</span>
                 </div>
             </app-button>
-            }
 
             <!-- Remove Gaps (Feature 14) -->
             @if (showRemoveGaps()) {

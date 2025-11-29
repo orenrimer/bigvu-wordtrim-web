@@ -81,11 +81,23 @@ export class GapDetectionService {
                 const updatedStates = new Map(gapStates);
                 let statesChanged = false;
 
-                // Ensure all gaps have a state (restore saved state or default to IGNORED)
+                // Check if we're in preview mode (but not gap review mode)
+                const isPreviewMode = this.editorStateService.isPreviewMode();
+                const isGapReviewMode = this.editorStateService.isGapReviewMode();
+                const isPreviewModeOnly = isPreviewMode && !isGapReviewMode;
+
+                // Ensure all gaps have a state (restore saved state or use gap's initial state or default to IGNORED)
                 gaps.forEach(gap => {
+                    // Check if this is intro/outro gap in preview mode
+                    const isIntroOutroInPreview = isPreviewModeOnly &&
+                        (gap.id === GapDetectionService.INTRO_GAP_ID || gap.id === GapDetectionService.OUTRO_GAP_ID);
+
                     if (!updatedStates.has(gap.id)) {
-                        // New gap detected - check if we have a saved state for it
-                        if (this.savedGapStates.has(gap.id)) {
+                        // New gap detected
+                        if (isIntroOutroInPreview) {
+                            // In preview mode, intro/outro gaps always start with ACTIVE state
+                            updatedStates.set(gap.id, GapState.ACTIVE);
+                        } else if (this.savedGapStates.has(gap.id)) {
                             // Restore saved state from previous gap review mode session
                             updatedStates.set(gap.id, this.savedGapStates.get(gap.id)!);
                         } else {
@@ -93,6 +105,12 @@ export class GapDetectionService {
                             updatedStates.set(gap.id, GapState.IGNORED);
                         }
                         statesChanged = true;
+                    } else if (isIntroOutroInPreview) {
+                        // Update existing state for intro/outro gaps in preview mode - always ACTIVE
+                        if (updatedStates.get(gap.id) !== GapState.ACTIVE) {
+                            updatedStates.set(gap.id, GapState.ACTIVE);
+                            statesChanged = true;
+                        }
                     }
                 });
 
@@ -166,8 +184,13 @@ export class GapDetectionService {
         const fillerWordsHash = this.getWordsHash(fillerWords);
         const combinedHash = `${wordsHash}|${fillerWordsHash}`;
 
-        // Calculate gaps (includes regular gaps and filler words)
-        const gaps = this.detectGaps(words, threshold, fillerWords);
+        // Check if we're in preview mode (but not gap review mode) - only calculate intro/outro gaps
+        const isPreviewMode = this.editorStateService.isPreviewMode();
+        const isGapReviewMode = this.editorStateService.isGapReviewMode();
+        const onlyIntroOutro = isPreviewMode && !isGapReviewMode;
+
+        // Calculate gaps (includes regular gaps and filler words, or only intro/outro in preview mode)
+        const gaps = this.detectGaps(words, threshold, fillerWords, onlyIntroOutro);
 
         // Update memoization cache
         this._memoizedGaps = gaps;
@@ -790,9 +813,10 @@ export class GapDetectionService {
      * @param words Array of words to analyze
      * @param threshold Minimum gap duration to consider valid
      * @param fillerWords Array of filler words to include as gaps
-     * @returns Array of detected gaps (regular gaps + filler words)
+     * @param onlyIntroOutro If true, only detect intro and outro gaps (for preview mode)
+     * @returns Array of detected gaps (regular gaps + filler words, or only intro/outro)
      */
-    private detectGaps(words: Word[], threshold: number, fillerWords: Word[] = []): Gap[] {
+    private detectGaps(words: Word[], threshold: number, fillerWords: Word[] = [], onlyIntroOutro: boolean = false): Gap[] {
         const gaps: Gap[] = [];
         const videoDuration = this.videoPlayerService.duration();
 
@@ -824,71 +848,78 @@ export class GapDetectionService {
 
         // Detect intro gap: from 0 to first word start
         if (firstWord.start >= threshold && videoDuration > 0) {
+            // In preview mode, intro/outro gaps start with ACTIVE state
+            const introState = onlyIntroOutro ? GapState.ACTIVE : GapState.IGNORED;
             gaps.push({
                 id: GapDetectionService.INTRO_GAP_ID,
                 beforeWordIndex: -1, // Special value for intro
                 afterWordIndex: firstWord.index,
                 duration: firstWord.start,
-                state: GapState.IGNORED, // Default state
+                state: introState,
                 start: 0,
                 end: firstWord.start
             });
         }
 
-        // Detect gaps between consecutive words
-        for (let i = 0; i < sortedWords.length - 1; i++) {
-            const currentWord = sortedWords[i];
-            const nextWord = sortedWords[i + 1];
+        // Only detect gaps between words if not in preview mode (or in gap review mode)
+        if (!onlyIntroOutro) {
+            // Detect gaps between consecutive words
+            for (let i = 0; i < sortedWords.length - 1; i++) {
+                const currentWord = sortedWords[i];
+                const nextWord = sortedWords[i + 1];
 
-            // Calculate gap duration
-            const gapDuration = nextWord.start - currentWord.end;
+                // Calculate gap duration
+                const gapDuration = nextWord.start - currentWord.end;
 
-            // Only include gaps that meet the threshold
-            if (gapDuration >= threshold) {
-                gaps.push({
-                    id: currentWord.index, // Use index of word before gap as ID
-                    beforeWordIndex: currentWord.index,
-                    afterWordIndex: nextWord.index,
-                    duration: gapDuration,
-                    state: GapState.IGNORED, // Default state
-                    start: currentWord.end,
-                    end: nextWord.start
-                });
+                // Only include gaps that meet the threshold
+                if (gapDuration >= threshold) {
+                    gaps.push({
+                        id: currentWord.index, // Use index of word before gap as ID
+                        beforeWordIndex: currentWord.index,
+                        afterWordIndex: nextWord.index,
+                        duration: gapDuration,
+                        state: GapState.IGNORED, // Default state
+                        start: currentWord.end,
+                        end: nextWord.start
+                    });
+                }
             }
+
+            // Add filler words as gaps
+            // Filler words are treated as gaps and can be marked for removal
+            fillerWords.forEach(fillerWord => {
+                // Filler words already have negative IDs (starting from -1000)
+                // They are treated as gaps, so we create a Gap object for each filler word
+                gaps.push({
+                    id: fillerWord.index, // Use the filler word's index (negative ID)
+                    beforeWordIndex: this.findWordBeforeFiller(fillerWord, sortedWords),
+                    afterWordIndex: this.findWordAfterFiller(fillerWord, sortedWords),
+                    duration: fillerWord.end - fillerWord.start,
+                    state: GapState.IGNORED, // Default state (will be overridden by effect if state exists)
+                    start: fillerWord.start,
+                    end: fillerWord.end,
+                    fillerWordText: fillerWord.word // Store the filler word text for display
+                });
+            });
         }
 
         // Detect outro gap: from last word end to video duration
         if (videoDuration > 0 && lastWord.end < videoDuration) {
             const outroDuration = videoDuration - lastWord.end;
             if (outroDuration >= threshold) {
+                // In preview mode, intro/outro gaps start with ACTIVE state
+                const outroState = onlyIntroOutro ? GapState.ACTIVE : GapState.IGNORED;
                 gaps.push({
                     id: GapDetectionService.OUTRO_GAP_ID,
                     beforeWordIndex: lastWord.index,
                     afterWordIndex: -2, // Special value for outro
                     duration: outroDuration,
-                    state: GapState.IGNORED, // Default state
+                    state: outroState,
                     start: lastWord.end,
                     end: videoDuration
                 });
             }
         }
-
-        // Add filler words as gaps
-        // Filler words are treated as gaps and can be marked for removal
-        fillerWords.forEach(fillerWord => {
-            // Filler words already have negative IDs (starting from -1000)
-            // They are treated as gaps, so we create a Gap object for each filler word
-            gaps.push({
-                id: fillerWord.index, // Use the filler word's index (negative ID)
-                beforeWordIndex: this.findWordBeforeFiller(fillerWord, sortedWords),
-                afterWordIndex: this.findWordAfterFiller(fillerWord, sortedWords),
-                duration: fillerWord.end - fillerWord.start,
-                state: GapState.IGNORED, // Default state (will be overridden by effect if state exists)
-                start: fillerWord.start,
-                end: fillerWord.end,
-                fillerWordText: fillerWord.word // Store the filler word text for display
-            });
-        });
 
         // Sort gaps chronologically by start time to ensure proper ordering
         // This ensures intro gap comes first, then regular gaps and filler words, then outro gap

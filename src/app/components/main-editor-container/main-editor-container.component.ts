@@ -22,7 +22,7 @@ import { VideoPlayerComponent } from '../video-player/video-player.component';
 import { TimelineComponent } from '../timeline/timeline.component';
 import { TutorialModalComponent } from '../tutorial-modal/tutorial-modal.component';
 import { Word, WordState, EditorStateSnapshot } from '../../models';
-import { Gap } from '../../models/gap.interface';
+import { Gap, GapState } from '../../models/gap.interface';
 
 /**
  * Main Editor Container Component
@@ -152,49 +152,58 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
   // Expose video aspect ratio for CSS scaling
   videoAspectRatio = this.videoService.aspectRatio;
 
-  // Feature 13: Computed signal for words with intro/outro chips in preview mode
-  wordsWithIntroOutro = computed(() => {
+  // Feature 13: Computed signal for intro/outro gaps in preview mode
+  introOutroGaps = computed((): { intro: Gap | null; outro: Gap | null } => {
+    const isPreview = this.isPreviewMode();
+
+    if (!isPreview) {
+      return { intro: null, outro: null };
+    }
+
+    // Get intro and outro gaps directly from gap detection service
+    const introGap = this.gapDetectionService.getIntroGap();
+    const outroGap = this.gapDetectionService.getOutroGap();
+
+    return {
+      intro: introGap || null,
+      outro: outroGap || null
+    };
+  });
+
+  // Feature 13: Computed signal for words with intro/outro gaps in preview mode
+  wordsWithIntroOutroGaps = computed((): Array<{ type: 'word'; word: Word } | { type: 'gap'; gap: Gap }> => {
     const allWords = this.words();
     const isPreview = this.isPreviewMode();
 
     if (!isPreview || allWords.length === 0) {
-      return allWords;
+      return allWords.map(word => ({ type: 'word' as const, word }));
     }
 
-    // Always use the VERY FIRST and VERY LAST words in the video (regardless of deletion status)
-    // This ensures intro/outro chips show the actual silence before/after ALL words
-    const firstWord = allWords[0];
-    const lastWord = allWords[allWords.length - 1];
-    const videoDuration = this.videoService.duration() || 0;
+    // Get gaps from gap detection service and display first and last gap
+    const gaps = this.gapDetectionService.gapsWithStates();
+    const firstGap = gaps.length > 0 ? gaps[0] : undefined;
+    const lastGap = gaps.length > 1 ? gaps[gaps.length - 1] : undefined;
 
-    // Calculate intro and outro durations
-    // Intro: time from video start (0) until first word starts
-    const introDuration = firstWord.start;
-    // Outro: time from last word ends until video end
-    const outroDuration = videoDuration - lastWord.end;
+    const result: Array<{ type: 'word'; word: Word } | { type: 'gap'; gap: Gap }> = [];
 
-    // Create intro and outro chips
-    const introChip: Word = {
-      word: introDuration > 0 ? `(${introDuration.toFixed(1)})` : '(0)',
-      start: 0,
-      end: firstWord.start,
-      confidence: 0,
-      state: WordState.NORMAL,
-      index: -1 // Special index for intro chip
-    };
+    // Add first gap if it exists
+    if (firstGap) {
+      result.push({ type: 'gap', gap: firstGap });
+    }
 
-    const outroChip: Word = {
-      word: outroDuration > 0 ? `(${outroDuration.toFixed(1)})` : '(0)',
-      start: lastWord.end,
-      end: videoDuration,
-      confidence: 0,
-      state: WordState.NORMAL,
-      index: -2 // Special index for outro chip
-    };
+    // Add all words
+    allWords.forEach(word => {
+      result.push({ type: 'word', word });
+    });
 
-    // Combine: intro chip + all words + outro chip
-    return [introChip, ...allWords, outroChip];
+    // Add last gap if it exists and is different from first gap
+    if (lastGap && lastGap.id !== firstGap?.id) {
+      result.push({ type: 'gap', gap: lastGap });
+    }
+
+    return result;
   });
+
 
   // Feature 14: Computed signal for gaps with states (for display)
   gapsWithStates = computed(() => {
@@ -206,6 +215,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
 
   // Feature 14: Selected gap ID (for visual selection only)
   selectedGapId = this.gapDetectionService.selectedGapId;
+
 
   // Feature 14: Computed signal for words with gaps interleaved (for Gap Review Mode)
   // Optimized: Memoized interleaving result to avoid unnecessary array recreation
@@ -760,6 +770,14 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
    * Toggle preview mode for start/end trimming (Feature 13)
    * Delegates to EditorStateService to manage preview mode state
    */
+  /**
+   * Get intro/outro gaps for preview mode
+   * Used by action bar to merge gaps with deleted segments
+   */
+  getIntroOutroGaps(): { intro: Gap | null; outro: Gap | null } {
+    return this.introOutroGaps();
+  }
+
   togglePreviewMode(): void {
     // Hide tip modal when entering preview mode
     this.tutorialService.hide();
@@ -835,9 +853,15 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
 
   /**
    * Feature 14: Handle gap bracket click
+   * Feature 13: Gaps are not clickable in preview mode
    */
   onGapClick(gap: Gap): void {
-    // Select the gap (this will set it to SELECTED and restore previous gap if any)
+    // Prevent gap clicks in preview mode
+    if (this.isPreviewMode() && !this.isGapReviewMode()) {
+      return;
+    }
+
+    // Regular gap review mode: Select the gap (this will set it to SELECTED and restore previous gap if any)
     this.gapDetectionService.selectGap(gap.id);
   }
 
@@ -1146,11 +1170,11 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       return;
     }
 
-    // Get the words array (with intro/outro chips in preview mode)
-    const wordsWithIntroOutro = this.wordsWithIntroOutro();
+    // Get the words array
+    const words = this.words();
 
     // Find the word in the array that matches the index
-    const wordIndexInArray = wordsWithIntroOutro.findIndex(w => w.index === wordIndex);
+    const wordIndexInArray = words.findIndex(w => w.index === wordIndex);
 
     if (wordIndexInArray === -1) {
       return; // Word not found (might be intro/outro chip or deleted)

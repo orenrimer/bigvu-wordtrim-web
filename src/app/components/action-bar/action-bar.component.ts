@@ -160,21 +160,7 @@ export class ActionBarComponent implements OnInit, OnDestroy {
         return this.hasSelection();
     });
 
-    // ========== Feature 13: Preview Start/End Button States ==========
 
-    /**
-     * Show Preview Start/End Button - hidden when there's any selection
-     */
-    protected readonly showPreviewStartEnd = computed(() => {
-        return !this.hasSelection();
-    });
-
-    /**
-     * Can Preview Start/End - always enabled (pauses video if playing)
-     */
-    protected readonly canPreviewStartEnd = computed(() => {
-        return true;
-    });
 
     // ========== Feature 8: Undo/Redo Button States ==========
 
@@ -361,7 +347,7 @@ export class ActionBarComponent implements OnInit, OnDestroy {
 
     /**
      * Confirm Preview Start/End (Feature 13.8)
-     * Adds intro and outro segments to deleted segments array
+     * Sets intro and outro gap states to ACTIVE, saves state, then merges with deleted segments
      * This makes them skip during playback like any other deleted segment
      * Note: This action is NOT added to history stack (undo/redo does not affect it)
      */
@@ -376,30 +362,58 @@ export class ActionBarComponent implements OnInit, OnDestroy {
             return;
         }
 
-        // Calculate intro and outro lengths before adding segments
-        const nonDeletedWords = this.editorState.getNonDeletedWords();
-        if (nonDeletedWords.length === 0) {
-            console.warn('Cannot confirm preview: no non-deleted words found');
+        // Get intro/outro gaps from main editor container
+        if (!this.mainEditorContainer) {
+            console.warn('Cannot confirm preview: mainEditorContainer not available');
             return;
         }
 
-        const firstWord = nonDeletedWords[0];
-        const lastWord = nonDeletedWords[nonDeletedWords.length - 1];
-        const introLength = firstWord.start; // From 0 to first word start
-        const outroLength = videoDuration - lastWord.end; // From last word end to video duration
+        const { intro, outro } = this.mainEditorContainer.getIntroOutroGaps();
 
-        // Add intro and outro segments to deleted segments
-        this.editorState.addIntroOutroSegments(videoDuration);
+        // Set intro and outro gap states to ACTIVE (marked for removal)
+        if (intro) {
+            this.gapDetectionService.setGapState(GapDetectionService.INTRO_GAP_ID, GapState.ACTIVE);
+        }
+        if (outro) {
+            this.gapDetectionService.setGapState(GapDetectionService.OUTRO_GAP_ID, GapState.ACTIVE);
+        }
 
-        // Update effective duration in video player (Feature 13)
-        this.videoPlayerService.updateEffectiveDuration(introLength, outroLength);
+        // Save gap states (like we do with real gaps)
+        this.gapDetectionService.saveGapStates();
+
+        // Get active gaps from gap detection service and filter for intro/outro by ID
+        const allActiveGaps = this.gapDetectionService.getActiveGapsAsSegments();
+        const gapsWithStates = this.gapDetectionService.gapsWithStates();
+        const activeGaps = allActiveGaps.filter(gap => {
+            // Find the gap object to check its ID
+            const gapObj = gapsWithStates.find(g =>
+                Math.abs(g.start - gap.start) < 0.001 && Math.abs(g.end - gap.end) < 0.001
+            );
+            return gapObj && (
+                gapObj.id === GapDetectionService.INTRO_GAP_ID ||
+                gapObj.id === GapDetectionService.OUTRO_GAP_ID
+            );
+        });
+
+        // Merge active gaps with deleted segments (same as regular gaps)
+        if (activeGaps.length > 0) {
+            this.editorState.mergeGapsWithDeletedSegments(activeGaps, []);
+        }
+
+        // Calculate intro and outro lengths for effective duration update
+        const nonDeletedWords = this.editorState.getNonDeletedWords();
+        if (nonDeletedWords.length > 0) {
+            const firstWord = nonDeletedWords[0];
+            const lastWord = nonDeletedWords[nonDeletedWords.length - 1];
+            const introLength = firstWord.start;
+            const outroLength = videoDuration - lastWord.end;
+
+            // Update effective duration in video player (Feature 13)
+            this.videoPlayerService.updateEffectiveDuration(introLength, outroLength);
+        }
 
         // Close preview mode (toggle in service, handle side effects if mainEditorContainer available)
-        if (this.mainEditorContainer) {
-            this.mainEditorContainer.togglePreviewMode();
-        } else {
-            this.editorState.togglePreviewMode();
-        }
+        this.mainEditorContainer.togglePreviewMode();
 
         // Announce action for screen readers
         this.actionAnnouncement.set('Intro and outro segments added to deleted sections');
@@ -407,7 +421,7 @@ export class ActionBarComponent implements OnInit, OnDestroy {
 
     /**
      * Reject Preview Start/End (Feature 13.8)
-     * Removes intro and outro segments from deleted segments array
+     * Sets intro and outro gap states to IGNORED, then removes them from deleted segments
      * Note: This action is NOT added to history stack (undo/redo does not affect it)
      */
     onRejectPreview(): void {
@@ -421,18 +435,46 @@ export class ActionBarComponent implements OnInit, OnDestroy {
             return;
         }
 
-        // Remove intro and outro segments from deleted segments
-        this.editorState.removeIntroOutroSegments(videoDuration);
+        // Get intro/outro gaps from main editor container
+        if (!this.mainEditorContainer) {
+            console.warn('Cannot reject preview: mainEditorContainer not available');
+            return;
+        }
+
+        const { intro, outro } = this.mainEditorContainer.getIntroOutroGaps();
+
+        // Set intro and outro gap states to IGNORED (will be preserved)
+        if (intro) {
+            this.gapDetectionService.setGapState(GapDetectionService.INTRO_GAP_ID, GapState.IGNORED);
+        }
+        if (outro) {
+            this.gapDetectionService.setGapState(GapDetectionService.OUTRO_GAP_ID, GapState.IGNORED);
+        }
+
+        // Get ignored gaps from gap detection service and filter for intro/outro by ID
+        const allIgnoredGaps = this.gapDetectionService.getIgnoredGapsAsSegments();
+        const gapsWithStates = this.gapDetectionService.gapsWithStates();
+        const ignoredGaps = allIgnoredGaps.filter(gap => {
+            // Find the gap object to check its ID
+            const gapObj = gapsWithStates.find(g =>
+                Math.abs(g.start - gap.start) < 0.001 && Math.abs(g.end - gap.end) < 0.001
+            );
+            return gapObj && (
+                gapObj.id === GapDetectionService.INTRO_GAP_ID ||
+                gapObj.id === GapDetectionService.OUTRO_GAP_ID
+            );
+        });
+
+        // Merge gaps as ignored (removes them from deleted segments - same as regular gaps)
+        if (ignoredGaps.length > 0) {
+            this.editorState.mergeGapsWithDeletedSegments([], ignoredGaps);
+        }
 
         // Reset effective duration to original video duration (Feature 13)
         this.videoPlayerService.resetEffectiveDuration();
 
         // Close preview mode (toggle in service, handle side effects if mainEditorContainer available)
-        if (this.mainEditorContainer) {
-            this.mainEditorContainer.togglePreviewMode();
-        } else {
-            this.editorState.togglePreviewMode();
-        }
+        this.mainEditorContainer.togglePreviewMode();
 
         // Announce action for screen readers
         this.actionAnnouncement.set('Intro and outro segments removed from deleted sections');

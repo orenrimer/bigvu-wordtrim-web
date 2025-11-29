@@ -48,7 +48,7 @@
             </div>
 
             <!-- Selection Info Panel (for testing/debugging) -->
-            <!-- <div class="selection-info" *ngIf="!isLoading() && hasWords() && hasSelection()">
+            <div class="selection-info" *ngIf="!isLoading() && hasWords() && hasSelection()">
                 <div class="selection-info-content">
                     <strong>Selection:</strong>
                     <span *ngIf="!hasCompleteSelection()">
@@ -66,7 +66,7 @@
                     </span>
                     <button class="clear-btn" (click)="clearSelection()">Clear</button>
                 </div>
-            </div> -->
+            </div>
 
             <!-- Transcript Content with Timestamps -->
             <div #transcriptContent class="transcript-content">
@@ -108,9 +108,22 @@
                                 </app-gap-bracket>
                             </ng-container>
                         </ng-container>
+                        <!-- Preview mode: show words with intro/outro gaps -->
+                        <ng-container *ngIf="!isGapReviewMode() && isPreviewMode()">
+                            <ng-container *ngFor="let item of wordsWithIntroOutroGaps()">
+                                <app-word-chip *ngIf="item.type === 'word'" [word]="item.word"
+                                    [currentPlaybackWordIndex]="currentPlaybackWordIndex()"
+                                    (wordClicked)="onWordClick($event)"
+                                    (arrowKeyPressed)="onArrowKeyPressed(item.word, $event)">
+                                </app-word-chip>
+                                <app-gap-bracket *ngIf="item.type === 'gap'" [gap]="item.gap"
+                                    [selectedGapId]="selectedGapId()" (gapClicked)="onGapClick($event)">
+                                </app-gap-bracket>
+                            </ng-container>
+                        </ng-container>
                         <!-- Regular mode: show words only -->
-                        <ng-container *ngIf="!isGapReviewMode()">
-                            <app-word-chip *ngFor="let word of wordsWithIntroOutro()" [word]="word"
+                        <ng-container *ngIf="!isGapReviewMode() && !isPreviewMode()">
+                            <app-word-chip *ngFor="let word of words()" [word]="word"
                                 [currentPlaybackWordIndex]="currentPlaybackWordIndex()"
                                 (wordClicked)="onWordClick($event)" (arrowKeyPressed)="onArrowKeyPressed(word, $event)">
                             </app-word-chip>
