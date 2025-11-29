@@ -21,8 +21,9 @@ export class GapDetectionService {
 
     // Constants
     private static readonly DEFAULT_THRESHOLD = 0.1; // seconds
-    private static readonly MIN_THRESHOLD = 0.1; // seconds
-    private static readonly MAX_THRESHOLD = 1.0; // seconds
+    public static readonly MIN_THRESHOLD = 0.1; // seconds
+    public static readonly MAX_THRESHOLD = 1.0; // seconds
+    public static readonly THRESHOLD_STEP = 0.1; // seconds
 
     // Private writable signals
     private readonly _threshold = signal<number>(GapDetectionService.DEFAULT_THRESHOLD);
@@ -165,6 +166,141 @@ export class GapDetectionService {
     public readonly fillerWordsCount = computed(() => {
         return this.gapsWithStates().filter(gap => gap.fillerWordText).length;
     });
+
+    /**
+     * Computed signal: Total gaps count (excluding filler words)
+     */
+    public readonly totalGapsCount = computed(() => {
+        return this.gapsWithStates().filter(gap => !gap.fillerWordText).length;
+    });
+
+    /**
+     * Computed signal: Total filler words count
+     */
+    public readonly totalFillerWordsCount = computed(() => {
+        return this.gapsWithStates().filter(gap => gap.fillerWordText).length;
+    });
+
+    /**
+     * Computed signal: Check if any gaps have been manually marked for removal (ACTIVE state)
+     */
+    public readonly hasRemovedGaps = computed(() => {
+        const gaps = this.gapsWithStates();
+        // Check if any gap has ACTIVE state (manually chosen to remove)
+        return gaps.some(gap => gap.state === GapState.ACTIVE);
+    });
+
+    /**
+     * Computed signal: Count removed gaps (gaps with ACTIVE state, excluding filler words)
+     */
+    public readonly removedGapsCount = computed(() => {
+        if (!this.hasRemovedGaps()) {
+            return 0;
+        }
+        const gaps = this.gapsWithStates();
+        // Count gaps with ACTIVE state (excluding filler words)
+        return gaps.filter(gap => gap.state === GapState.ACTIVE && !gap.fillerWordText).length;
+    });
+
+    /**
+     * Computed signal: Count removed filler words (filler words with ACTIVE state)
+     */
+    public readonly removedFillerWordsCount = computed(() => {
+        if (!this.hasRemovedGaps()) {
+            return 0;
+        }
+        const gaps = this.gapsWithStates();
+        // Count filler words with ACTIVE state
+        return gaps.filter(gap => gap.state === GapState.ACTIVE && gap.fillerWordText).length;
+    });
+
+    /**
+     * Check if all gaps have ACTIVE state
+     * @returns true if all gaps are ACTIVE, false otherwise
+     */
+    public checkAllGapsAreActive(): boolean {
+        const gaps = this.gapsWithStates();
+        return gaps.every(gap => gap.state === GapState.ACTIVE);
+    }
+
+    /**
+     * Get active gaps as segments (array of { start, end } objects)
+     * @returns Array of active gap segments
+     */
+    public getActiveGapsAsSegments(): Array<{ start: number; end: number }> {
+        const gaps = this.gapsWithStates();
+        return gaps
+            .filter(gap => gap.state === GapState.ACTIVE)
+            .map(gap => ({ start: gap.start, end: gap.end }));
+    }
+
+    /**
+     * Get ignored gaps as segments (array of { start, end } objects)
+     * @returns Array of ignored gap segments
+     */
+    public getIgnoredGapsAsSegments(): Array<{ start: number; end: number }> {
+        const gaps = this.gapsWithStates();
+        return gaps
+            .filter(gap => gap.state === GapState.IGNORED)
+            .map(gap => ({ start: gap.start, end: gap.end }));
+    }
+
+    /**
+     * Get active gaps that are inside a specific time range
+     * @param start Start time of the range
+     * @param end End time of the range
+     * @returns Array of active gaps inside the range as segments
+     */
+    public getActiveGapsInRange(start: number, end: number): Array<{ start: number; end: number }> {
+        const gaps = this.getGapsToRemove();
+        return gaps
+            .filter(gap => gap.start >= start && gap.end <= end)
+            .map(gap => ({ start: gap.start, end: gap.end }));
+    }
+
+    /**
+     * Get intro gap from gaps with states
+     * @returns Intro gap if exists, undefined otherwise
+     */
+    public getIntroGap(): Gap | undefined {
+        const gaps = this.gapsWithStates();
+        return gaps.find(gap => gap.id === GapDetectionService.INTRO_GAP_ID);
+    }
+
+    /**
+     * Get outro gap from gaps with states
+     * @returns Outro gap if exists, undefined otherwise
+     */
+    public getOutroGap(): Gap | undefined {
+        const gaps = this.gapsWithStates();
+        return gaps.find(gap => gap.id === GapDetectionService.OUTRO_GAP_ID);
+    }
+
+    /**
+     * Get a map of gaps by beforeWordIndex (excluding intro/outro gaps)
+     * Useful for interleaving words and gaps in UI
+     * @returns Map of beforeWordIndex to Gap
+     */
+    public getGapMapByBeforeWordIndex(): Map<number, Gap> {
+        const gaps = this.gapsWithStates();
+        const gapMap = new Map<number, Gap>();
+        gaps.forEach(gap => {
+            // Only map regular gaps (not intro/outro)
+            if (gap.id !== GapDetectionService.INTRO_GAP_ID && gap.id !== GapDetectionService.OUTRO_GAP_ID) {
+                gapMap.set(gap.beforeWordIndex, gap);
+            }
+        });
+        return gapMap;
+    }
+
+    /**
+     * Format threshold value for display (with comma as decimal separator)
+     * @param value Threshold value in seconds
+     * @returns Formatted string (e.g., "0,50s")
+     */
+    public formatThreshold(value: number): string {
+        return value.toFixed(2).replace('.', ',') + 's';
+    }
 
     /**
      * Initialize service with words and filler words

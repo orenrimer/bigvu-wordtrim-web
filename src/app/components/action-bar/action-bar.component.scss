@@ -184,8 +184,8 @@
         // Default: keep horizontal layout
         flex-direction: row;
         align-items: center;
+        width: 100%;
 
-        // When individual gap actions are present, switch to column layout
         &:has(.gap-individual-actions) {
             flex-direction: column;
             align-items: stretch;
@@ -414,11 +414,8 @@
     gap: var(--spacing-2);
     flex-shrink: 0;
 
-    .gap-review-mode-button .button-label {
-        font-size: 10px;
-        font-weight: 400;
-        line-height: 130%;
-    }
+    // Gap review mode buttons now use action-bar-item styling
+    // No additional label styling needed - handled by action-bar-item
 
     // Screens between 1024-1280px (without individual actions) - prevent smushing
     @media (min-width: 1025px) and (max-width: 1280px) {
@@ -518,91 +515,22 @@
     flex-shrink: 0;
 }
 
-.gap-review-mode-button {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--spacing-1);
-    padding: var(--spacing-2);
-    border: none;
-    background-color: var(--color-bg-secondary);
-    cursor: pointer;
-    border-radius: var(--radius-xl);
-    transition: background-color 0.2s ease;
-    min-width: 70px;
+// Gap review mode buttons now use action-bar-item styling
+// Additional styles for gap review mode specific button modifications
+.gap-review-mode-layout__left-actions {
+    .action-bar-item {
 
-    &:hover {
-        background-color: var(--color-bg-tertiary);
-    }
-
-    &:active {
-        background-color: var(--color-gray-100);
-    }
-
-    &:focus-visible {
-        outline: 2px solid var(--color-primary);
-        outline-offset: 2px;
-    }
-
-    .button-icon {
-        width: var(--action-bar-item-icon-size);
-        height: var(--action-bar-item-icon-size);
-    }
-
-    .button-label {
-        font-size: var(--font-size-12);
-        font-weight: var(--font-weight-regular);
-        color: var(--color-text-secondary);
-        text-align: center;
-        line-height: 1.2;
-    }
-
-    &.reject-button {
-        img {
-            width: 18px;
-            height: 18px;
-        }
-    }
-
-    &.accept-button {
-        img {
-            width: 20.3px;
-            height: 14px;
-        }
-    }
-
-    // Mobile responsive (1024px and below)
-    @media (max-width: 1024px) {
-        background-color: var(--color-bg-primary);
-        min-width: 70px;
-        padding: 8px 12px;
-        gap: 4px;
-
-        .button-icon {
-            width: 32px;
-            height: 32px;
+        // Remove All button - red icon on mobile
+        &.remove-all-button {
+            @media (max-width: 1024px) {
+                ::ng-deep .action-icon {
+                    filter: brightness(0) saturate(100%) invert(27%) sepia(95%) saturate(7471%) hue-rotate(349deg) brightness(95%) contrast(89%);
+                }
+            }
         }
 
-        // .button-label {
-        //     font-size: var(--font-size-10);
-        //     font-weight: var(--font-weight-regular);
-        //     color: var(--color-text-secondary);
-        // }
+        // Settings button - blue icon on mobile
 
-        // // Remove All button - red icon
-        // &.remove-all-button {
-        //     .button-icon {
-        //         filter: brightness(0) saturate(100%) invert(27%) sepia(95%) saturate(7471%) hue-rotate(349deg) brightness(95%) contrast(89%);
-        //     }
-        // }
-
-        // // Settings button - blue icon
-        // &.settings-button {
-        //     .button-icon {
-        //         filter: brightness(0) saturate(100%) invert(40%) sepia(100%) saturate(2000%) hue-rotate(200deg) brightness(1) contrast(1);
-        //     }
-        // }
     }
 }
 

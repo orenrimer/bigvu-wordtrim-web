@@ -218,18 +218,12 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       return words.map(word => ({ type: 'word' as const, word }));
     }
 
-    // Find intro and outro gaps
-    const introGap = gaps.find(g => g.id === -1);
-    const outroGap = gaps.find(g => g.id === -2);
+    // Find intro and outro gaps using service constants
+    const introGap = this.gapDetectionService.getIntroGap();
+    const outroGap = this.gapDetectionService.getOutroGap();
 
-    // Create a map of gap by beforeWordIndex for quick lookup (excluding intro/outro)
-    const gapMap = new Map<number, Gap>();
-    gaps.forEach(gap => {
-      // Only map regular gaps (not intro/outro)
-      if (gap.id !== -1 && gap.id !== -2) {
-        gapMap.set(gap.beforeWordIndex, gap);
-      }
-    });
+    // Get gap map by beforeWordIndex (excluding intro/outro) from service
+    const gapMap = this.gapDetectionService.getGapMapByBeforeWordIndex();
 
     // Interleave words and gaps
     const items: Array<{ type: 'word'; word: Word } | { type: 'gap'; gap: Gap }> = [];

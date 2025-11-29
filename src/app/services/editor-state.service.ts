@@ -920,10 +920,7 @@ export class EditorStateService {
      */
     private getActiveGapsInRange(start: number, end: number): Array<{ start: number; end: number }> {
         try {
-            const gaps = this.gapDetectionService.getGapsToRemove();
-            return gaps
-                .filter(gap => gap.start >= start && gap.end <= end)
-                .map(gap => ({ start: gap.start, end: gap.end }));
+            return this.gapDetectionService.getActiveGapsInRange(start, end);
         } catch (error) {
             // GapDetectionService might not be available (e.g., in tests or before initialization)
             // Return empty array if service is not available

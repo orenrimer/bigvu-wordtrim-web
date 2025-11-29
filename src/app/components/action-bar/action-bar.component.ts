@@ -70,50 +70,16 @@ export class ActionBarComponent implements OnInit, OnDestroy {
     protected readonly activeGapsCount = this.gapDetectionService.activeGapsCount;
     protected readonly fillerWordsCount = this.gapDetectionService.fillerWordsCount;
     protected readonly selectedGapId = this.gapDetectionService.selectedGapId;
-
-    // Feature 14: Total gaps and filler words counts (all gaps, not just active)
-    protected readonly totalGapsCount = computed(() => {
-        return this.gapsWithStates().filter(gap => !gap.fillerWordText).length;
-    });
-
-    protected readonly totalFillerWordsCount = computed(() => {
-        return this.gapsWithStates().filter(gap => gap.fillerWordText).length;
-    });
-
-    // Feature 14: Check if gaps have been manually marked for removal (ACTIVE state)
-    protected readonly hasRemovedGaps = computed(() => {
-        const gaps = this.gapsWithStates();
-        // Check if any gap has ACTIVE state (manually chosen to remove)
-        return gaps.some(gap => gap.state === GapState.ACTIVE);
-    });
-
-    // Feature 14: Count removed gaps and filler words (gaps with ACTIVE state)
-    protected readonly removedGapsCount = computed(() => {
-        if (!this.hasRemovedGaps()) {
-            return 0;
-        }
-        const gaps = this.gapsWithStates();
-        // Count gaps with ACTIVE state (excluding filler words)
-        return gaps.filter(gap => gap.state === GapState.ACTIVE && !gap.fillerWordText).length;
-    });
-
-    protected readonly removedFillerWordsCount = computed(() => {
-        if (!this.hasRemovedGaps()) {
-            return 0;
-        }
-        const gaps = this.gapsWithStates();
-        // Count filler words with ACTIVE state
-        return gaps.filter(gap => gap.state === GapState.ACTIVE && gap.fillerWordText).length;
-    });
+    protected readonly totalGapsCount = this.gapDetectionService.totalGapsCount;
+    protected readonly totalFillerWordsCount = this.gapDetectionService.totalFillerWordsCount;
+    protected readonly hasRemovedGaps = this.gapDetectionService.hasRemovedGaps;
+    protected readonly removedGapsCount = this.gapDetectionService.removedGapsCount;
+    protected readonly removedFillerWordsCount = this.gapDetectionService.removedFillerWordsCount;
 
     // Feature 14: Show "Restore All" button when all gaps are ACTIVE, otherwise show "Remove All"
     protected readonly showRestoreAll = computed(() => {
-        const gaps = this.gapsWithStates();
-        if (gaps.length === 0) {
-            return false;
-        }
         // Show "Restore All" if all gaps are ACTIVE
-        return gaps.every(gap => gap.state === GapState.ACTIVE);
+        return this.gapDetectionService.checkAllGapsAreActive();
     });
 
     // Feature 14: Gap settings modal state
@@ -545,13 +511,8 @@ export class ActionBarComponent implements OnInit, OnDestroy {
 
         // Get active and ignored gaps BEFORE exiting gap review mode
         // These gaps are detected based on words in gap review mode (all words visible)
-        const gapsWithStates = this.gapsWithStates();
-        const activeGaps = gapsWithStates
-            .filter(gap => gap.state === GapState.ACTIVE)
-            .map(gap => ({ start: gap.start, end: gap.end }));
-        const ignoredGaps = gapsWithStates
-            .filter(gap => gap.state === GapState.IGNORED)
-            .map(gap => ({ start: gap.start, end: gap.end }));
+        const activeGaps = this.gapDetectionService.getActiveGapsAsSegments();
+        const ignoredGaps = this.gapDetectionService.getIgnoredGapsAsSegments();
 
         // Save gap states before exiting (so they persist for next gap review mode session)
         this.gapDetectionService.saveGapStates();
@@ -648,9 +609,9 @@ export class ActionBarComponent implements OnInit, OnDestroy {
      */
     onAdjustThreshold(increment: boolean): void {
         const current = this._tempThreshold();
-        const min = 0.1;
-        const max = 1.0;
-        const step = 0.1;
+        const min = GapDetectionService.MIN_THRESHOLD;
+        const max = GapDetectionService.MAX_THRESHOLD;
+        const step = GapDetectionService.THRESHOLD_STEP;
         const newValue = increment
             ? Math.min(max, current + step)
             : Math.max(min, current - step);
@@ -671,7 +632,7 @@ export class ActionBarComponent implements OnInit, OnDestroy {
      * Feature 14: Format threshold value for display (with comma as decimal separator)
      */
     formatThreshold(value: number): string {
-        return value.toFixed(2).replace('.', ',') + 's';
+        return this.gapDetectionService.formatThreshold(value);
     }
 
     /**

@@ -114,28 +114,35 @@
                     <div class="gap-review-mode-layout__left-actions">
                         <!-- Remove All Button -->
                         @if (!showRestoreAll()) {
-                        <button class="gap-review-mode-button remove-all-button" (click)="onRemoveAllGaps()"
-                            aria-label="Remove all gaps">
-                            <img src="assets/icons/remove.svg" alt="" class="button-icon" />
-                            <span class="button-label">Remove All</span>
-                        </button>
+                        <app-button variant="secondary" class="action-bar-item remove-all-button"
+                            borderRadius="var(--radius-xl)" (clicked)="onRemoveAllGaps()" aria-label="Remove all gaps">
+                            <div class="action-bar-item">
+                                <img src="assets/icons/remove.svg" alt="" class="action-icon" />
+                                <span class="action-label">Remove All</span>
+                            </div>
+                        </app-button>
                         }
 
                         <!-- Restore All Button -->
                         @if (showRestoreAll()) {
-                        <button class="gap-review-mode-button restore-all-button" (click)="onRestoreAllGaps()"
+                        <app-button variant="secondary" class="action-bar-item restore-all-button"
+                            borderRadius="var(--radius-xl)" (clicked)="onRestoreAllGaps()"
                             aria-label="Restore all gaps">
-                            <img src="assets/icons/Restore.svg" alt="" class="button-icon" />
-                            <span class="button-label">Restore All</span>
-                        </button>
+                            <div class="action-bar-item">
+                                <img src="assets/icons/Restore.svg" alt="" class="action-icon" />
+                                <span class="action-label">Restore All</span>
+                            </div>
+                        </app-button>
                         }
 
                         <!-- Settings Button -->
-                        <button class="gap-review-mode-button settings-button" (click)="onGapSettings()"
-                            aria-label="Gap settings">
-                            <img src="assets/icons/Settings.svg" alt="" class="button-icon" />
-                            <span class="button-label">Settings</span>
-                        </button>
+                        <app-button variant="secondary" class="action-bar-item settings-button"
+                            borderRadius="var(--radius-xl)" (clicked)="onGapSettings()" aria-label="Gap settings">
+                            <div class="action-bar-item">
+                                <img src="assets/icons/Settings.svg" alt="" class="action-icon" />
+                                <span class="action-label">Settings</span>
+                            </div>
+                        </app-button>
                     </div>
                 </div>
                 }
