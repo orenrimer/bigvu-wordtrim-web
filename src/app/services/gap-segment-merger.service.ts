@@ -193,6 +193,84 @@ export class GapSegmentMergerService {
     }
 
     /**
+     * Remove deleted segments that overlap with restored range
+     * Cuts deleted segments instead of removing them completely if only part is restored
+     * If there are active gaps inside the restored segment, keeps them as standalone deleted segments
+     * 
+     * @param currentSegments Current deleted segments array
+     * @param restoredStart Start time of restored segment
+     * @param restoredEnd End time of restored segment
+     * @param activeGaps Array of active gaps (gaps with GapState.ACTIVE) - gaps inside restored range will be kept
+     * @returns Updated segments array with restored range removed but active gaps preserved
+     */
+    public removeDeletedSegmentsInRange(
+        currentSegments: Array<{ start: number; end: number }>,
+        restoredStart: number,
+        restoredEnd: number,
+        activeGaps: Array<{ start: number; end: number }> = []
+    ): Array<{ start: number; end: number }> {
+        const resultSegments: Array<{ start: number; end: number }> = [];
+
+        // Get active gaps that are inside the restored range
+        const activeGapsInRange = activeGaps.filter(gap =>
+            gap.start >= restoredStart && gap.end <= restoredEnd
+        );
+
+        for (const segment of currentSegments) {
+            // Check if segments overlap
+            const overlaps = segment.start < restoredEnd && segment.end > restoredStart;
+
+            if (!overlaps) {
+                // No overlap - keep segment as-is
+                resultSegments.push(segment);
+                continue;
+            }
+
+            // Segments overlap - need to handle active gaps inside the restored range
+            // Find active gaps that are inside this segment and inside the restored range
+            const activeGapsInSegment = activeGapsInRange.filter(gap =>
+                gap.start >= segment.start && gap.end <= segment.end &&
+                gap.start >= restoredStart && gap.end <= restoredEnd
+            );
+
+            if (activeGapsInSegment.length > 0) {
+                // There are active gaps inside the segment - keep them as standalone deleted segments
+                // Keep part before restored segment (if exists)
+                if (segment.start < restoredStart) {
+                    resultSegments.push({ start: segment.start, end: restoredStart });
+                }
+
+                // Add active gaps as standalone deleted segments
+                activeGapsInSegment.forEach(gap => {
+                    resultSegments.push({ start: gap.start, end: gap.end });
+                });
+
+                // Keep part after restored segment (if exists)
+                if (restoredEnd < segment.end) {
+                    resultSegments.push({ start: restoredEnd, end: segment.end });
+                }
+            } else {
+                // No active gaps inside - cut the deleted segment normally
+                // Keep part before restored segment (if exists)
+                if (segment.start < restoredStart) {
+                    resultSegments.push({ start: segment.start, end: restoredStart });
+                }
+                // Keep part after restored segment (if exists)
+                if (restoredEnd < segment.end) {
+                    resultSegments.push({ start: restoredEnd, end: segment.end });
+                }
+                // If restored segment completely covers deleted segment, nothing is added
+            }
+        }
+
+        // Sort by start time
+        resultSegments.sort((a, b) => a.start - b.start);
+
+        // Merge adjacent segments (segments that touch or overlap)
+        return this.mergeAdjacentSegmentsByTime(resultSegments);
+    }
+
+    /**
      * Merge adjacent segments by time only (simple time-based merging)
      * @param segments Array of segments to merge
      * @returns Merged array of segments

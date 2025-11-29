@@ -3,6 +3,7 @@ import { Word, WordState, EditorStateSnapshot } from '../models';
 import { HandlePosition } from './timeline.service';
 import { VideoPlayerService } from './video-player.service';
 import { GapSegmentMergerService } from './gap-segment-merger.service';
+import { GapDetectionService } from './gap-detection.service';
 
 /**
  * Editor State Service
@@ -889,59 +890,45 @@ export class EditorStateService {
      * Remove deleted segments that overlap with restored words
      * Called when user restores deleted words
      * Cuts deleted segments instead of removing them completely if only part is restored
+     * If there are active gaps inside the restored segment, keeps them as standalone deleted segments
+     * Delegates to GapSegmentMergerService for the actual logic
      * @param restoredStart Start time of restored segment
      * @param restoredEnd End time of restored segment
      */
     public removeDeletedSegmentsInRange(restoredStart: number, restoredEnd: number): void {
         const currentSegments = this._deletedSegments();
-        const resultSegments: Array<{ start: number; end: number }> = [];
 
-        for (const segment of currentSegments) {
-            // Check if segments overlap
-            const overlaps = segment.start < restoredEnd && segment.end > restoredStart;
+        // Get active gaps that are inside the restored range
+        const activeGaps = this.getActiveGapsInRange(restoredStart, restoredEnd);
 
-            if (!overlaps) {
-                // No overlap - keep segment as-is
-                resultSegments.push(segment);
-                continue;
-            }
+        // Use gap-segment-merger service to handle the logic
+        const updatedSegments = this.gapSegmentMerger.removeDeletedSegmentsInRange(
+            currentSegments,
+            restoredStart,
+            restoredEnd,
+            activeGaps
+        );
 
-            // Segments overlap - cut the deleted segment, keeping only non-overlapping parts
-            // Keep part before restored segment (if exists)
-            if (segment.start < restoredStart) {
-                resultSegments.push({ start: segment.start, end: restoredStart });
-            }
-            // Keep part after restored segment (if exists)
-            if (restoredEnd < segment.end) {
-                resultSegments.push({ start: restoredEnd, end: segment.end });
-            }
-            // If restored segment completely covers deleted segment, nothing is added
+        this._deletedSegments.set(updatedSegments);
+    }
+
+    /**
+     * Get active gaps that are inside a specific time range
+     * @param start Start time of the range
+     * @param end End time of the range
+     * @returns Array of active gaps inside the range
+     */
+    private getActiveGapsInRange(start: number, end: number): Array<{ start: number; end: number }> {
+        try {
+            const gaps = this.gapDetectionService.getGapsToRemove();
+            return gaps
+                .filter(gap => gap.start >= start && gap.end <= end)
+                .map(gap => ({ start: gap.start, end: gap.end }));
+        } catch (error) {
+            // GapDetectionService might not be available (e.g., in tests or before initialization)
+            // Return empty array if service is not available
+            return [];
         }
-
-        // Sort by start time
-        resultSegments.sort((a, b) => a.start - b.start);
-
-        // Merge adjacent segments (segments that touch or overlap)
-        const mergedSegments: Array<{ start: number; end: number }> = [];
-        for (const segment of resultSegments) {
-            if (mergedSegments.length === 0) {
-                mergedSegments.push(segment);
-                continue;
-            }
-
-            const lastSegment = mergedSegments[mergedSegments.length - 1];
-            // Check if segments are adjacent (touch) or overlap
-            // Adjacent: lastSegment.end >= segment.start (they touch or overlap)
-            if (lastSegment.end >= segment.start) {
-                // Merge: extend the last segment to cover both
-                lastSegment.end = Math.max(lastSegment.end, segment.end);
-            } else {
-                // Not adjacent - add as new segment
-                mergedSegments.push(segment);
-            }
-        }
-
-        this._deletedSegments.set(mergedSegments);
     }
 
     /**
@@ -1087,6 +1074,15 @@ export class EditorStateService {
             this._videoPlayerService = this.injector.get(VideoPlayerService);
         }
         return this._videoPlayerService;
+    }
+
+    // Lazy injection for GapDetectionService to avoid circular dependency
+    private _gapDetectionService: GapDetectionService | null = null;
+    private get gapDetectionService(): GapDetectionService {
+        if (!this._gapDetectionService) {
+            this._gapDetectionService = this.injector.get(GapDetectionService);
+        }
+        return this._gapDetectionService;
     }
 
     /**

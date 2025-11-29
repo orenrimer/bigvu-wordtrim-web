@@ -56,15 +56,29 @@
             <div class="gap-review-mode-layout__left">
                 @if (!isSettingsModalOpen()) {
                 <div class="gap-review-mode-info">
+                    @if (hasRemovedGaps()) {
+                    <!-- Show removed counts after applying gap removal -->
                     <div class="gap-info-item">
-                        <span class="gap-info-number">{{ fillerWordsCount() }}</span>
+                        <span class="gap-info-label">Removed</span>
+                        <span class="gap-info-number">{{ removedFillerWordsCount() }}</span>
                         <span class="gap-info-label">filler words</span>
                     </div>
                     <div class="gap-info-item">
-                        <span class="gap-info-number">{{ activeGapsCount() }}</span>
+                        <span class="gap-info-label">And</span>
+                        <span class="gap-info-number">{{ removedGapsCount() }}</span>
+                        <span class="gap-info-label">silences</span>
+                    </div>
+                    } @else {
+                    <!-- Show total counts before any removal -->
+                    <div class="gap-info-item">
+                        <span class="gap-info-number">{{ totalFillerWordsCount() }}</span>
+                        <span class="gap-info-label">filler words</span>
+                    </div>
+                    <div class="gap-info-item">
+                        <span class="gap-info-number">{{ totalGapsCount() }}</span>
                         <span class="gap-info-label">silence gaps</span>
                     </div>
-
+                    }
                 </div>
 
                 <!-- Individual Gap Action Controls (Feature 14) -->
@@ -110,7 +124,7 @@
                     <button class="gap-review-mode-button restore-all-button" (click)="onRestoreAllGaps()"
                         aria-label="Restore all gaps">
                         <img src="assets/icons/Restore.svg" alt="" class="button-icon" />
-                        <span class="button-label">Restore</span>
+                        <span class="button-label">Restore All</span>
                     </button>
                     }
 

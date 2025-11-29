@@ -32,6 +32,13 @@ export class GapDetectionService {
     private readonly _selectedGapId = signal<number | null>(null);
     private readonly _deletedGaps = signal<Array<{ start: number; end: number }>>([]); // Deleted gaps for preview skipping
 
+    // Saved gap states from previous gap review mode session (persists between sessions)
+    // These are the states that were saved when "Apply gap removal" was last clicked
+    private savedGapStates: Map<number, GapState> = new Map();
+
+    // Snapshot of gap states when entering gap review mode (used to restore on cancel)
+    private gapReviewModeSnapshot: Map<number, GapState> | null = null;
+
     // Special gap IDs for intro and outro
     public static readonly INTRO_GAP_ID = -1;
     public static readonly OUTRO_GAP_ID = -2;
@@ -48,8 +55,9 @@ export class GapDetectionService {
     public readonly selectedGapId = this._selectedGapId.asReadonly();
 
     constructor() {
-        // Effect: Automatically mark all gaps as IGNORED when first detected
-        // This ensures all gaps start with IGNORED state (kept by default)
+        // Effect: Automatically set gap states when first detected
+        // Restores saved states from previous gap review mode session if available
+        // Otherwise defaults to IGNORED state (kept by default)
         effect(
             () => {
                 const gaps = this.gaps();
@@ -57,11 +65,17 @@ export class GapDetectionService {
                 const updatedStates = new Map(gapStates);
                 let statesChanged = false;
 
-                // Ensure all gaps have IGNORED state (kept by default)
+                // Ensure all gaps have a state (restore saved state or default to IGNORED)
                 gaps.forEach(gap => {
                     if (!updatedStates.has(gap.id)) {
-                        // New gap detected - mark as IGNORED automatically (kept by default)
-                        updatedStates.set(gap.id, GapState.IGNORED);
+                        // New gap detected - check if we have a saved state for it
+                        if (this.savedGapStates.has(gap.id)) {
+                            // Restore saved state from previous gap review mode session
+                            updatedStates.set(gap.id, this.savedGapStates.get(gap.id)!);
+                        } else {
+                            // No saved state - mark as IGNORED automatically (kept by default)
+                            updatedStates.set(gap.id, GapState.IGNORED);
+                        }
                         statesChanged = true;
                     }
                 });
@@ -280,13 +294,53 @@ export class GapDetectionService {
     }
 
     /**
-     * Reset all gap states (clear manual selections)
-     * Note: Filler words are not cleared, only their states are reset
+     * Save snapshot of gap states when entering gap review mode
+     * This snapshot is used to restore states if user cancels
      */
-    public resetGapStates(): void {
+    public saveGapStatesSnapshot(): void {
+        // Save current gap states as snapshot (to restore on cancel)
+        this.gapReviewModeSnapshot = new Map(this._gapStates());
+    }
+
+    /**
+     * Restore gap states from snapshot (used when canceling)
+     * Discards any changes made during the current gap review mode session
+     */
+    public restoreGapStatesSnapshot(): void {
+        if (this.gapReviewModeSnapshot !== null) {
+            // Restore states from when we entered gap review mode
+            this._gapStates.set(new Map(this.gapReviewModeSnapshot));
+            this.gapReviewModeSnapshot = null;
+        }
+    }
+
+    /**
+     * Save current gap states for restoration in next gap review mode session
+     * Called when applying gap removal to persist gap selections
+     */
+    public saveGapStates(): void {
+        // Save current gap states to restore them next time we enter gap review mode
+        this.savedGapStates = new Map(this._gapStates());
+        // Clear snapshot since we're applying (no need to restore on cancel anymore)
+        this.gapReviewModeSnapshot = null;
+    }
+
+    /**
+     * Reset all gap states (clear manual selections)
+     * Also clears saved gap states if clearSaved is true
+     * Note: Filler words are not cleared, only their states are reset
+     * @param clearSaved If true, also clears saved gap states (default: false)
+     */
+    public resetGapStates(clearSaved: boolean = false): void {
         this._gapStates.set(new Map());
         this._selectedGapId.set(null);
         this._deletedGaps.set([]); // Also clear deleted gaps
+
+        // Optionally clear saved gap states (e.g., when canceling)
+        if (clearSaved) {
+            this.savedGapStates = new Map();
+        }
+
         // Note: Filler words persist - they are part of the segmentation data
     }
 

@@ -71,9 +71,50 @@ export class ActionBarComponent implements OnInit, OnDestroy {
     protected readonly fillerWordsCount = this.gapDetectionService.fillerWordsCount;
     protected readonly selectedGapId = this.gapDetectionService.selectedGapId;
 
-    // Feature 14: Track if "Remove All" was pressed (to show "Restore All" instead)
-    private readonly _showRestoreAll = signal<boolean>(false);
-    protected readonly showRestoreAll = this._showRestoreAll.asReadonly();
+    // Feature 14: Total gaps and filler words counts (all gaps, not just active)
+    protected readonly totalGapsCount = computed(() => {
+        return this.gapsWithStates().filter(gap => !gap.fillerWordText).length;
+    });
+
+    protected readonly totalFillerWordsCount = computed(() => {
+        return this.gapsWithStates().filter(gap => gap.fillerWordText).length;
+    });
+
+    // Feature 14: Check if gaps have been manually marked for removal (ACTIVE state)
+    protected readonly hasRemovedGaps = computed(() => {
+        const gaps = this.gapsWithStates();
+        // Check if any gap has ACTIVE state (manually chosen to remove)
+        return gaps.some(gap => gap.state === GapState.ACTIVE);
+    });
+
+    // Feature 14: Count removed gaps and filler words (gaps with ACTIVE state)
+    protected readonly removedGapsCount = computed(() => {
+        if (!this.hasRemovedGaps()) {
+            return 0;
+        }
+        const gaps = this.gapsWithStates();
+        // Count gaps with ACTIVE state (excluding filler words)
+        return gaps.filter(gap => gap.state === GapState.ACTIVE && !gap.fillerWordText).length;
+    });
+
+    protected readonly removedFillerWordsCount = computed(() => {
+        if (!this.hasRemovedGaps()) {
+            return 0;
+        }
+        const gaps = this.gapsWithStates();
+        // Count filler words with ACTIVE state
+        return gaps.filter(gap => gap.state === GapState.ACTIVE && gap.fillerWordText).length;
+    });
+
+    // Feature 14: Show "Restore All" button when all gaps are ACTIVE, otherwise show "Remove All"
+    protected readonly showRestoreAll = computed(() => {
+        const gaps = this.gapsWithStates();
+        if (gaps.length === 0) {
+            return false;
+        }
+        // Show "Restore All" if all gaps are ACTIVE
+        return gaps.every(gap => gap.state === GapState.ACTIVE);
+    });
 
     // Feature 14: Gap settings modal state
     protected readonly _isSettingsModalOpen = signal<boolean>(false);
@@ -475,6 +516,10 @@ export class ActionBarComponent implements OnInit, OnDestroy {
         // Enter gap review mode (manages snapshot and state restoration)
         this.editorState.enterGapReviewMode(startHandle, endHandle);
 
+        // Save snapshot of current gap states (to restore on cancel)
+        // This captures the state before any changes in this session
+        this.gapDetectionService.saveGapStatesSnapshot();
+
         // Gaps default to IGNORED state (kept by default)
         // Users can manually mark gaps as ACTIVE if they want to remove them
 
@@ -498,9 +543,6 @@ export class ActionBarComponent implements OnInit, OnDestroy {
         // Clear selected gap before exiting
         this.gapDetectionService.selectGap(null);
 
-        // Reset "Restore All" button state when exiting gap review mode
-        this._showRestoreAll.set(false);
-
         // Get active and ignored gaps BEFORE exiting gap review mode
         // These gaps are detected based on words in gap review mode (all words visible)
         const gapsWithStates = this.gapsWithStates();
@@ -510,6 +552,9 @@ export class ActionBarComponent implements OnInit, OnDestroy {
         const ignoredGaps = gapsWithStates
             .filter(gap => gap.state === GapState.IGNORED)
             .map(gap => ({ start: gap.start, end: gap.end }));
+
+        // Save gap states before exiting (so they persist for next gap review mode session)
+        this.gapDetectionService.saveGapStates();
 
         // Exit gap review mode (restores snapshot and state)
         // This restores deleted segments from before entering gap review mode
@@ -534,13 +579,15 @@ export class ActionBarComponent implements OnInit, OnDestroy {
 
     /**
      * Feature 14: Cancel gap removal
+     * Restores gap states from when we entered gap review mode (discards any changes)
+     * Then exits gap review mode without saving
      */
     onCancelGapRemoval(): void {
-        // Reset gap states (discard temporary changes)
-        this.gapDetectionService.resetGapStates();
+        // Clear selected gap before exiting
+        this.gapDetectionService.selectGap(null);
 
-        // Reset "Restore All" button state when exiting gap review mode
-        this._showRestoreAll.set(false);
+        // Restore gap states from snapshot (discard any changes made during this session)
+        this.gapDetectionService.restoreGapStatesSnapshot();
 
         // Exit gap review mode (restores snapshot and state)
         this.editorState.exitGapReviewMode(this.timelineService);
@@ -557,9 +604,6 @@ export class ActionBarComponent implements OnInit, OnDestroy {
         // Mark all gaps as ACTIVE (deleted)
         this.gapDetectionService.markAllGapsAsDeleted();
 
-        // Show "Restore All" button instead of "Remove All"
-        this._showRestoreAll.set(true);
-
         // Announce action for screen readers
         const gapsCount = this.gapsWithStates().length;
         this.actionAnnouncement.set(`Marked all ${gapsCount} ${gapsCount === 1 ? 'gap' : 'gaps'} as deleted`);
@@ -572,9 +616,6 @@ export class ActionBarComponent implements OnInit, OnDestroy {
     onRestoreAllGaps(): void {
         // Mark all gaps as IGNORED (kept)
         this.gapDetectionService.markAllGapsAsIgnored();
-
-        // Show "Remove All" button instead of "Restore All"
-        this._showRestoreAll.set(false);
 
         // Announce action for screen readers
         const gapsCount = this.gapsWithStates().length;

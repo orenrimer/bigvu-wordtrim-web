@@ -762,11 +762,17 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     // Clear selected gap before resetting states
     this.gapDetectionService.selectGap(null);
 
-    // Reset gap states when exiting
-    this.gapDetectionService.resetGapStates();
+    // Save gap states before exiting (so they persist for next gap review mode session)
+    this.gapDetectionService.saveGapStates();
 
     // Exit gap review mode (restores snapshot and state)
     this.editorState.exitGapReviewMode(this.timelineService);
+
+    // Reset gap states after exiting (but keep saved states for next session)
+    // Use queueMicrotask to ensure we reset after Angular change detection completes
+    queueMicrotask(() => {
+      this.gapDetectionService.resetGapStates(false); // false = keep saved states
+    });
   }
 
   /**
