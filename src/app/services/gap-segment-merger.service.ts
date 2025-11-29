@@ -18,7 +18,8 @@ export class GapSegmentMergerService {
      * 3. If the gap is active and is at the edge of a deleted segment, combine it into the gap
      * 
      * Rules for IGNORED gaps:
-     * 4. If the gap is ignored and overlaps with a deleted segment -> remove/cut it from the deleted segment
+     * 4. If the gap is ignored and is completely contained within a deleted segment (not at edge) -> don't change the segment
+     * 5. If the gap is ignored and is at the edge of a deleted segment -> remove/cut it from the deleted segment
      * 
      * @param currentSegments Current deleted segments array
      * @param activeGaps Array of active gaps to merge (gaps with GapState.ACTIVE)
@@ -115,10 +116,12 @@ export class GapSegmentMergerService {
 
     /**
      * Remove ignored gaps from deleted segments
-     * Cuts out the ignored gap portions from deleted segments
+     * Only removes ignored gaps if they are at the edge of a deleted segment
+     * If ignored gap is completely contained within segment (not at edge), don't change the segment
+     * 
      * @param segments Current deleted segments
      * @param ignoredGaps Array of ignored gaps to remove
-     * @returns Updated segments with ignored gaps removed
+     * @returns Updated segments with ignored gaps removed (only at edges)
      */
     private removeGapsFromDeletedSegments(
         segments: Array<{ start: number; end: number }>,
@@ -140,22 +143,43 @@ export class GapSegmentMergerService {
                     continue;
                 }
 
-                // Ignored gap overlaps with segment - cut it out
-                // Keep part before ignored gap (if exists)
-                if (segment.start < ignoredGap.start) {
-                    updatedSegments.push({
-                        start: segment.start,
-                        end: ignoredGap.start
-                    });
+                // Check if ignored gap is completely contained within segment (not at edge)
+                const isCompletelyContained = ignoredGap.start > segment.start && ignoredGap.end < segment.end;
+
+                if (isCompletelyContained) {
+                    // Ignored gap is part of deleted segment but not at edge - don't change
+                    updatedSegments.push(segment);
+                    continue;
                 }
-                // Keep part after ignored gap (if exists)
-                if (ignoredGap.end < segment.end) {
-                    updatedSegments.push({
-                        start: ignoredGap.end,
-                        end: segment.end
-                    });
+
+                // Check if ignored gap is at the edge of the segment
+                const touchesAtStart = Math.abs(ignoredGap.end - segment.start) < GapSegmentMergerService.TOLERANCE;
+                const touchesAtEnd = Math.abs(ignoredGap.start - segment.end) < GapSegmentMergerService.TOLERANCE;
+                const startsAtSegmentStart = Math.abs(ignoredGap.start - segment.start) < GapSegmentMergerService.TOLERANCE;
+                const endsAtSegmentEnd = Math.abs(ignoredGap.end - segment.end) < GapSegmentMergerService.TOLERANCE;
+
+                // If ignored gap is at edge, remove it from the segment
+                if (touchesAtStart || startsAtSegmentStart || touchesAtEnd || endsAtSegmentEnd) {
+                    // Ignored gap is at edge - cut it out
+                    // Keep part before ignored gap (if exists)
+                    if (segment.start < ignoredGap.start) {
+                        updatedSegments.push({
+                            start: segment.start,
+                            end: ignoredGap.start
+                        });
+                    }
+                    // Keep part after ignored gap (if exists)
+                    if (ignoredGap.end < segment.end) {
+                        updatedSegments.push({
+                            start: ignoredGap.end,
+                            end: segment.end
+                        });
+                    }
+                    // If ignored gap completely covers segment, nothing is added (segment is removed)
+                } else {
+                    // Ignored gap overlaps but is not at edge - don't change segment
+                    updatedSegments.push(segment);
                 }
-                // If ignored gap completely covers segment, nothing is added (segment is removed)
             }
 
             resultSegments = updatedSegments;
