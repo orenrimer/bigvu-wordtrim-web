@@ -130,6 +130,32 @@
     width: 100%;
     gap: 16px;
     padding-right: var(--spacing-5);
+
+    // Mobile responsive (1280px and below) - column layout only when individual gap actions are active
+    @media (max-width: 1280px) {
+        // Default: keep horizontal layout
+        flex-direction: row;
+
+        // When individual gap actions are present, switch to column layout
+        &:has(.gap-individual-actions) {
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 12px;
+            padding: 12px 16px;
+            padding-right: 16px;
+        }
+    }
+
+    // Mobile responsive (1024px and below)
+    @media (max-width: 1024px) {
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 12px;
+        padding: 12px 16px;
+        padding-right: 16px;
+    }
 }
 
 .gap-review-mode-layout__left {
@@ -139,6 +165,83 @@
     min-width: 0;
     gap: 16px;
     padding: 16px 20px 16px 60px;
+
+    @media (max-width: 1440px) {
+        padding: 12px 20px 16px 20px;
+    }
+
+    // Screens between 1024-1280px (without individual actions) - ensure proper spacing
+    @media (min-width: 1025px) and (max-width: 1280px) {
+        &:not(:has(.gap-individual-actions)) {
+            gap: 24px; // Increased gap to prevent smushing
+            justify-content: space-between;
+        }
+    }
+
+    // Mobile responsive (1280px and below) - allow flex column for ordering
+    // Only apply when individual gap actions are active (gap is selected)
+    @media (max-width: 1280px) {
+        // Default: keep horizontal layout
+        flex-direction: row;
+        align-items: center;
+
+        // When individual gap actions are present, switch to column layout
+        &:has(.gap-individual-actions) {
+            flex-direction: column;
+            align-items: stretch;
+            width: 100%;
+            gap: 12px;
+            padding: 12px 20px 16px 20px;
+        }
+    }
+}
+
+// Wrapper for gap info and actions to be on same row when individual actions are active
+.gap-info-actions-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+    min-width: 0;
+
+    // On screens larger than 1280px, break out of wrapper - display children separately
+    @media (min-width: 1281px) {
+        display: contents; // Makes wrapper "transparent" so children can be reordered by parent
+    }
+
+    // Screens between 1024-1280px (without individual actions) - ensure proper spacing
+    @media (min-width: 1025px) and (max-width: 1280px) {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px; // Increased gap to prevent smushing
+        flex: 1;
+        min-width: 0;
+        width: 100%;
+    }
+
+    // Mobile responsive (1280px and below) - row layout when individual actions are active
+    @media (max-width: 1280px) {
+        .gap-review-mode-layout__left:has(.gap-individual-actions) & {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            gap: 16px;
+            order: 1;
+        }
+    }
+
+    // Mobile responsive (1024px and below)
+    @media (max-width: 1024px) {
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        gap: 16px;
+        padding: 0;
+    }
 }
 
 .gap-review-mode-info {
@@ -147,6 +250,32 @@
     gap: var(--spacing-1);
     flex: 1;
     min-width: 0;
+
+    // Screens between 1024-1280px (without individual actions) - prevent smushing
+    @media (min-width: 1025px) and (max-width: 1280px) {
+        flex: 0 1 auto;
+        min-width: 0;
+        gap: var(--spacing-2); // Increased gap between items
+    }
+
+    // On screens larger than 1280px, first position (left)
+    @media (min-width: 1281px) {
+        order: 0;
+    }
+
+    // Mobile responsive (1280px and below) - order after individual actions
+    @media (max-width: 1280px) {
+        order: 1;
+    }
+
+    // Mobile responsive (1024px and below)
+    @media (max-width: 1024px) {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        justify-content: flex-start;
+        flex: 0 0 auto;
+    }
 }
 
 /**
@@ -158,13 +287,30 @@
     align-items: center;
     gap: var(--spacing-2);
     flex-shrink: 0;
+
+    // On screens larger than 1280px, position in middle (between gap-info and Remove All/Settings)
+    @media (min-width: 1281px) {
+        display: flex;
+        order: 1; // Between gap-info (order: 0) and Remove All/Settings (order: 2)
+    }
+
+    // Show on screens 1280px and below, positioned at top
+    @media (max-width: 1280px) {
+        display: flex;
+        width: 100%;
+        justify-content: center;
+        align-items: center;
+        gap: var(--spacing-1);
+        margin-bottom: 12px;
+        order: -1; // Move to top
+    }
 }
 
 .gap-nav-button {
     width: 40px;
     height: 40px;
-    border: 1px solid var(--color-border-primary);
-    background-color: var(--color-bg-secondary);
+    border: none;
+    background-color: transparent;
     border-radius: var(--radius-md);
     cursor: pointer;
     display: flex;
@@ -174,11 +320,11 @@
     transition: background-color 0.2s ease;
 
     &:hover {
-        background-color: var(--color-bg-tertiary);
+        background-color: var(--color-bg-secondary);
     }
 
     &:active {
-        background-color: var(--color-gray-100);
+        background-color: var(--color-bg-tertiary);
     }
 
     &:focus-visible {
@@ -201,19 +347,19 @@
     justify-content: center;
     gap: var(--spacing-1);
     padding: var(--spacing-2) var(--spacing-3);
-    border: 1px solid var(--color-border-primary);
-    background-color: var(--color-bg-secondary);
+    border: none;
+    background-color: transparent;
     cursor: pointer;
     border-radius: var(--radius-md);
     transition: background-color 0.2s ease;
     min-width: fit-content;
 
     &:hover {
-        background-color: var(--color-bg-tertiary);
+        background-color: var(--color-bg-secondary);
     }
 
     &:active {
-        background-color: var(--color-gray-100);
+        background-color: var(--color-bg-tertiary);
     }
 
     &:focus-visible {
@@ -238,9 +384,27 @@
 
     &.remove-this-button {
         .button-icon {
-            width: 14px;
-            height: 14px;
+            width: 24px;
+            height: 24px;
         }
+
+        // Mobile responsive (1280px and below) - highlighted/selected state
+        // @media (max-width: 1280px) {
+        //     background-color: var(--color-bg-primary);
+        //     border: 1px solid var(--color-primary);
+
+        //     .button-label {
+        //         color: var(--color-primary);
+        //         font-weight: var(--font-weight-medium);
+        //     }
+        // }
+    }
+
+    // Mobile responsive (1280px and below)
+    @media (max-width: 1280px) {
+        padding: 8px 16px;
+        gap: 6px;
+        border-radius: var(--radius-lg);
     }
 }
 
@@ -255,6 +419,37 @@
         font-weight: 400;
         line-height: 130%;
     }
+
+    // Screens between 1024-1280px (without individual actions) - prevent smushing
+    @media (min-width: 1025px) and (max-width: 1280px) {
+        flex-shrink: 0;
+        flex: 0 0 auto;
+    }
+
+    // On screens larger than 1280px, position on the right (after gap-info and individual actions)
+    @media (min-width: 1281px) {
+        order: 2; // After gap-info (order: 0) and individual actions (order: 1) - rightmost position
+    }
+
+    // Mobile responsive (1280px and below) - order after gap info
+    @media (max-width: 1280px) {
+        order: 1; // Same order as gap-info to be on same row when individual actions are active
+
+        // When no individual gap actions, full width below
+        .gap-review-mode-layout__left:not(:has(.gap-individual-actions)) & {
+            order: 2;
+            justify-content: center;
+            // width: 100%;
+        }
+    }
+
+    // Mobile responsive (1024px and below)
+    @media (max-width: 1024px) {
+        justify-content: flex-end;
+        align-items: flex-start;
+        gap: var(--spacing-2);
+        flex: 0 0 auto;
+    }
 }
 
 .gap-review-mode-layout__right {
@@ -262,24 +457,58 @@
     align-items: center;
     gap: var(--spacing-3);
     flex-shrink: 0;
+
+    // Mobile responsive (1024px and below)
+    @media (max-width: 1024px) {
+        justify-content: space-evenly;
+        width: 100%;
+        padding-top: 12px;
+        border-top: 1px solid var(--color-border-primary);
+    }
 }
 
 .gap-info-item {
     display: flex;
     align-items: baseline;
     gap: var(--spacing-1);
+    white-space: nowrap; // Prevent text from wrapping
+
+    // Screens between 1024-1280px - ensure proper spacing
+    @media (min-width: 1025px) and (max-width: 1280px) {
+        gap: 4px;
+        flex-shrink: 0; // Prevent items from shrinking
+    }
+
+    // Mobile responsive (1024px and below)
+    @media (max-width: 1024px) {
+        align-items: baseline;
+        gap: 4px;
+    }
 }
 
 .gap-info-number {
     font-size: var(--font-size-16);
     font-weight: var(--font-weight-semibold);
     color: var(--color-primary);
+
+    // Mobile responsive (1024px and below)
+    @media (max-width: 1024px) {
+        font-size: var(--font-size-14);
+        font-weight: var(--font-weight-medium);
+    }
 }
 
 .gap-info-label {
     font-size: var(--font-size-16);
     font-weight: var(--font-weight-regular);
     color: var(--color-text-secondary);
+
+    // Mobile responsive (1024px and below)
+    @media (max-width: 1024px) {
+        font-size: var(--font-size-14);
+        font-weight: var(--font-weight-regular);
+        color: var(--color-primary);
+    }
 }
 
 .gap-review-mode-actions {
@@ -342,6 +571,39 @@
             height: 14px;
         }
     }
+
+    // Mobile responsive (1024px and below)
+    @media (max-width: 1024px) {
+        background-color: var(--color-bg-primary);
+        min-width: 70px;
+        padding: 8px 12px;
+        gap: 4px;
+
+        .button-icon {
+            width: 32px;
+            height: 32px;
+        }
+
+        // .button-label {
+        //     font-size: var(--font-size-10);
+        //     font-weight: var(--font-weight-regular);
+        //     color: var(--color-text-secondary);
+        // }
+
+        // // Remove All button - red icon
+        // &.remove-all-button {
+        //     .button-icon {
+        //         filter: brightness(0) saturate(100%) invert(27%) sepia(95%) saturate(7471%) hue-rotate(349deg) brightness(95%) contrast(89%);
+        //     }
+        // }
+
+        // // Settings button - blue icon
+        // &.settings-button {
+        //     .button-icon {
+        //         filter: brightness(0) saturate(100%) invert(40%) sepia(100%) saturate(2000%) hue-rotate(200deg) brightness(1) contrast(1);
+        //     }
+        // }
+    }
 }
 
 .gap-review-mode-icon-button {
@@ -377,6 +639,18 @@
             display: block;
             object-fit: contain;
         }
+
+        // Mobile responsive (1024px and below) - red X icon
+        @media (max-width: 1024px) {
+            width: 48px;
+            height: 48px;
+
+            // img {
+            //     width: 24px;
+            //     height: 24px;
+            //     filter: brightness(0) saturate(100%) invert(27%) sepia(95%) saturate(7471%) hue-rotate(349deg) brightness(95%) contrast(89%);
+            // }
+        }
     }
 
     &.confirm-button {
@@ -386,8 +660,32 @@
             display: block;
             object-fit: contain;
         }
+
+        // Mobile responsive (1024px and below) - checkmark icon (blue/gray)
+        @media (max-width: 1024px) {
+            width: 48px;
+            height: 48px;
+
+            // img {
+            //     width: 24px;
+            //     height: 24px;
+            //     filter: brightness(0) saturate(100%) invert(40%) sepia(100%) saturate(2000%) hue-rotate(200deg) brightness(1) contrast(1);
+            // }
+        }
     }
 
+    // Mobile responsive (1024px and below)
+    @media (max-width: 1024px) {
+        background: transparent;
+
+        &:hover {
+            background-color: transparent;
+        }
+
+        &:active {
+            background-color: var(--color-bg-secondary);
+        }
+    }
 }
 
 /**
@@ -529,6 +827,11 @@
     gap: 4px;
     width: 100%;
     padding: 0;
+
+    // Mobile responsive (1024px and below)
+    @media (max-width: 1024px) {
+        width: 100%;
+    }
 }
 
 .gap-settings-label {

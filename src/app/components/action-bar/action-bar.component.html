@@ -55,32 +55,6 @@
             <!-- Left: Gap Count Info -->
             <div class="gap-review-mode-layout__left">
                 @if (!isSettingsModalOpen()) {
-                <div class="gap-review-mode-info">
-                    @if (hasRemovedGaps()) {
-                    <!-- Show removed counts after applying gap removal -->
-                    <div class="gap-info-item">
-                        <span class="gap-info-label">Removed</span>
-                        <span class="gap-info-number">{{ removedFillerWordsCount() }}</span>
-                        <span class="gap-info-label">filler words</span>
-                    </div>
-                    <div class="gap-info-item">
-                        <span class="gap-info-label">And</span>
-                        <span class="gap-info-number">{{ removedGapsCount() }}</span>
-                        <span class="gap-info-label">silences</span>
-                    </div>
-                    } @else {
-                    <!-- Show total counts before any removal -->
-                    <div class="gap-info-item">
-                        <span class="gap-info-number">{{ totalFillerWordsCount() }}</span>
-                        <span class="gap-info-label">filler words</span>
-                    </div>
-                    <div class="gap-info-item">
-                        <span class="gap-info-number">{{ totalGapsCount() }}</span>
-                        <span class="gap-info-label">silence gaps</span>
-                    </div>
-                    }
-                </div>
-
                 <!-- Individual Gap Action Controls (Feature 14) -->
                 @if (selectedGapId() !== null) {
                 <div class="gap-individual-actions">
@@ -109,31 +83,60 @@
                 </div>
                 }
 
-                <div class="gap-review-mode-layout__left-actions">
-                    <!-- Remove All Button -->
-                    @if (!showRestoreAll()) {
-                    <button class="gap-review-mode-button remove-all-button" (click)="onRemoveAllGaps()"
-                        aria-label="Remove all gaps">
-                        <img src="assets/icons/remove.svg" alt="" class="button-icon" />
-                        <span class="button-label">Remove All</span>
-                    </button>
-                    }
+                <!-- Wrapper for gap info and actions to be on same row when individual actions are active -->
+                <div class="gap-info-actions-row">
+                    <div class="gap-review-mode-info">
+                        @if (hasRemovedGaps()) {
+                        <!-- Show removed counts after applying gap removal -->
+                        <div class="gap-info-item">
+                            <span class="gap-info-label">Removed</span>
+                            <span class="gap-info-number">{{ removedFillerWordsCount() }}</span>
+                            <span class="gap-info-label">filler words</span>
+                        </div>
+                        <div class="gap-info-item">
+                            <span class="gap-info-label">And</span>
+                            <span class="gap-info-number">{{ removedGapsCount() }}</span>
+                            <span class="gap-info-label">silences</span>
+                        </div>
+                        } @else {
+                        <!-- Show total counts before any removal -->
+                        <div class="gap-info-item">
+                            <span class="gap-info-number">{{ totalFillerWordsCount() }}</span>
+                            <span class="gap-info-label">filler words</span>
+                        </div>
+                        <div class="gap-info-item">
+                            <span class="gap-info-number">{{ totalGapsCount() }}</span>
+                            <span class="gap-info-label">silence gaps</span>
+                        </div>
+                        }
+                    </div>
 
-                    <!-- Restore All Button -->
-                    @if (showRestoreAll()) {
-                    <button class="gap-review-mode-button restore-all-button" (click)="onRestoreAllGaps()"
-                        aria-label="Restore all gaps">
-                        <img src="assets/icons/Restore.svg" alt="" class="button-icon" />
-                        <span class="button-label">Restore All</span>
-                    </button>
-                    }
+                    <div class="gap-review-mode-layout__left-actions">
+                        <!-- Remove All Button -->
+                        @if (!showRestoreAll()) {
+                        <button class="gap-review-mode-button remove-all-button" (click)="onRemoveAllGaps()"
+                            aria-label="Remove all gaps">
+                            <img src="assets/icons/remove.svg" alt="" class="button-icon" />
+                            <span class="button-label">Remove All</span>
+                        </button>
+                        }
 
-                    <!-- Settings Button -->
-                    <button class="gap-review-mode-button settings-button" (click)="onGapSettings()"
-                        aria-label="Gap settings">
-                        <img src="assets/icons/Settings.svg" alt="" class="button-icon" />
-                        <span class="button-label">Settings</span>
-                    </button>
+                        <!-- Restore All Button -->
+                        @if (showRestoreAll()) {
+                        <button class="gap-review-mode-button restore-all-button" (click)="onRestoreAllGaps()"
+                            aria-label="Restore all gaps">
+                            <img src="assets/icons/Restore.svg" alt="" class="button-icon" />
+                            <span class="button-label">Restore All</span>
+                        </button>
+                        }
+
+                        <!-- Settings Button -->
+                        <button class="gap-review-mode-button settings-button" (click)="onGapSettings()"
+                            aria-label="Gap settings">
+                            <img src="assets/icons/Settings.svg" alt="" class="button-icon" />
+                            <span class="button-label">Settings</span>
+                        </button>
+                    </div>
                 </div>
                 }
 
