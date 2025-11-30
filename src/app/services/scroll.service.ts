@@ -9,9 +9,7 @@ import { debounceTime, takeUntil, filter, tap, delay } from 'rxjs/operators';
  * - Scrolling to gaps during gap review mode navigation
  * - Manual scroll detection and auto-scroll pause/resume
  */
-@Injectable({
-    providedIn: 'root'
-})
+@Injectable()
 export class ScrollService {
     // Constants for scroll behavior
     private static readonly MOBILE_BREAKPOINT_PX = 768;
@@ -383,8 +381,7 @@ export class ScrollService {
 
     /**
      * Cleanup method - cancels all pending operations and unsubscribes from RxJS observables
-     * Note: Since this is a singleton service (providedIn: 'root'),
-     * cleanup is handled per-component via cancelAllScheduledScrolls()
+     * Note: Cleanup is handled per-component via cancelAllScheduledScrolls()
      */
     cleanup(): void {
         // Unsubscribe from scroll events

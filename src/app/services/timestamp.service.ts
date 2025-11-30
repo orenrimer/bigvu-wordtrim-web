@@ -7,9 +7,7 @@ import { Word } from '../models';
  * Timestamp Service
  * Handles calculation and positioning of timestamps for word rows
  */
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable()
 export class TimestampService implements OnDestroy {
   // Constants
   private static readonly ROW_THRESHOLD = 5; // Pixels tolerance for considering words on the same row

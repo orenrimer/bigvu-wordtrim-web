@@ -53,7 +53,9 @@ import { Gap, GapState } from '../../models/gap.interface';
     OutputGeneratorService,
     SegmentationLoaderService,
     GapDetectionService,
-    GapSegmentMergerService
+    GapSegmentMergerService,
+    ScrollService,
+    TimestampService
   ],
   templateUrl: './main-editor-container.component.html',
   styleUrl: './main-editor-container.component.scss'
@@ -779,11 +781,19 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
   }
 
   togglePreviewMode(): void {
+    // Check if we're exiting preview mode (currently in preview mode)
+    const wasInPreviewMode = this.isPreviewMode();
+
     // Hide tip modal when entering preview mode
     this.tutorialService.hide();
 
     // Toggle preview mode in service
     this.editorState.togglePreviewMode();
+
+    // If exiting preview mode, pause the player
+    if (wasInPreviewMode && this.videoService.isPlaying()) {
+      this.videoService.pause();
+    }
 
     // Feature 13.11: Update preview tip modal position when preview mode changes
     if (this.tutorialService.modalState() === 'preview-tip') {
