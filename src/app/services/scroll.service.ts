@@ -15,20 +15,26 @@ import { debounceTime, takeUntil, filter, tap, delay } from 'rxjs/operators';
 export class ScrollService {
     // Constants for scroll behavior
     private static readonly MOBILE_BREAKPOINT_PX = 768;
-    private static readonly AUTOSCROLL_RESUME_DELAY_MS = 5000; // Resume after 5 seconds of no manual scrolling
+    private static readonly AUTOSCROLL_RESUME_DELAY_MS = 5000; // Resume after AUTOSCROLL_RESUME_DELAY_MS milliseconds of no manual scrolling
     private static readonly SCROLL_PADDING_MOBILE_PX = 30;
     private static readonly SCROLL_PADDING_DESKTOP_PX = 50;
-    private static readonly PROGRAMMATIC_SCROLL_TIMEOUT_MS = 2000; // Time to ignore scroll events after programmatic scroll
-    private static readonly PROGRAMMATIC_SCROLL_CLEANUP_DELAY_MS = 500; // Additional delay before clearing scroll end time
-    private static readonly MOBILE_SCROLL_FINETUNE_DELAY_MS = 150; // Delay before fine-tuning mobile scroll position
-    private static readonly MOBILE_SCROLL_OFFSET_RATIO = 0.2; // Position word at 20% from top on mobile
-    private static readonly DESKTOP_SCROLL_OFFSET_RATIO = 0.5; // Center word on desktop (50%)
-    private static readonly MOBILE_VISIBILITY_THRESHOLD_RATIO = 0.5; // Consider visible if within 50% of container height
+    private static readonly PROGRAMMATIC_SCROLL_TIMEOUT_MS = 2000; // Time to ignore scroll events after programmatic scroll (PROGRAMMATIC_SCROLL_TIMEOUT_MS milliseconds)
+    private static readonly PROGRAMMATIC_SCROLL_CLEANUP_DELAY_MS = 500; // Additional delay before clearing scroll end time (PROGRAMMATIC_SCROLL_CLEANUP_DELAY_MS milliseconds)
+    private static readonly MOBILE_SCROLL_FINETUNE_DELAY_MS = 150; // Delay before fine-tuning mobile scroll position (MOBILE_SCROLL_FINETUNE_DELAY_MS milliseconds)
+    private static readonly MOBILE_SCROLL_OFFSET_RATIO = 0.2; // Position word at MOBILE_SCROLL_OFFSET_RATIO (20%) from top on mobile
+    private static readonly DESKTOP_SCROLL_OFFSET_RATIO = 0.5; // Center word on desktop (DESKTOP_SCROLL_OFFSET_RATIO = 50%)
+    private static readonly MOBILE_VISIBILITY_THRESHOLD_RATIO = 0.5; // Consider visible if within MOBILE_VISIBILITY_THRESHOLD_RATIO (50%) of container height
+    private static readonly ELEMENT_CENTER_OFFSET_RATIO = 0.5; // Offset ratio for centering element (half of element height)
+    private static readonly DEFAULT_SCROLL_DELAY_MS = 0; // Default delay for scheduled scrolls
+    private static readonly INITIAL_PROGRAMMATIC_SCROLL_END_TIME = 0; // Initial value for programmatic scroll end time
+    private static readonly NOT_FOUND_INDEX = -1; // Index value indicating not found
+    private static readonly INITIAL_INDEX = 0; // Initial index value
+    private static readonly MIN_SCROLL_POSITION = 0; // Minimum scroll position
 
     // Auto-scroll tracking
     private autoScrollPaused = false; // Whether auto-scroll is paused due to manual scroll
     private isProgrammaticScroll = false; // Flag to distinguish programmatic scrolls from manual ones
-    private programmaticScrollEndTime = 0; // Timestamp when programmatic scroll should end
+    private programmaticScrollEndTime = ScrollService.INITIAL_PROGRAMMATIC_SCROLL_END_TIME; // Timestamp when programmatic scroll should end
 
     // Track pending scroll subscriptions to cancel them on manual scroll
     private pendingScrollSubscriptions: Subscription[] = [];
@@ -39,7 +45,7 @@ export class ScrollService {
 
     // Observable for scroll events (per container)
     private scrollEvent$: Observable<Event> | null = null;
-    private scrollSubscription: { unsubscribe: () => void } | null = null;
+    private scrollSubscription: Subscription | null = null;
 
     // Track timeouts and animation frames for cleanup
     private activeTimeouts: number[] = [];
@@ -113,7 +119,7 @@ export class ScrollService {
         // Find the word in the array that matches the index
         const wordIndexInArray = words.findIndex(w => w.index === wordIndex);
 
-        if (wordIndexInArray === -1) {
+        if (wordIndexInArray === ScrollService.NOT_FOUND_INDEX) {
             return; // Word not found (might be intro/outro chip or deleted)
         }
 
@@ -153,14 +159,14 @@ export class ScrollService {
         // Get the wordsWithGaps array to find the gap index
         const gapIndex = wordsWithGaps.findIndex(item => item.type === 'gap' && item.gap?.id === gapId);
 
-        if (gapIndex === -1) {
+        if (gapIndex === ScrollService.NOT_FOUND_INDEX) {
             return; // Gap not found
         }
 
         // Find all gap bracket elements - they are rendered in the same order as gaps appear in wordsWithGaps
         // We need to count how many gap brackets appear before this index in the wordsWithGaps array
-        let gapBracketIndex = 0;
-        for (let i = 0; i < gapIndex; i++) {
+        let gapBracketIndex = ScrollService.INITIAL_INDEX;
+        for (let i = ScrollService.INITIAL_INDEX; i < gapIndex; i++) {
             if (wordsWithGaps[i].type === 'gap') {
                 gapBracketIndex++;
             }
@@ -221,7 +227,7 @@ export class ScrollService {
                 // Double-check that auto-scroll is still not paused (for word scrolling)
                 if (checkAutoScrollPaused && this.autoScrollPaused) {
                     this.isProgrammaticScroll = false;
-                    this.programmaticScrollEndTime = 0;
+                    this.programmaticScrollEndTime = ScrollService.INITIAL_PROGRAMMATIC_SCROLL_END_TIME;
                     this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
                     return;
                 }
@@ -246,7 +252,7 @@ export class ScrollService {
                         const desiredTopPosition = finalContainerHeight * ScrollService.MOBILE_SCROLL_OFFSET_RATIO;
 
                         // Only adjust if element is outside the visible area or too low
-                        if (elementTopRelative < 0 || elementTopRelative > finalContainerHeight * ScrollService.MOBILE_VISIBILITY_THRESHOLD_RATIO) {
+                        if (elementTopRelative < ScrollService.MIN_SCROLL_POSITION || elementTopRelative > finalContainerHeight * ScrollService.MOBILE_VISIBILITY_THRESHOLD_RATIO) {
                             const currentScrollTop = scrollContainer.scrollTop;
                             const adjustment = elementTopRelative - desiredTopPosition;
                             scrollContainer.scrollTo({
@@ -269,11 +275,11 @@ export class ScrollService {
 
                     // Calculate target scroll position - center on desktop
                     const scrollOffset = containerHeight * ScrollService.DESKTOP_SCROLL_OFFSET_RATIO;
-                    const targetScrollTop = elementRelativeTop - scrollOffset + (elementHeight / 2);
+                    const targetScrollTop = elementRelativeTop - scrollOffset + (elementHeight * ScrollService.ELEMENT_CENTER_OFFSET_RATIO);
 
                     // Ensure we don't scroll beyond container bounds
                     const maxScrollTop = scrollContainer.scrollHeight - containerHeight;
-                    const clampedScrollTop = Math.max(0, Math.min(targetScrollTop, maxScrollTop));
+                    const clampedScrollTop = Math.max(ScrollService.MIN_SCROLL_POSITION, Math.min(targetScrollTop, maxScrollTop));
 
                     // Scroll only the transcript-content container, not the page
                     scrollContainer.scrollTo({
@@ -290,7 +296,7 @@ export class ScrollService {
                     this.isProgrammaticScroll = false;
                     // Keep programmaticScrollEndTime set for a bit longer to catch any delayed scroll events
                     const timeoutId2 = window.setTimeout(() => {
-                        this.programmaticScrollEndTime = 0;
+                        this.programmaticScrollEndTime = ScrollService.INITIAL_PROGRAMMATIC_SCROLL_END_TIME;
                         // Remove from tracking array when completed
                         this.activeTimeouts = this.activeTimeouts.filter(id => id !== timeoutId2);
                     }, ScrollService.PROGRAMMATIC_SCROLL_CLEANUP_DELAY_MS);
@@ -306,7 +312,7 @@ export class ScrollService {
 
     /**
      * Handle manual scroll event
-     * Pauses auto-scroll and schedules resume after 5 seconds (debounced via RxJS)
+     * Pauses auto-scroll and schedules resume after AUTOSCROLL_RESUME_DELAY_MS milliseconds (debounced via RxJS)
      * Note: Programmatic scrolls are already filtered out by the RxJS pipe
      */
     private onManualScroll(): void {
@@ -321,11 +327,11 @@ export class ScrollService {
 
         // Cancel any ongoing programmatic scroll to prevent interference
         this.isProgrammaticScroll = false;
-        this.programmaticScrollEndTime = 0;
+        this.programmaticScrollEndTime = ScrollService.INITIAL_PROGRAMMATIC_SCROLL_END_TIME;
 
-        // Emit to Subject for debounced resume (5 seconds)
-        // This will reset autoScrollPaused to false after 5 seconds of no manual scrolling
-        // Each manual scroll resets the 5-second timer (debounce behavior via RxJS)
+        // Emit to Subject for debounced resume (AUTOSCROLL_RESUME_DELAY_MS milliseconds)
+        // This will reset autoScrollPaused to false after AUTOSCROLL_RESUME_DELAY_MS milliseconds of no manual scrolling
+        // Each manual scroll resets the AUTOSCROLL_RESUME_DELAY_MS millisecond timer (debounce behavior via RxJS)
         this.autoScrollResumeSubject.next();
     }
 
@@ -338,7 +344,7 @@ export class ScrollService {
         scrollContainer: HTMLElement,
         wordsContainer: HTMLElement,
         words: Array<{ index: number }>,
-        delayMs: number = 0
+        delayMs: number = ScrollService.DEFAULT_SCROLL_DELAY_MS
     ): Subscription {
         // Use RxJS timer instead of setTimeout
         const scrollSubscription = timer(delayMs).pipe(

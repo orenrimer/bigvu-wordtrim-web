@@ -51,6 +51,11 @@ export class TutorialService {
     // Track if position calculation is in progress to prevent multiple simultaneous calls
     private isPositionCalculating = false;
 
+    // Track active timeouts for cleanup
+    private activeTimeouts: number[] = [];
+    // Track active animation frames for cleanup
+    private activeAnimationFrames: number[] = [];
+
     /**
      * Show the editing tip modal
      */
@@ -156,10 +161,12 @@ export class TutorialService {
                     if (!this.isPositionCalculating) {
                         resolve(true);
                     } else {
-                        setTimeout(checkDone, 50);
+                        const timeoutId = window.setTimeout(checkDone, TutorialService.POSITION_RETRY_DELAY_MS);
+                        this.activeTimeouts.push(timeoutId);
                     }
                 };
-                setTimeout(checkDone, 50);
+                const timeoutId = window.setTimeout(checkDone, TutorialService.POSITION_RETRY_DELAY_MS);
+                this.activeTimeouts.push(timeoutId);
             });
         }
 
@@ -182,7 +189,8 @@ export class TutorialService {
                         // If we have words in the signal but no chips rendered yet, wait a bit more
                         if (wordsCount > 0 && wordChips.length === 0 && retryCount < maxRetries - TutorialService.POSITION_RETRY_BUFFER) {
                             retryCount++;
-                            setTimeout(tryUpdate, TutorialService.POSITION_RETRY_DELAY_MS);
+                            const timeoutId = window.setTimeout(tryUpdate, TutorialService.POSITION_RETRY_DELAY_MS);
+                            this.activeTimeouts.push(timeoutId);
                             return;
                         }
 
@@ -238,7 +246,8 @@ export class TutorialService {
                                     // Retry if chip dimensions are invalid
                                     if (retryCount < maxRetries) {
                                         retryCount++;
-                                        setTimeout(tryUpdate, 50);
+                                        const timeoutId = window.setTimeout(tryUpdate, TutorialService.POSITION_RETRY_DELAY_MS);
+                                        this.activeTimeouts.push(timeoutId);
                                     } else {
                                         this.isPositionCalculating = false;
                                         resolve(false);
@@ -280,7 +289,8 @@ export class TutorialService {
                                 // We have words but chips aren't rendered yet, retry
                                 if (retryCount < maxRetries) {
                                     retryCount++;
-                                    setTimeout(tryUpdate, 50);
+                                    const timeoutId = window.setTimeout(tryUpdate, TutorialService.POSITION_RETRY_DELAY_MS);
+                                    this.activeTimeouts.push(timeoutId);
                                     return;
                                 }
                             }
@@ -291,7 +301,8 @@ export class TutorialService {
                 // Element not ready yet, retry
                 if (retryCount < maxRetries) {
                     retryCount++;
-                    setTimeout(tryUpdate, 50);
+                    const timeoutId = window.setTimeout(tryUpdate, TutorialService.POSITION_RETRY_DELAY_MS);
+                    this.activeTimeouts.push(timeoutId);
                 } else {
                     // If element not found after retries, reset to fallback (centered)
                     document.documentElement.style.removeProperty('--words-container-left');
@@ -304,9 +315,11 @@ export class TutorialService {
 
             // Use requestAnimationFrame to ensure DOM is ready before measuring
             // This is better than setTimeout(..., 0) as it waits for the browser's next paint
-            requestAnimationFrame(() => {
+            const rafId = requestAnimationFrame(() => {
                 tryUpdate();
+                this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
             });
+            this.activeAnimationFrames.push(rafId);
         });
     }
 
@@ -337,6 +350,24 @@ export class TutorialService {
         // Set CSS custom properties for modal positioning
         document.documentElement.style.setProperty('--preview-tip-modal-center-x', `${centerX}px`);
         document.documentElement.style.setProperty('--preview-tip-modal-bottom', `${bottomY}px`);
+    }
+
+    /**
+     * Cleanup method - clears all active timeouts and animation frames
+     * Should be called when component is destroyed
+     */
+    public cleanup(): void {
+        // Clear all active timeouts
+        this.activeTimeouts.forEach(timeoutId => {
+            window.clearTimeout(timeoutId);
+        });
+        this.activeTimeouts = [];
+
+        // Clear all active animation frames
+        this.activeAnimationFrames.forEach(rafId => {
+            window.cancelAnimationFrame(rafId);
+        });
+        this.activeAnimationFrames = [];
     }
 }
 

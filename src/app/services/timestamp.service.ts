@@ -13,8 +13,19 @@ import { Word } from '../models';
 export class TimestampService implements OnDestroy {
   // Constants
   private static readonly ROW_THRESHOLD = 5; // Pixels tolerance for considering words on the same row
-  private static readonly TIMESTAMP_ROW_INTERVAL = 3; // Show timestamp every N rows (e.g., every 3rd row)
-  private static readonly RESIZE_DEBOUNCE_MS = 100; // Debounce time for ResizeObserver callbacks
+  private static readonly TIMESTAMP_ROW_INTERVAL = 3; // Show timestamp every TIMESTAMP_ROW_INTERVAL rows (e.g., every 3rd row: index 2, 5, 8, etc.)
+  private static readonly RESIZE_DEBOUNCE_MS = 100; // Debounce time for ResizeObserver callbacks (RESIZE_DEBOUNCE_MS milliseconds)
+  private static readonly RETRY_DELAY_MS = 50; // Delay before retrying timestamp calculation if chips not rendered yet
+  private static readonly ELEMENT_CENTER_OFFSET_RATIO = 0.5; // Offset ratio for centering element (half of element height)
+  private static readonly DEFAULT_WORD_INDEX = -1; // Default word index for invalid/missing word index
+  private static readonly PARSE_INT_BASE = 10; // Base for parseInt operations
+  private static readonly INVALID_WORD_INDEX_THRESHOLD = 0; // Threshold for invalid word index (index < INVALID_WORD_INDEX_THRESHOLD)
+  private static readonly INVALID_ROW_KEY = -1; // Invalid row key value
+  private static readonly VALID_WORD_INDEX_THRESHOLD = 0; // Threshold for valid word index (index >= VALID_WORD_INDEX_THRESHOLD)
+  private static readonly FIRST_ROW_INDEX = 0; // Index of the first row
+  private static readonly DEFAULT_TIMESTAMP_TIME = 0; // Default timestamp time value
+  private static readonly NOT_FOUND_INDEX = -1; // Index value indicating not found
+  private static readonly INITIAL_INDEX = 0; // Initial index value
 
   // Row timestamps signal (time and top position)
   private _rowTimestamps = signal<Array<{ time: number; top: number }>>([]);
@@ -55,7 +66,7 @@ export class TimestampService implements OnDestroy {
     if (wordChips.length === 0) {
       // If no chips are rendered yet, try again after a short delay
       // Use RxJS timer for consistency
-      const timerSubscription = timer(50).pipe(
+      const timerSubscription = timer(TimestampService.RETRY_DELAY_MS).pipe(
         takeUntil(this.destroy$)
       ).subscribe(() => {
         this.calculateRowTimestamps(wordsList, wordsContainer, timestampsContainer, isRTL);
@@ -77,11 +88,11 @@ export class TimestampService implements OnDestroy {
 
       // Calculate center position of chip relative to timestamps container
       const chipTopRelativeToWords = chipRect.top - wordsContainerRect.top;
-      const chipCenterRelativeToTimestamps = chipTopRelativeToWords + (chipRect.height / 2) + (wordsContainerRect.top - timestampsContainerRect.top);
+      const chipCenterRelativeToTimestamps = chipTopRelativeToWords + (chipRect.height * TimestampService.ELEMENT_CENTER_OFFSET_RATIO) + (wordsContainerRect.top - timestampsContainerRect.top);
       const chipLeft = chipRect.left - wordsContainerRect.left;
 
       // Get the word index from the chip's data-index attribute
-      const wordIndex = parseInt(chip.getAttribute('data-index') || '-1', 10);
+      const wordIndex = parseInt(chip.getAttribute('data-index') || TimestampService.DEFAULT_WORD_INDEX.toString(), TimestampService.PARSE_INT_BASE);
 
       chipsData.push({
         chip,
@@ -93,14 +104,14 @@ export class TimestampService implements OnDestroy {
 
     // Second pass: group chips by row and find first word in each row
     for (const chipData of chipsData) {
-      // Skip intro/outro chips (index < 0) - we only want real words for timestamps
-      if (chipData.wordIndex < 0) {
+      // Skip intro/outro chips (index < INVALID_WORD_INDEX_THRESHOLD) - we only want real words for timestamps
+      if (chipData.wordIndex < TimestampService.INVALID_WORD_INDEX_THRESHOLD) {
         continue;
       }
 
       // Find existing row with similar top position
       let foundRow = false;
-      let rowKey = -1;
+      let rowKey = TimestampService.INVALID_ROW_KEY;
 
       for (const [key, row] of rows.entries()) {
         if (Math.abs(row.top - chipData.top) <= TimestampService.ROW_THRESHOLD) {
@@ -124,7 +135,7 @@ export class TimestampService implements OnDestroy {
       }
 
       // If no matching row found, create a new row
-      if (!foundRow && chipData.wordIndex >= 0 && chipData.wordIndex < wordsList.length) {
+      if (!foundRow && chipData.wordIndex >= TimestampService.VALID_WORD_INDEX_THRESHOLD && chipData.wordIndex < wordsList.length) {
         // Use top position as key (rounded to nearest threshold)
         const roundedTop = Math.round(chipData.top / TimestampService.ROW_THRESHOLD) * TimestampService.ROW_THRESHOLD;
         rows.set(roundedTop, {
@@ -138,20 +149,20 @@ export class TimestampService implements OnDestroy {
     // Convert map to array and sort rows by top position
     const rowsArray = Array.from(rows.values()).sort((a, b) => a.top - b.top);
 
-    // Filter rows to show timestamps only every N rows
+    // Filter rows to show timestamps only every TIMESTAMP_ROW_INTERVAL rows
     // Always include the first row, then every TIMESTAMP_ROW_INTERVAL rows
     const filteredRows = rowsArray.filter((row, index) => {
       // Always show first row
-      if (index === 0) return true;
-      // Show every Nth row (e.g., every 3rd row: index 2, 5, 8, etc.)
-      return index % TimestampService.TIMESTAMP_ROW_INTERVAL === 0;
+      if (index === TimestampService.FIRST_ROW_INDEX) return true;
+      // Show every TIMESTAMP_ROW_INTERVAL-th row (e.g., every 3rd row: index 2, 5, 8, etc.)
+      return index % TimestampService.TIMESTAMP_ROW_INTERVAL === TimestampService.FIRST_ROW_INDEX;
     });
 
     // Calculate timestamps for filtered rows based on first word's start time
     const rowTimestamps: Array<{ time: number; top: number }> = filteredRows.map(row => {
       const word = wordsList[row.firstWordIndex];
       return {
-        time: word ? word.start : 0,
+        time: word ? word.start : TimestampService.DEFAULT_TIMESTAMP_TIME,
         top: row.top
       };
     });

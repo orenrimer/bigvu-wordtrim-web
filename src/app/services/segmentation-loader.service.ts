@@ -49,10 +49,14 @@ export class SegmentationLoaderService {
                         SegmentationLoaderService.RETRY_MAX_DELAY_MS
                     );
                     return new Observable<void>(subscriber => {
-                        setTimeout(() => {
+                        const timeoutId = window.setTimeout(() => {
                             subscriber.next();
                             subscriber.complete();
                         }, delayMs);
+                        // Cleanup timeout on unsubscribe
+                        return () => {
+                            window.clearTimeout(timeoutId);
+                        };
                     });
                 }
             }),

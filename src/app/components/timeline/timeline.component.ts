@@ -75,6 +75,8 @@ export class TimelineComponent implements OnInit, OnDestroy {
 
     // Track active timeouts for cleanup
     private activeTimeouts: number[] = [];
+    // Track active animation frames for cleanup
+    private activeAnimationFrames: number[] = [];
 
     constructor(
         timelineService: TimelineService,
@@ -192,17 +194,21 @@ export class TimelineComponent implements OnInit, OnDestroy {
     private async validateThumbnailUrl(url: string): Promise<boolean> {
         return new Promise((resolve) => {
             const img = new Image();
-            const timeout = setTimeout(() => {
+            const timeoutId = window.setTimeout(() => {
                 resolve(false);
+                this.activeTimeouts = this.activeTimeouts.filter(id => id !== timeoutId);
             }, 5000); // 5 second timeout
+            this.activeTimeouts.push(timeoutId);
 
             img.onload = () => {
-                clearTimeout(timeout);
+                window.clearTimeout(timeoutId);
+                this.activeTimeouts = this.activeTimeouts.filter(id => id !== timeoutId);
                 resolve(true);
             };
 
             img.onerror = () => {
-                clearTimeout(timeout);
+                window.clearTimeout(timeoutId);
+                this.activeTimeouts = this.activeTimeouts.filter(id => id !== timeoutId);
                 resolve(false);
             };
 
@@ -337,6 +343,12 @@ export class TimelineComponent implements OnInit, OnDestroy {
             clearTimeout(timeoutId);
         });
         this.activeTimeouts = [];
+
+        // Clean up all active animation frames
+        this.activeAnimationFrames.forEach(rafId => {
+            cancelAnimationFrame(rafId);
+        });
+        this.activeAnimationFrames = [];
     }
 
     /**
@@ -936,9 +948,12 @@ export class TimelineComponent implements OnInit, OnDestroy {
             // Restore fine-tuned position
             this.timelineService.updateStartHandle(clampedTime);
 
-            setTimeout(() => {
+            // Use requestAnimationFrame instead of setTimeout(..., 0)
+            const rafId = requestAnimationFrame(() => {
                 this.isRestoringHandlePosition = false;
-            }, 0);
+                this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
+            });
+            this.activeAnimationFrames.push(rafId);
         }
 
         // Update input value to show formatted time
@@ -988,9 +1003,12 @@ export class TimelineComponent implements OnInit, OnDestroy {
             // Restore fine-tuned position
             this.timelineService.updateEndHandle(clampedTime);
 
-            setTimeout(() => {
+            // Use requestAnimationFrame instead of setTimeout(..., 0)
+            const rafId = requestAnimationFrame(() => {
                 this.isRestoringHandlePosition = false;
-            }, 0);
+                this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
+            });
+            this.activeAnimationFrames.push(rafId);
         }
 
         // Update input value to show formatted time

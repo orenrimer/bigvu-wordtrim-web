@@ -46,6 +46,9 @@ export class ActionBarComponent implements OnInit, OnDestroy {
     private readonly thresholdSubject = new Subject<number>();
     private readonly destroy$ = new Subject<void>();
 
+    // Track active animation frames for cleanup
+    private activeAnimationFrames: number[] = [];
+
     // Reference to main editor container for preview mode toggle
     @Input() mainEditorContainer?: MainEditorContainerComponent;
 
@@ -507,6 +510,12 @@ export class ActionBarComponent implements OnInit, OnDestroy {
     ngOnDestroy(): void {
         this.destroy$.next();
         this.destroy$.complete();
+
+        // Clean up all active animation frames
+        this.activeAnimationFrames.forEach(rafId => {
+            cancelAnimationFrame(rafId);
+        });
+        this.activeAnimationFrames = [];
     }
 
     /**
@@ -713,13 +722,17 @@ export class ActionBarComponent implements OnInit, OnDestroy {
             this.actionAnnouncement.set(`Selected previous gap`);
             // Scroll the selected gap into view after DOM updates
             // Use requestAnimationFrame to ensure DOM has updated after Angular's change detection
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
+            const rafId1 = requestAnimationFrame(() => {
+                const rafId2 = requestAnimationFrame(() => {
                     if (this.mainEditorContainer) {
                         this.mainEditorContainer.scrollToGap(selectedId);
                     }
+                    this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId2);
                 });
+                this.activeAnimationFrames.push(rafId2);
+                this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId1);
             });
+            this.activeAnimationFrames.push(rafId1);
         }
     }
 
@@ -733,13 +746,17 @@ export class ActionBarComponent implements OnInit, OnDestroy {
             this.actionAnnouncement.set(`Selected next gap`);
             // Scroll the selected gap into view after DOM updates
             // Use requestAnimationFrame to ensure DOM has updated after Angular's change detection
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
+            const rafId1 = requestAnimationFrame(() => {
+                const rafId2 = requestAnimationFrame(() => {
                     if (this.mainEditorContainer) {
                         this.mainEditorContainer.scrollToGap(selectedId);
                     }
+                    this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId2);
                 });
+                this.activeAnimationFrames.push(rafId2);
+                this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId1);
             });
+            this.activeAnimationFrames.push(rafId1);
         }
     }
 

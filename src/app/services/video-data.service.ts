@@ -137,8 +137,8 @@ export class VideoDataService {
             18: 'video_18_68d2b7cad7b7b6597f417c92.json',
             19: 'video_19_68bd7f973618d7dca4a072fa.json',
             20: 'video_20_68b172ca92c2257b94a10c01.json',
-            21: 'video_21_68563edbdf2c5f9ae19c116b copy.json',
-            22: 'video_22_68563edbdf2c5f9ae19c116b copy.json',
+            21: 'video_21_68563edbdf2c5f9ae19c116b.json',
+            22: 'video_22_68563edbdf2c5f9ae19c116b.json',
         };
 
         return fileNames[index] || `video_${index}_unknown.json`;

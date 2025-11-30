@@ -60,7 +60,16 @@ import { Gap, GapState } from '../../models/gap.interface';
 })
 export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDestroy {
   // Constants
-  private static readonly TIMESTAMP_INTERVAL_SECONDS = 10; // Target interval between timestamps
+  private static readonly TIMESTAMP_INTERVAL_SECONDS = 10; // Target interval between timestamps (TIMESTAMP_INTERVAL_SECONDS seconds)
+  private static readonly RESIZE_DEBOUNCE_MS = 100; // Debounce time for resize events (RESIZE_DEBOUNCE_MS milliseconds)
+  private static readonly RTL_DETECTION_SAMPLE_SIZE = 10; // Number of words to sample for RTL detection
+  private static readonly TIMESTAMP_PADDING_LENGTH = 2; // Padding length for timestamp formatting
+  private static readonly TIMESTAMP_PADDING_CHAR = '0'; // Padding character for timestamp formatting
+  private static readonly SCROLL_TOP_POSITION = 0; // Top scroll position
+  private static readonly SCROLL_LEFT_POSITION = 0; // Left scroll position
+  private static readonly INTRO_WORD_INDEX = -1; // Index for intro word chip
+  private static readonly OUTRO_WORD_INDEX = -2; // Index for outro word chip
+  private static readonly FIRST_WORD_INDEX = 0; // Index of the first word
 
   // ViewChild reference to words-container for CSS custom property positioning
   @ViewChild('wordsContainer', { static: false }) wordsContainerRef!: ElementRef<HTMLElement>;
@@ -78,11 +87,11 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
   private scrollListenerCleanup: (() => void) | null = null;
   private scrollListenerAttached = false; // Track if scroll listener has been attached
 
-  private destroy$ = new Subject<void>();
-
   // RxJS for window resize handling
   private resizeSubscription: Subscription | null = null;
-  private static readonly RESIZE_DEBOUNCE_MS = 100; // Debounce time for resize events
+
+  private destroy$ = new Subject<void>();
+
 
   // Track timeouts and animation frames for cleanup
   private activeTimeouts: number[] = [];
@@ -108,8 +117,8 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     // Arabic: U+0600-U+06FF, Hebrew: U+0590-U+05FF
     const rtlRegex = /[\u0590-\u05FF\u0600-\u06FF]/;
 
-    // Sample first 10 words to detect language
-    const sampleSize = Math.min(10, wordsList.length);
+    // Sample first RTL_DETECTION_SAMPLE_SIZE words to detect language
+    const sampleSize = Math.min(MainEditorContainerComponent.RTL_DETECTION_SAMPLE_SIZE, wordsList.length);
     for (let i = 0; i < sampleSize; i++) {
       if (rtlRegex.test(wordsList[i].word)) {
         return true;
@@ -327,9 +336,9 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
    * Format timestamp in MM:SS format
    */
   formatTimestamp(seconds: number): string {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')} s`;
+    const mins = Math.floor(seconds / 60); // 60 is universal constant: seconds per minute
+    const secs = Math.floor(seconds % 60); // 60 is universal constant: seconds per minute
+    return `${mins.toString().padStart(MainEditorContainerComponent.TIMESTAMP_PADDING_LENGTH, MainEditorContainerComponent.TIMESTAMP_PADDING_CHAR)}:${secs.toString().padStart(MainEditorContainerComponent.TIMESTAMP_PADDING_LENGTH, MainEditorContainerComponent.TIMESTAMP_PADDING_CHAR)} s`;
   }
 
   // Expose video player service error signal
@@ -548,7 +557,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     // Reset page scroll position on init to prevent sticky scroll position
     // This ensures the page starts at the top even if browser remembers scroll position
     if (typeof window !== 'undefined') {
-      window.scrollTo(0, 0);
+      window.scrollTo(MainEditorContainerComponent.SCROLL_LEFT_POSITION, MainEditorContainerComponent.SCROLL_TOP_POSITION);
       // Also prevent scroll restoration
       if ('scrollRestoration' in window.history) {
         window.history.scrollRestoration = 'manual';
@@ -668,6 +677,12 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
 
     // Clean up timestamp service
     this.timestampService.cleanup();
+
+    // Clean up tutorial service
+    this.tutorialService.cleanup();
+
+    // Clean up timeline service animation frames
+    this.timelineService.cleanup();
 
     // Clean up RxJS resize subscription
     if (this.resizeSubscription) {
@@ -906,12 +921,12 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     }
 
     // Feature 13: Ignore arrow keys on intro/outro chips (they're display-only)
-    if (currentWord.index === -1 || currentWord.index === -2) {
+    if (currentWord.index === MainEditorContainerComponent.INTRO_WORD_INDEX || currentWord.index === MainEditorContainerComponent.OUTRO_WORD_INDEX) {
       return;
     }
 
     const words = this.words();
-    if (words.length === 0) return;
+    if (words.length === MainEditorContainerComponent.FIRST_WORD_INDEX) return;
 
     const currentIndex = currentWord.index;
     let targetIndex: number;
@@ -920,28 +935,28 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       // Find next word (wrap to first if at end)
       targetIndex = currentIndex + 1;
       if (targetIndex >= words.length) {
-        targetIndex = 0; // Wrap to first word
+        targetIndex = MainEditorContainerComponent.FIRST_WORD_INDEX; // Wrap to first word
       }
     } else {
       // Find previous word (wrap to last if at start)
       targetIndex = currentIndex - 1;
-      if (targetIndex < 0) {
+      if (targetIndex < MainEditorContainerComponent.FIRST_WORD_INDEX) {
         targetIndex = words.length - 1; // Wrap to last word
       }
     }
 
     // Find the corresponding word chip element and focus it
-    // Use setTimeout to ensure DOM is updated after Angular change detection
-    const timeoutId = window.setTimeout(() => {
+    // Use requestAnimationFrame to ensure DOM is updated after Angular change detection
+    const rafId = requestAnimationFrame(() => {
       // Find the word chip element by data-index attribute
       const targetElement = document.querySelector(`[data-index="${targetIndex}"].word-chip`) as HTMLElement;
       if (targetElement) {
         targetElement.focus();
       }
       // Remove from tracking array when completed
-      this.activeTimeouts = this.activeTimeouts.filter(id => id !== timeoutId);
-    }, 0);
-    this.activeTimeouts.push(timeoutId);
+      this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
+    });
+    this.activeAnimationFrames.push(rafId);
   }
 
   /**
@@ -953,7 +968,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
    */
   onWordClick(word: Word): void {
     // Feature 13: Ignore clicks on intro/outro chips (they're display-only)
-    if (word.index === -1 || word.index === -2) {
+    if (word.index === MainEditorContainerComponent.INTRO_WORD_INDEX || word.index === MainEditorContainerComponent.OUTRO_WORD_INDEX) {
       return;
     }
 

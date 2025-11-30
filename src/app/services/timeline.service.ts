@@ -44,6 +44,8 @@ export class TimelineService {
     private readonly _words = signal<Word[]>([]);
     private readonly _isSingleWordMode = signal<boolean>(false); // Track if we're in single-word mode
     private readonly _isRestoringHandles = signal<boolean>(false); // Flag to prevent effect from updating handles during restore
+    // Track active animation frames for cleanup
+    private activeAnimationFrames: number[] = [];
 
     // Public read-only signals
     public readonly startHandle = this._startHandle.asReadonly();
@@ -385,11 +387,27 @@ export class TimelineService {
 
         // Clear flag after Angular change detection completes
         // Use requestAnimationFrame to ensure effect has run before clearing flag
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
+        const rafId1 = requestAnimationFrame(() => {
+            const rafId2 = requestAnimationFrame(() => {
                 this._isRestoringHandles.set(false);
+                this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId2);
             });
+            this.activeAnimationFrames.push(rafId2);
+            this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId1);
         });
+            this.activeAnimationFrames.push(rafId1);
+    }
+
+    /**
+     * Cleanup method - clears all active animation frames
+     * Should be called when component is destroyed
+     */
+    public cleanup(): void {
+        // Clear all active animation frames
+        this.activeAnimationFrames.forEach(rafId => {
+            window.cancelAnimationFrame(rafId);
+        });
+        this.activeAnimationFrames = [];
     }
 }
 
