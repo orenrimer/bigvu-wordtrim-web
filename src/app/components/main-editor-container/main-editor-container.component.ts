@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, effect, AfterViewInit, OnDestroy, ViewChild, ElementRef, signal, afterNextRender, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Subject } from 'rxjs';
+import { Subject, Subscription, fromEvent } from 'rxjs';
+import { debounceTime, takeUntil } from 'rxjs/operators';
 import { SegmentationLoaderService } from '../../services/segmentation-loader.service';
 import { EditorStateService } from '../../services/editor-state.service';
 import { VideoPlayerService } from '../../services/video-player.service';
@@ -79,8 +80,9 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
 
   private destroy$ = new Subject<void>();
 
-  // Window resize event listener reference for cleanup
-  private windowResizeListener: (() => void) | null = null;
+  // RxJS for window resize handling
+  private resizeSubscription: Subscription | null = null;
+  private static readonly RESIZE_DEBOUNCE_MS = 100; // Debounce time for resize events
 
   // Track timeouts and animation frames for cleanup
   private activeTimeouts: number[] = [];
@@ -559,9 +561,12 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     // which waits for words to be loaded. No need to call it here immediately.
     // The effect will handle initial position calculation when words are ready.
 
-    // Update position on window resize
+    // Update position on window resize using RxJS with debouncing
     if (typeof window !== 'undefined') {
-      this.windowResizeListener = () => {
+      this.resizeSubscription = fromEvent<Event>(window, 'resize', { passive: true }).pipe(
+        debounceTime(MainEditorContainerComponent.RESIZE_DEBOUNCE_MS),
+        takeUntil(this.destroy$)
+      ).subscribe(() => {
         this.tutorialService.updateWordsContainerPosition(
           this.wordsContainerRef,
           this.words().length,
@@ -577,8 +582,7 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
         }
         // Recalculate row timestamps on resize
         this.calculateRowTimestamps();
-      };
-      window.addEventListener('resize', this.windowResizeListener);
+      });
     }
 
     // Setup ResizeObserver for words container to detect row changes
@@ -665,10 +669,10 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     // Clean up timestamp service
     this.timestampService.cleanup();
 
-    // Clean up window resize event listener
-    if (this.windowResizeListener && typeof window !== 'undefined') {
-      window.removeEventListener('resize', this.windowResizeListener);
-      this.windowResizeListener = null;
+    // Clean up RxJS resize subscription
+    if (this.resizeSubscription) {
+      this.resizeSubscription.unsubscribe();
+      this.resizeSubscription = null;
     }
 
     // Clean up all active timeouts

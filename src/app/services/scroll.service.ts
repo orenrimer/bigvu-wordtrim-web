@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { Subject, Observable, fromEvent } from 'rxjs';
-import { debounceTime, takeUntil, filter, tap } from 'rxjs/operators';
+import { Subject, Observable, fromEvent, timer, Subscription } from 'rxjs';
+import { debounceTime, takeUntil, filter, tap, delay } from 'rxjs/operators';
 
 /**
  * Scroll Service
@@ -30,8 +30,8 @@ export class ScrollService {
     private isProgrammaticScroll = false; // Flag to distinguish programmatic scrolls from manual ones
     private programmaticScrollEndTime = 0; // Timestamp when programmatic scroll should end
 
-    // Track pending scroll timeouts to cancel them on manual scroll
-    private pendingScrollTimeouts: number[] = [];
+    // Track pending scroll subscriptions to cancel them on manual scroll
+    private pendingScrollSubscriptions: Subscription[] = [];
 
     // RxJS Subject for debouncing auto-scroll resume
     private autoScrollResumeSubject = new Subject<void>();
@@ -313,11 +313,11 @@ export class ScrollService {
         // Pause auto-scroll immediately
         this.autoScrollPaused = true;
 
-        // Cancel any pending scroll timeouts to prevent them from executing
-        this.pendingScrollTimeouts.forEach(timeoutId => {
-            window.clearTimeout(timeoutId);
+        // Cancel any pending scroll subscriptions to prevent them from executing
+        this.pendingScrollSubscriptions.forEach(subscription => {
+            subscription.unsubscribe();
         });
-        this.pendingScrollTimeouts = [];
+        this.pendingScrollSubscriptions = [];
 
         // Cancel any ongoing programmatic scroll to prevent interference
         this.isProgrammaticScroll = false;
@@ -330,43 +330,49 @@ export class ScrollService {
     }
 
     /**
-     * Schedule a scroll to word (for auto-scroll during playback)
-     * Returns a timeout ID that can be cancelled
+     * Schedule a scroll to word (for auto-scroll during playback) using RxJS
+     * Returns a Subscription that can be unsubscribed to cancel
      */
     scheduleScrollToWord(
         wordIndex: number,
         scrollContainer: HTMLElement,
         wordsContainer: HTMLElement,
         words: Array<{ index: number }>,
-        delay: number = 0
-    ): number {
-        const timeoutId = window.setTimeout(() => {
+        delayMs: number = 0
+    ): Subscription {
+        // Use RxJS timer instead of setTimeout
+        const scrollSubscription = timer(delayMs).pipe(
+            takeUntil(this.destroy$),
+            filter(() => !this.autoScrollPaused) // Check if auto-scroll is still enabled
+        ).subscribe(() => {
             // Check again before scrolling - user might have scrolled manually in the meantime
             if (!this.autoScrollPaused) {
                 this.scrollToWord(wordIndex, scrollContainer, wordsContainer, words);
             }
-            this.pendingScrollTimeouts = this.pendingScrollTimeouts.filter(id => id !== timeoutId);
-        }, delay);
-        this.pendingScrollTimeouts.push(timeoutId);
-        return timeoutId;
+            // Remove from tracking array when completed
+            this.pendingScrollSubscriptions = this.pendingScrollSubscriptions.filter(sub => sub !== scrollSubscription);
+        });
+
+        this.pendingScrollSubscriptions.push(scrollSubscription);
+        return scrollSubscription;
     }
 
     /**
-     * Cancel a scheduled scroll timeout
+     * Cancel a scheduled scroll subscription
      */
-    cancelScheduledScroll(timeoutId: number): void {
-        window.clearTimeout(timeoutId);
-        this.pendingScrollTimeouts = this.pendingScrollTimeouts.filter(id => id !== timeoutId);
+    cancelScheduledScroll(subscription: Subscription): void {
+        subscription.unsubscribe();
+        this.pendingScrollSubscriptions = this.pendingScrollSubscriptions.filter(sub => sub !== subscription);
     }
 
     /**
-     * Cancel all scheduled scrolls
+     * Cancel all scheduled scrolls using RxJS unsubscribe
      */
     cancelAllScheduledScrolls(): void {
-        this.pendingScrollTimeouts.forEach(timeoutId => {
-            window.clearTimeout(timeoutId);
+        this.pendingScrollSubscriptions.forEach(subscription => {
+            subscription.unsubscribe();
         });
-        this.pendingScrollTimeouts = [];
+        this.pendingScrollSubscriptions = [];
     }
 
     /**
@@ -386,12 +392,14 @@ export class ScrollService {
         this.destroy$.next();
         this.destroy$.complete();
 
+        // Cancel all pending scroll subscriptions using RxJS unsubscribe
+        this.pendingScrollSubscriptions.forEach(subscription => subscription.unsubscribe());
+
         // Cancel all pending timeouts and animation frames
-        this.pendingScrollTimeouts.forEach(timeoutId => window.clearTimeout(timeoutId));
         this.activeTimeouts.forEach(timeoutId => window.clearTimeout(timeoutId));
         this.activeAnimationFrames.forEach(rafId => window.cancelAnimationFrame(rafId));
 
-        this.pendingScrollTimeouts = [];
+        this.pendingScrollSubscriptions = [];
         this.activeTimeouts = [];
         this.activeAnimationFrames = [];
     }

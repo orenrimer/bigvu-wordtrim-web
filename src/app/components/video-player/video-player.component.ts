@@ -32,10 +32,10 @@ export class VideoPlayerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Track if player has been initialized to avoid re-initialization
     private isPlayerInitialized = false;
-    
+
     // Signal to track window width for responsive calculations
     private windowWidth = signal<number>(typeof window !== 'undefined' ? window.innerWidth : 1920);
-    
+
     // Store resize listener cleanup function
     private resizeListener: (() => void) | null = null;
 
@@ -66,7 +66,7 @@ export class VideoPlayerComponent implements OnInit, AfterViewInit, OnDestroy {
     containerHeight = computed(() => {
         const ratio = this.aspectRatio();
         const width = this.windowWidth();
-        
+
         // On mobile (max-width: 768px), always use 16:9 aspect ratio
         if (width <= 768) {
             // For 16:9 on mobile, calculate height based on available width
@@ -75,7 +75,7 @@ export class VideoPlayerComponent implements OnInit, AfterViewInit, OnDestroy {
             // For now, we'll use a fixed height that works well on mobile
             return '198px'; // Standard height for 16:9 on mobile (352px width / (16/9) = 198px)
         }
-        
+
         // Check if we're on smaller screens (max-width: 1440px)
         // On smaller screens, width is limited to 352px, so height needs to adjust
         if (width <= 1440) {
@@ -91,7 +91,7 @@ export class VideoPlayerComponent implements OnInit, AfterViewInit, OnDestroy {
                 return '198px';
             }
         }
-        
+
         // Default heights for larger screens:
         // 16:9 → 468px
         // 9:16 → 625.78px
@@ -163,17 +163,17 @@ export class VideoPlayerComponent implements OnInit, AfterViewInit, OnDestroy {
                 if (resizeTimeout !== null) {
                     cancelAnimationFrame(resizeTimeout);
                 }
-                
+
                 // Schedule update for next animation frame to debounce rapid resize events
                 resizeTimeout = requestAnimationFrame(() => {
                     this.windowWidth.set(window.innerWidth);
                     resizeTimeout = null;
                 });
             };
-            
+
             // Listen to resize events
             window.addEventListener('resize', updateWidth, { passive: true });
-            
+
             // Store cleanup function for ngOnDestroy
             this.resizeListener = () => {
                 if (resizeTimeout !== null) {
@@ -182,7 +182,7 @@ export class VideoPlayerComponent implements OnInit, AfterViewInit, OnDestroy {
                 window.removeEventListener('resize', updateWidth);
             };
         }
-        
+
         // Video player initialization is now handled by the effect
         // which waits for both video element and metadata to be ready
     }
@@ -193,7 +193,7 @@ export class VideoPlayerComponent implements OnInit, AfterViewInit, OnDestroy {
             this.resizeListener();
             this.resizeListener = null;
         }
-        
+
         // Cleanup player on component destroy
         this.videoService.destroy();
     }

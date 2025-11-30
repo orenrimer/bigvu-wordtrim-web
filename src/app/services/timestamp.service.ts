@@ -1,4 +1,6 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, OnDestroy } from '@angular/core';
+import { Subject, Subscription, timer } from 'rxjs';
+import { debounceTime, takeUntil } from 'rxjs/operators';
 import { Word } from '../models';
 
 /**
@@ -8,10 +10,11 @@ import { Word } from '../models';
 @Injectable({
   providedIn: 'root'
 })
-export class TimestampService {
+export class TimestampService implements OnDestroy {
   // Constants
   private static readonly ROW_THRESHOLD = 5; // Pixels tolerance for considering words on the same row
   private static readonly TIMESTAMP_ROW_INTERVAL = 3; // Show timestamp every N rows (e.g., every 3rd row)
+  private static readonly RESIZE_DEBOUNCE_MS = 100; // Debounce time for ResizeObserver callbacks
 
   // Row timestamps signal (time and top position)
   private _rowTimestamps = signal<Array<{ time: number; top: number }>>([]);
@@ -19,7 +22,11 @@ export class TimestampService {
 
   // ResizeObserver for tracking layout changes
   private resizeObserver: ResizeObserver | null = null;
-  private activeTimeouts: number[] = [];
+
+  // RxJS Subject for debouncing ResizeObserver callbacks
+  private resizeSubject = new Subject<void>();
+  private destroy$ = new Subject<void>();
+  private resizeSubscription: Subscription | null = null;
 
   /**
    * Calculate timestamps based on first word in each row
@@ -47,11 +54,13 @@ export class TimestampService {
 
     if (wordChips.length === 0) {
       // If no chips are rendered yet, try again after a short delay
-      const timeoutId = window.setTimeout(() => {
+      // Use RxJS timer for consistency
+      const timerSubscription = timer(50).pipe(
+        takeUntil(this.destroy$)
+      ).subscribe(() => {
         this.calculateRowTimestamps(wordsList, wordsContainer, timestampsContainer, isRTL);
-        this.activeTimeouts = this.activeTimeouts.filter(id => id !== timeoutId);
-      }, 50);
-      this.activeTimeouts.push(timeoutId);
+      });
+      // Note: Subscription will auto-cleanup via takeUntil
       return;
     }
 
@@ -152,6 +161,7 @@ export class TimestampService {
 
   /**
    * Setup ResizeObserver to detect when word layout changes and recalculate rows
+   * Uses RxJS debouncing for better performance
    * @param wordsContainer DOM element to observe
    * @param calculateCallback Callback function to recalculate timestamps
    */
@@ -159,19 +169,26 @@ export class TimestampService {
     wordsContainer: HTMLElement,
     calculateCallback: () => void
   ): void {
-    // Clean up existing observer if any
+    // Clean up existing observer and subscription if any
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
     }
+    if (this.resizeSubscription) {
+      this.resizeSubscription.unsubscribe();
+    }
+
+    // Set up RxJS debounced callback using Subject
+    this.resizeSubscription = this.resizeSubject.pipe(
+      debounceTime(TimestampService.RESIZE_DEBOUNCE_MS),
+      takeUntil(this.destroy$)
+    ).subscribe(() => {
+      calculateCallback();
+    });
 
     // Create ResizeObserver to watch for layout changes
+    // Emit to Subject instead of calling callback directly
     this.resizeObserver = new ResizeObserver(() => {
-      // Debounce the calculation to avoid excessive recalculations
-      const timeoutId = window.setTimeout(() => {
-        calculateCallback();
-        this.activeTimeouts = this.activeTimeouts.filter(id => id !== timeoutId);
-      }, 100);
-      this.activeTimeouts.push(timeoutId);
+      this.resizeSubject.next();
     });
 
     // Observe the words container
@@ -179,7 +196,7 @@ export class TimestampService {
   }
 
   /**
-   * Clean up ResizeObserver and timeouts
+   * Clean up ResizeObserver and RxJS subscriptions
    */
   cleanup(): void {
     // Clean up ResizeObserver
@@ -188,11 +205,20 @@ export class TimestampService {
       this.resizeObserver = null;
     }
 
-    // Clean up all active timeouts
-    this.activeTimeouts.forEach(timeoutId => {
-      clearTimeout(timeoutId);
-    });
-    this.activeTimeouts = [];
+    // Clean up RxJS subscription
+    if (this.resizeSubscription) {
+      this.resizeSubscription.unsubscribe();
+      this.resizeSubscription = null;
+    }
+  }
+
+  /**
+   * Cleanup on service destroy
+   */
+  ngOnDestroy(): void {
+    this.cleanup();
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   /**
