@@ -410,11 +410,13 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
             // 1. Position was calculated successfully
             // 2. No error occurred
             // 3. User hasn't clicked a word before (first visit)
-            // 4. Not in gap review mode
-            // 5. Not in preview mode
+            // 4. User hasn't explicitly closed the tip modal
+            // 5. Not in gap review mode
+            // 6. Not in preview mode
             if (positionSuccess &&
               !hasError &&
               !this.tutorialService.hasClickedWord() &&
+              !this.tutorialService.hasClosedTip() &&
               !isGapReview &&
               !isPreview) {
               // Show modal immediately - position is already calculated and set

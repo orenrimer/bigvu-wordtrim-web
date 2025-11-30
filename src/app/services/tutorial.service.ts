@@ -41,6 +41,13 @@ export class TutorialService {
     private readonly _hasClickedWord = signal<boolean>(false);
     public readonly hasClickedWord = this._hasClickedWord.asReadonly();
 
+    /**
+     * Track if user has explicitly closed the tip modal
+     * Used to prevent tip modal from showing again after user closes it
+     */
+    private readonly _hasClosedTip = signal<boolean>(false);
+    public readonly hasClosedTip = this._hasClosedTip.asReadonly();
+
     // Track if position calculation is in progress to prevent multiple simultaneous calls
     private isPositionCalculating = false;
 
@@ -65,15 +72,30 @@ export class TutorialService {
 
     /**
      * Show the tutorial video modal
+     * Also marks tip as closed if switching from tip mode (user clicked "Show Me How")
      */
     showVideo(): void {
+        const currentState = this._modalState();
+        if (currentState === 'tip' || currentState === 'preview-tip') {
+            this._hasClosedTip.set(true);
+        }
         this._modalState.set('video');
     }
 
     /**
      * Hide the modal (any mode)
+     * @param userInitiated If true, marks that user explicitly closed the modal (prevents it from showing again)
      */
-    hide(): void {
+    hide(userInitiated: boolean = false): void {
+        // Track that user has explicitly closed the tip modal before hiding
+        // This prevents it from showing again after entering/exiting modes
+        if (userInitiated) {
+            const currentState = this._modalState();
+            if (currentState === 'tip' || currentState === 'preview-tip') {
+                this._hasClosedTip.set(true);
+            }
+        }
+
         this._modalState.set('hidden');
         this._customTipContent.set(null); // Clear custom content when hiding
     }
@@ -110,6 +132,7 @@ export class TutorialService {
     reset(): void {
         this._modalState.set('hidden');
         this._hasClickedWord.set(false);
+        this._hasClosedTip.set(false);
     }
 
     /**

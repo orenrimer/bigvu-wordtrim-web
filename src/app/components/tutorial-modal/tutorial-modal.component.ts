@@ -239,7 +239,8 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
      * Close the modal
      */
     close(): void {
-        this.tutorialService.hide();
+        // Mark as user-initiated so the modal won't show again
+        this.tutorialService.hide(true);
     }
 
     /**
