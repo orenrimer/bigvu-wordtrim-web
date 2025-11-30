@@ -1,7 +1,6 @@
 import { Component, OnInit, computed, effect, AfterViewInit, OnDestroy, ViewChild, ElementRef, signal, afterNextRender, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subject } from 'rxjs';
-import { debounceTime, takeUntil } from 'rxjs/operators';
 import { SegmentationLoaderService } from '../../services/segmentation-loader.service';
 import { EditorStateService } from '../../services/editor-state.service';
 import { VideoPlayerService } from '../../services/video-player.service';
@@ -14,6 +13,7 @@ import { OutputGeneratorService } from '../../services/output-generator.service'
 import { TimestampService } from '../../services/timestamp.service';
 import { GapDetectionService } from '../../services/gap-detection.service';
 import { GapSegmentMergerService } from '../../services/gap-segment-merger.service';
+import { ScrollService } from '../../services/scroll.service';
 import { SkeletonLoaderComponent } from '../skeleton-loader/skeleton-loader.component';
 import { WordChipComponent } from '../word-chip/word-chip.component';
 import { GapBracketComponent } from '../gap-bracket/gap-bracket.component';
@@ -58,17 +58,7 @@ import { Gap, GapState } from '../../models/gap.interface';
   styleUrl: './main-editor-container.component.scss'
 })
 export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDestroy {
-  // Constants for scroll behavior
-  private static readonly MOBILE_BREAKPOINT_PX = 768;
-  private static readonly AUTOSCROLL_RESUME_DELAY_MS = 5000; // Resume after 5 seconds of no manual scrolling
-  private static readonly SCROLL_PADDING_MOBILE_PX = 30;
-  private static readonly SCROLL_PADDING_DESKTOP_PX = 50;
-  private static readonly PROGRAMMATIC_SCROLL_TIMEOUT_MS = 2000; // Time to ignore scroll events after programmatic scroll
-  private static readonly PROGRAMMATIC_SCROLL_CLEANUP_DELAY_MS = 500; // Additional delay before clearing scroll end time
-  private static readonly MOBILE_SCROLL_FINETUNE_DELAY_MS = 150; // Delay before fine-tuning mobile scroll position
-  private static readonly MOBILE_SCROLL_OFFSET_RATIO = 0.2; // Position word at 20% from top on mobile
-  private static readonly DESKTOP_SCROLL_OFFSET_RATIO = 0.5; // Center word on desktop (50%)
-  private static readonly MOBILE_VISIBILITY_THRESHOLD_RATIO = 0.5; // Consider visible if within 50% of container height
+  // Constants
   private static readonly TIMESTAMP_INTERVAL_SECONDS = 10; // Target interval between timestamps
 
   // ViewChild reference to words-container for CSS custom property positioning
@@ -80,17 +70,13 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
   // ViewChild reference to timestamps-container for row alignment
   @ViewChild('timestampsContainer', { static: false }) timestampsContainerRef!: ElementRef<HTMLElement>;
 
-  // Auto-scroll tracking
-  private autoScrollPaused = false; // Whether auto-scroll is paused due to manual scroll
-  private isProgrammaticScroll = false; // Flag to distinguish programmatic scrolls from manual ones
-  private programmaticScrollEndTime = 0; // Timestamp when programmatic scroll should end
+  // Scroll service for managing all scrolling behavior
+  private readonly scrollService = inject(ScrollService);
+
+  // Track scroll listener cleanup function
+  private scrollListenerCleanup: (() => void) | null = null;
   private scrollListenerAttached = false; // Track if scroll listener has been attached
 
-  // Track pending scroll timeouts to cancel them on manual scroll
-  private pendingScrollTimeouts: number[] = [];
-
-  // RxJS Subject for debouncing auto-scroll resume
-  private autoScrollResumeSubject = new Subject<void>();
   private destroy$ = new Subject<void>();
 
   // Window resize event listener reference for cleanup
@@ -514,28 +500,17 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       // 1. Video is playing
       // 2. There's an active playback word
       // 3. Auto-scroll is not paused (user hasn't manually scrolled recently)
-      if (isPlaying && playbackWordIndex !== null && !this.autoScrollPaused) {
-        // Use setTimeout to ensure DOM is updated
-        const timeoutId = window.setTimeout(() => {
-          // Check again before scrolling - user might have scrolled manually in the meantime
-          if (!this.autoScrollPaused) {
-            this.scrollToActiveWord(playbackWordIndex);
-          }
-          // Remove from tracking arrays when completed
-          this.activeTimeouts = this.activeTimeouts.filter(id => id !== timeoutId);
-          this.pendingScrollTimeouts = this.pendingScrollTimeouts.filter(id => id !== timeoutId);
-        }, 0);
-        this.activeTimeouts.push(timeoutId);
-        this.pendingScrollTimeouts.push(timeoutId);
+      if (isPlaying && playbackWordIndex !== null && !this.scrollService.isAutoScrollPaused()) {
+        // Use scroll service to schedule scroll
+        if (this.transcriptContentRef?.nativeElement && this.wordsContainerRef?.nativeElement) {
+          this.scrollService.scheduleScrollToWord(
+            playbackWordIndex,
+            this.transcriptContentRef.nativeElement,
+            this.wordsContainerRef.nativeElement,
+            this.words()
+          );
+        }
       }
-    });
-
-    // Set up debounced auto-scroll resume using RxJS
-    this.autoScrollResumeSubject.pipe(
-      debounceTime(MainEditorContainerComponent.AUTOSCROLL_RESUME_DELAY_MS),
-      takeUntil(this.destroy$)
-    ).subscribe(() => {
-      this.autoScrollPaused = false;
     });
 
     // Effect: Setup scroll listener when transcriptContent element becomes available
@@ -546,10 +521,14 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
         // Use requestAnimationFrame to ensure DOM is updated after Angular change detection
         const rafId = requestAnimationFrame(() => {
           if (this.transcriptContentRef?.nativeElement && !this.scrollListenerAttached) {
-            // Remove any existing listener first to avoid duplicates
-            this.transcriptContentRef.nativeElement.removeEventListener('scroll', this.onManualScrollBound);
-            // Add scroll listener
-            this.transcriptContentRef.nativeElement.addEventListener('scroll', this.onManualScrollBound, { passive: true });
+            // Clean up any existing listener first
+            if (this.scrollListenerCleanup) {
+              this.scrollListenerCleanup();
+            }
+            // Initialize scroll listener via service
+            this.scrollListenerCleanup = this.scrollService.initializeScrollListener(
+              this.transcriptContentRef.nativeElement
+            );
             this.scrollListenerAttached = true;
           }
           // Remove from tracking array when completed
@@ -610,8 +589,14 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     if (this.isVideoDataReady() && !this.scrollListenerAttached) {
       const rafId = requestAnimationFrame(() => {
         if (this.transcriptContentRef?.nativeElement && !this.scrollListenerAttached) {
-          this.transcriptContentRef.nativeElement.removeEventListener('scroll', this.onManualScrollBound);
-          this.transcriptContentRef.nativeElement.addEventListener('scroll', this.onManualScrollBound, { passive: true });
+          // Clean up any existing listener first
+          if (this.scrollListenerCleanup) {
+            this.scrollListenerCleanup();
+          }
+          // Initialize scroll listener via service
+          this.scrollListenerCleanup = this.scrollService.initializeScrollListener(
+            this.transcriptContentRef.nativeElement
+          );
           this.scrollListenerAttached = true;
         }
         this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
@@ -620,10 +605,6 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     }
   }
 
-  // Bound scroll handler for cleanup
-  private onManualScrollBound = () => {
-    this.onManualScroll();
-  }
 
   /**
    * Setup ResizeObserver to detect when word layout changes and recalculate rows
@@ -672,19 +653,17 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
 
   ngOnDestroy(): void {
     // Clean up scroll event listener
-    if (this.transcriptContentRef?.nativeElement) {
-      this.transcriptContentRef.nativeElement.removeEventListener('scroll', this.onManualScrollBound);
+    if (this.scrollListenerCleanup) {
+      this.scrollListenerCleanup();
+      this.scrollListenerCleanup = null;
       this.scrollListenerAttached = false;
     }
 
+    // Cancel any pending scrolls
+    this.scrollService.cancelAllScheduledScrolls();
+
     // Clean up timestamp service
     this.timestampService.cleanup();
-
-    // Cancel any pending scroll timeouts
-    this.pendingScrollTimeouts.forEach(timeoutId => {
-      window.clearTimeout(timeoutId);
-    });
-    this.pendingScrollTimeouts = [];
 
     // Clean up window resize event listener
     if (this.windowResizeListener && typeof window !== 'undefined') {
@@ -1132,182 +1111,24 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
     }
   }
 
-  /**
-   * Handle manual scroll event
-   * Pauses auto-scroll and schedules resume after 5 seconds (debounced via RxJS)
-   */
-  private onManualScroll(): void {
-    // Ignore programmatic scrolls - check both flag and timestamp
-    const now = Date.now();
-    if (this.isProgrammaticScroll || now < this.programmaticScrollEndTime) {
-      return;
-    }
-
-    // Pause auto-scroll immediately
-    this.autoScrollPaused = true;
-
-    // Cancel any pending scroll timeouts to prevent them from executing
-    this.pendingScrollTimeouts.forEach(timeoutId => {
-      window.clearTimeout(timeoutId);
-    });
-    this.pendingScrollTimeouts = [];
-
-    // Cancel any ongoing programmatic scroll to prevent interference
-    this.isProgrammaticScroll = false;
-    this.programmaticScrollEndTime = 0;
-
-    // Emit to Subject for debounced resume (5 seconds)
-    // This will reset autoScrollPaused to false after 5 seconds of no manual scrolling
-    // Each manual scroll resets the 5-second timer (debounce behavior)
-    this.autoScrollResumeSubject.next();
-  }
 
   /**
-   * Scroll the active playback word into view
-   * @param wordIndex Index of the word to scroll to
+   * Scroll the selected gap into view (for gap review mode navigation)
+   * @param gapId ID of the gap to scroll to
    */
-  private scrollToActiveWord(wordIndex: number): void {
-    // Ensure transcript content element is available
+  public scrollToGap(gapId: number | null): void {
     if (!this.transcriptContentRef?.nativeElement || !this.wordsContainerRef?.nativeElement) {
       return;
     }
 
-    // Get the words array
-    const words = this.words();
-
-    // Find the word in the array that matches the index
-    const wordIndexInArray = words.findIndex(w => w.index === wordIndex);
-
-    if (wordIndexInArray === -1) {
-      return; // Word not found (might be intro/outro chip or deleted)
-    }
-
-    // Find the word chip element - chips are rendered in the same order as the array
-    const wordChips = this.wordsContainerRef.nativeElement.querySelectorAll('app-word-chip');
-
-    if (!wordChips || wordIndexInArray >= wordChips.length) {
-      return;
-    }
-
-    const targetChip = wordChips[wordIndexInArray] as HTMLElement;
-
-    if (!targetChip) {
-      return;
-    }
-
-    const scrollContainer = this.transcriptContentRef.nativeElement;
-    const chipRect = targetChip.getBoundingClientRect();
-    const containerRect = scrollContainer.getBoundingClientRect();
-
-    // Check if we're on mobile - calculate once and reuse
-    const isMobile = window.innerWidth <= MainEditorContainerComponent.MOBILE_BREAKPOINT_PX;
-
-    // Check if chip is already visible (with some padding for better UX)
-    // Use smaller padding on mobile to prevent unnecessary scrolling
-    const padding = isMobile
-      ? MainEditorContainerComponent.SCROLL_PADDING_MOBILE_PX
-      : MainEditorContainerComponent.SCROLL_PADDING_DESKTOP_PX;
-    const isVisible = chipRect.top >= (containerRect.top + padding) &&
-      chipRect.bottom <= (containerRect.bottom - padding);
-
-    if (!isVisible) {
-      // Don't scroll if auto-scroll is paused (user has manually scrolled)
-      if (this.autoScrollPaused) {
-        return;
-      }
-
-      // Set flag and timestamp BEFORE scrolling to prevent triggering manual scroll detection
-      const scrollStartTime = Date.now();
-      this.isProgrammaticScroll = true;
-      this.programmaticScrollEndTime = scrollStartTime + MainEditorContainerComponent.PROGRAMMATIC_SCROLL_TIMEOUT_MS;
-
-      // Use requestAnimationFrame to ensure flag is set before scroll happens
-      const rafId = requestAnimationFrame(() => {
-        // Double-check that auto-scroll is still not paused (user might have scrolled in the meantime)
-        if (this.autoScrollPaused) {
-          this.isProgrammaticScroll = false;
-          this.programmaticScrollEndTime = 0;
-          this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
-          return;
-        }
-
-        if (isMobile) {
-          // On mobile, use scrollIntoView which handles positioning more reliably
-          // Use 'nearest' to avoid large jumps, then fine-tune if needed
-          targetChip.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-            inline: 'nearest'
-          });
-
-          // Fine-tune position after initial scroll to keep word visible in upper portion
-          const fineTuneTimeoutId = window.setTimeout(() => {
-            const finalChipRect = targetChip.getBoundingClientRect();
-            const finalContainerRect = scrollContainer.getBoundingClientRect();
-            const finalContainerHeight = finalContainerRect.height;
-
-            // Check if chip is in a good position
-            const chipTopRelative = finalChipRect.top - finalContainerRect.top;
-            const desiredTopPosition = finalContainerHeight * MainEditorContainerComponent.MOBILE_SCROLL_OFFSET_RATIO;
-
-            // Only adjust if chip is outside the visible area or too low
-            if (chipTopRelative < 0 || chipTopRelative > finalContainerHeight * MainEditorContainerComponent.MOBILE_VISIBILITY_THRESHOLD_RATIO) {
-              const currentScrollTop = scrollContainer.scrollTop;
-              const adjustment = chipTopRelative - desiredTopPosition;
-              scrollContainer.scrollTo({
-                top: currentScrollTop + adjustment,
-                behavior: 'smooth'
-              });
-            }
-            this.activeTimeouts = this.activeTimeouts.filter(id => id !== fineTuneTimeoutId);
-          }, MainEditorContainerComponent.MOBILE_SCROLL_FINETUNE_DELAY_MS);
-          this.activeTimeouts.push(fineTuneTimeoutId);
-        } else {
-          // Desktop: Use precise calculation
-          const currentChipRect = targetChip.getBoundingClientRect();
-          const currentContainerRect = scrollContainer.getBoundingClientRect();
-          const containerHeight = scrollContainer.clientHeight;
-          const chipHeight = currentChipRect.height;
-
-          // Calculate the chip's position relative to the scroll container
-          const chipRelativeTop = currentChipRect.top - currentContainerRect.top + scrollContainer.scrollTop;
-
-          // Calculate target scroll position - center on desktop
-          const scrollOffset = containerHeight * MainEditorContainerComponent.DESKTOP_SCROLL_OFFSET_RATIO;
-          const targetScrollTop = chipRelativeTop - scrollOffset + (chipHeight / 2);
-
-          // Ensure we don't scroll beyond container bounds
-          const maxScrollTop = scrollContainer.scrollHeight - containerHeight;
-          const clampedScrollTop = Math.max(0, Math.min(targetScrollTop, maxScrollTop));
-
-          // Scroll only the transcript-content container, not the page
-          scrollContainer.scrollTo({
-            top: clampedScrollTop,
-            behavior: 'smooth'
-          });
-        }
-
-        // Remove RAF from tracking array when completed
-        this.activeAnimationFrames = this.activeAnimationFrames.filter(id => id !== rafId);
-
-        // Reset flag after scroll animation completes
-        const timeoutId1 = window.setTimeout(() => {
-          this.isProgrammaticScroll = false;
-          // Keep programmaticScrollEndTime set for a bit longer to catch any delayed scroll events
-          const timeoutId2 = window.setTimeout(() => {
-            this.programmaticScrollEndTime = 0;
-            // Remove from tracking array when completed
-            this.activeTimeouts = this.activeTimeouts.filter(id => id !== timeoutId2);
-          }, MainEditorContainerComponent.PROGRAMMATIC_SCROLL_CLEANUP_DELAY_MS);
-          this.activeTimeouts.push(timeoutId2);
-          // Remove from tracking array when completed
-          this.activeTimeouts = this.activeTimeouts.filter(id => id !== timeoutId1);
-        }, MainEditorContainerComponent.PROGRAMMATIC_SCROLL_TIMEOUT_MS);
-        this.activeTimeouts.push(timeoutId1);
-      });
-      this.activeAnimationFrames.push(rafId);
-    }
+    this.scrollService.scrollToGap(
+      gapId,
+      this.transcriptContentRef.nativeElement,
+      this.wordsContainerRef.nativeElement,
+      this.wordsWithGaps()
+    );
   }
+
 
   /**
    * Perform redo operation

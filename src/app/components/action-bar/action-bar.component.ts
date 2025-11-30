@@ -711,6 +711,15 @@ export class ActionBarComponent implements OnInit, OnDestroy {
         const selectedId = this.selectedGapId();
         if (selectedId !== null) {
             this.actionAnnouncement.set(`Selected previous gap`);
+            // Scroll the selected gap into view after DOM updates
+            // Use requestAnimationFrame to ensure DOM has updated after Angular's change detection
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    if (this.mainEditorContainer) {
+                        this.mainEditorContainer.scrollToGap(selectedId);
+                    }
+                });
+            });
         }
     }
 
@@ -722,6 +731,15 @@ export class ActionBarComponent implements OnInit, OnDestroy {
         const selectedId = this.selectedGapId();
         if (selectedId !== null) {
             this.actionAnnouncement.set(`Selected next gap`);
+            // Scroll the selected gap into view after DOM updates
+            // Use requestAnimationFrame to ensure DOM has updated after Angular's change detection
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    if (this.mainEditorContainer) {
+                        this.mainEditorContainer.scrollToGap(selectedId);
+                    }
+                });
+            });
         }
     }
 
