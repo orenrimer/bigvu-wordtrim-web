@@ -1,4 +1,5 @@
 <button [type]="type" [class]="buttonClasses" [disabled]="disabled" [attr.aria-label]="ariaLabel"
-    [attr.aria-disabled]="disabled" [style.border-radius]="borderRadius" (click)="onClick($event)">
+    [attr.aria-disabled]="disabled" [style.border-radius]="borderRadius" [style.width]="width" [style.height]="height"
+    (click)="onClick($event)">
     <ng-content></ng-content>
 </button>

@@ -572,7 +572,12 @@ export class ActionBarComponent implements OnInit, OnDestroy {
 
         // Exit gap review mode (restores snapshot and state)
         // This restores deleted segments from before entering gap review mode
-        this.editorState.exitGapReviewMode(this.timelineService);
+        // Use mainEditorContainer's method to ensure warning alert is cleared
+        if (this.mainEditorContainer) {
+            this.mainEditorContainer.exitGapReviewMode();
+        } else {
+            this.editorState.exitGapReviewMode(this.timelineService);
+        }
 
         // Merge active gaps with deleted segments and remove ignored gaps from deleted segments
         // This ensures gaps are merged/removed with the restored deleted segments
@@ -609,7 +614,12 @@ export class ActionBarComponent implements OnInit, OnDestroy {
         }
 
         // Exit gap review mode (restores snapshot and state)
-        this.editorState.exitGapReviewMode(this.timelineService);
+        // Use mainEditorContainer's method to ensure warning alert is cleared
+        if (this.mainEditorContainer) {
+            this.mainEditorContainer.exitGapReviewMode();
+        } else {
+            this.editorState.exitGapReviewMode(this.timelineService);
+        }
 
         // Announce action for screen readers
         this.actionAnnouncement.set('Cancelled gap removal. All changes discarded');

@@ -23,7 +23,8 @@
 
                 <!-- Center: Preview Start/End Button -->
                 <app-button variant="secondary" class="preview-mode-button" borderRadius="var(--radius-xl)"
-                    (clicked)="onPreviewStartEndClick()" aria-label="Preview Start / End">
+                    [width]="'70px'" [height]="'70px'" (clicked)="onPreviewStartEndClick()"
+                    aria-label="Preview Start / End">
                     <div class="action-bar-item">
                         <img src="assets/icons/Preview start end.svg" alt="" class="action-icon" />
                         <span class="action-label">Preview<br />Start / End</span>
@@ -117,7 +118,8 @@
                         <!-- Remove All Button -->
                         @if (!showRestoreAll()) {
                         <app-button variant="secondary" class="action-bar-item remove-all-button"
-                            borderRadius="var(--radius-xl)" (clicked)="onRemoveAllGaps()" aria-label="Remove all gaps">
+                            borderRadius="var(--radius-xl)" [width]="'70px'" [height]="'70px'"
+                            (clicked)="onRemoveAllGaps()" aria-label="Remove all gaps">
                             <div class="action-bar-item">
                                 <img src="assets/icons/remove.svg" alt="" class="action-icon" />
                                 <span class="action-label">Remove All</span>
@@ -128,8 +130,8 @@
                         <!-- Restore All Button -->
                         @if (showRestoreAll()) {
                         <app-button variant="secondary" class="action-bar-item restore-all-button"
-                            borderRadius="var(--radius-xl)" (clicked)="onRestoreAllGaps()"
-                            aria-label="Restore all gaps">
+                            borderRadius="var(--radius-xl)" [width]="'70px'" [height]="'70px'"
+                            (clicked)="onRestoreAllGaps()" aria-label="Restore all gaps">
                             <div class="action-bar-item">
                                 <img src="assets/icons/Restore.svg" alt="" class="action-icon" />
                                 <span class="action-label">Restore All</span>
@@ -139,7 +141,8 @@
 
                         <!-- Settings Button -->
                         <app-button variant="secondary" class="action-bar-item settings-button"
-                            borderRadius="var(--radius-xl)" (clicked)="onGapSettings()" aria-label="Gap settings">
+                            borderRadius="var(--radius-xl)" [width]="'70px'" [height]="'70px'"
+                            (clicked)="onGapSettings()" aria-label="Gap settings">
                             <div class="action-bar-item">
                                 <img src="assets/icons/Settings.svg" alt="" class="action-icon" />
                                 <span class="action-label">Settings</span>
@@ -212,8 +215,8 @@
         <div class="action-bar-items">
 
             <!-- Undo Button (Feature 8) -->
-            <app-button variant="primary" class="action-bar-item" borderRadius="var(--radius-xl)"
-                [disabled]="!canUndo()" (clicked)="onUndo()" aria-label="Undo last action">
+            <app-button variant="primary" class="action-bar-item" borderRadius="var(--radius-xl)" [width]="'70px'"
+                [height]="'70px'" [disabled]="!canUndo()" (clicked)="onUndo()" aria-label="Undo last action">
                 <div class="action-bar-item">
                     <img src="assets/icons/Redo.svg" alt="" class="action-icon" style="rotate: 180deg;" />
                     <span class="action-label">Undo</span>
@@ -221,8 +224,8 @@
             </app-button>
 
             <!-- Redo Button (Feature 8) -->
-            <app-button variant="primary" class="action-bar-item" borderRadius="var(--radius-xl)"
-                [disabled]="!canRedo()" (clicked)="onRedo()" aria-label="Redo last undone action">
+            <app-button variant="primary" class="action-bar-item" borderRadius="var(--radius-xl)" [width]="'70px'"
+                [height]="'70px'" [disabled]="!canRedo()" (clicked)="onRedo()" aria-label="Redo last undone action">
                 <div class="action-bar-item">
                     <img src="assets/icons/Redo.svg" alt="" class="action-icon" />
                     <span class="action-label">Redo</span>
@@ -230,8 +233,8 @@
             </app-button>
 
             <!-- Save Button (Feature 9) -->
-            <app-button variant="primary" class="action-bar-item" borderRadius="var(--radius-xl)" (clicked)="onSave()"
-                aria-label="Save output">
+            <app-button variant="primary" class="action-bar-item" borderRadius="var(--radius-xl)" [width]="'70px'"
+                [height]="'70px'" (clicked)="onSave()" aria-label="Save output">
                 <div class="action-bar-item">
                     <img src="assets/icons/Publish.svg" alt="" class="action-icon" />
                     <span class="action-label">Save</span>
@@ -240,8 +243,8 @@
 
             <!-- Restore Segment (Feature 6 - Conditional Visibility) -->
             @if (canRestore()) {
-            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
-                (clicked)="onRestore()" aria-label="Restore deleted words in selection">
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)" [width]="'70px'"
+                [height]="'70px'" (clicked)="onRestore()" aria-label="Restore deleted words in selection">
                 <div class="action-bar-item">
                     <img src="assets/icons/Restore.svg" alt="" class="action-icon" />
                     <span class="action-label">Restore</span>
@@ -250,8 +253,8 @@
             }
 
             <!-- Fix Start/End (Feature 13) -->
-            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
-                (clicked)="onFixStartEnd()" aria-label="Fix Start/End">
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)" [width]="'70px'"
+                [height]="'70px'" (clicked)="onFixStartEnd()" aria-label="Fix Start/End">
                 <div class="action-bar-item">
                     <img src="assets/icons/fix_start_end.svg" alt="" class="action-icon" />
                     <span class="action-label">Fix<br />Start/End</span>
@@ -260,19 +263,20 @@
 
             <!-- Remove Gaps (Feature 14) -->
             @if (showRemoveGaps()) {
-            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
-                (clicked)="onRemoveGaps()" aria-label="Remove Gaps">
+            <app-button variant="secondary" class="action-bar-item remove-gaps-button" borderRadius="var(--radius-xl)"
+                [width]="'70px'" [height]="'70px'" (clicked)="onRemoveGaps()" aria-label="Remove Gaps">
                 <div class="action-bar-item">
                     <img src="assets/icons/remove_gaps.svg" alt="" class="action-icon" />
                     <span class="action-label">Remove<br />Gaps</span>
                 </div>
+                <img src="assets/icons/Premium.svg" alt="Premium" class="premium-icon" />
             </app-button>
             }
 
             <!-- Remove This Segment (Feature 6 - Conditional Visibility) -->
             @if (showRemove()) {
-            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
-                [disabled]="!canRemove()" (clicked)="onRemove()" aria-label="Remove selected segment">
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)" [width]="'70px'"
+                [height]="'70px'" [disabled]="!canRemove()" (clicked)="onRemove()" aria-label="Remove selected segment">
                 <div class="action-bar-item">
                     <img src="assets/icons/remove.svg" alt="" class="action-icon" />
                     <span class="action-label">Remove<br />This</span>
@@ -282,8 +286,9 @@
 
             <!-- Keep Only This Segment (Feature 6 - Conditional Visibility) -->
             @if (showKeepOnly()) {
-            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
-                [disabled]="!canKeepOnly()" (clicked)="onKeepOnly()" aria-label="Keep only selected segment">
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)" [width]="'70px'"
+                [height]="'70px'" [disabled]="!canKeepOnly()" (clicked)="onKeepOnly()"
+                aria-label="Keep only selected segment">
                 <div class="action-bar-item">
                     <img src="assets/icons/keep_only.svg" alt="" class="action-icon" />
                     <span class="action-label">Keep Only<br />This</span>
@@ -292,8 +297,8 @@
             }
 
             <!-- Unselect (Feature 6) -->
-            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
-                [disabled]="!canUnselect()" (clicked)="onUnselect()" aria-label="Clear selection">
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)" [width]="'70px'"
+                [height]="'70px'" [disabled]="!canUnselect()" (clicked)="onUnselect()" aria-label="Clear selection">
                 <div class="action-bar-item">
                     <img src="assets/icons/unselect.svg" alt="" class="action-icon" />
                     <span class="action-label">Unselect</span>
@@ -301,8 +306,8 @@
             </app-button>
 
             <!-- Tutorial (Feature 7 - Placeholder) -->
-            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)"
-                (clicked)="onTutorial()" aria-label="Open tutorial">
+            <app-button variant="secondary" class="action-bar-item" borderRadius="var(--radius-xl)" [width]="'70px'"
+                [height]="'70px'" (clicked)="onTutorial()" aria-label="Open tutorial">
                 <div class="action-bar-item">
                     <img src="assets/icons/tutorial.png" alt="" class="action-icon" />
                     <span class="action-label">Tutorial</span>

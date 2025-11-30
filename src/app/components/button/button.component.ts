@@ -19,6 +19,8 @@ export class ButtonComponent {
     @Input() type: 'button' | 'submit' | 'reset' = 'button';
     @Input() ariaLabel?: string;
     @Input() borderRadius?: string; // Allow parent to set border-radius (e.g., '8px', '12px', 'var(--radius-xl)')
+    @Input() width?: string; // Allow parent to set width (e.g., '70px', '100%')
+    @Input() height?: string; // Allow parent to set height (e.g., '70px', '100%')
 
     @Output() clicked = new EventEmitter<MouseEvent>();
 
