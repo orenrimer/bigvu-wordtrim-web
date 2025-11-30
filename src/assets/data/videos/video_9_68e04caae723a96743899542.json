@@ -1,0 +1,92 @@
+{
+  "id": "68dc560be723a967435530e0",
+  "storyId": "68dc560be723a967435530e0",
+  "headline": "“The 4-Part Sales Framework That Helped Me Rebuild from Rock Bottom”",
+  "videos": [
+    {
+      "id": "68e02b4fe723a9674387924f",
+      "mediaId": "68e02b4fe723a9674387924f",
+      "groupId": "68e02b4fe723a9674387924f",
+      "type": "video#remote",
+      "duration": 488.033333,
+      "hlsPlaylistUrl": "https://assets.bigvu.tv/storyVideos/68dc560be723a967435530e0/takes/68e02b4fe723a9674387924f/db77b571-5518-4208-9caf-b5d74a9fbb64/c5445a73-8821-44e3-9d8c-b556ab96cb99-video.m3u8",
+      "features": [],
+      "streams": [
+        {
+          "url": "https://assets.bigvu.tv/storyVideos/68dc560be723a967435530e0/takes/68e02b4fe723a9674387924f/f99b9ada-ebf8-4ce6-8ba5-75aa67af822e/fbbd452c-255c-4078-ad6d-c7651f454fdd-video_2160.mp4",
+          "width": 3840,
+          "height": 2160,
+          "fps": 30,
+          "videoBitrate": 15031474,
+          "audioBitrate": 319999,
+          "videoCodec": "h264",
+          "audioCodec": "aac",
+          "container": "mp4",
+          "mime": "video/mp4",
+          "size": 936926354
+        },
+        {
+          "url": "https://assets.bigvu.tv/storyVideos/68dc560be723a967435530e0/takes/68e02b4fe723a9674387924f/f99b9ada-ebf8-4ce6-8ba5-75aa67af822e/fbbd452c-255c-4078-ad6d-c7651f454fdd-video_360.mp4",
+          "width": 640,
+          "height": 360,
+          "fps": 30,
+          "videoBitrate": 500996,
+          "audioBitrate": 319999,
+          "videoCodec": "h264",
+          "audioCodec": "aac",
+          "container": "mp4",
+          "mime": "video/mp4",
+          "size": 50506660
+        }
+      ],
+      "thumbnails": [
+        {
+          "width": 3840,
+          "height": 2160,
+          "url": "https://assets.bigvu.tv/storyVideos/68dc560be723a967435530e0/takes/68e02b4fe723a9674387924f/f99b9ada-ebf8-4ce6-8ba5-75aa67af822e/fbbd452c-255c-4078-ad6d-c7651f454fdd-video_thumb_2160.0000001.jpeg",
+          "mime": "image/jpeg",
+          "size": 758908,
+          "format": "jpeg",
+          "type": "image#remote"
+        },
+        {
+          "width": 640,
+          "height": 360,
+          "url": "https://assets.bigvu.tv/storyVideos/68dc560be723a967435530e0/takes/68e02b4fe723a9674387924f/f99b9ada-ebf8-4ce6-8ba5-75aa67af822e/fbbd452c-255c-4078-ad6d-c7651f454fdd-video_thumb_360.0000001.jpeg",
+          "mime": "image/jpeg",
+          "size": 38700,
+          "format": "jpeg",
+          "type": "image#remote"
+        }
+      ],
+      "audio": {
+        "url": "https://assets.bigvu.tv/storyVideos/68dc560be723a967435530e0/takes/68e02b4fe723a9674387924f/audio_stream.m4a",
+        "audioBitrate": 320021,
+        "audioCodec": "aac",
+        "mime": "audio/x-m4a",
+        "size": 19613252
+      }
+    }
+  ],
+  "captions": [
+    {
+      "groupId": "68e02b4fe723a9674387924f",
+      "lang": "en-US",
+      "sourceLocale": "en-US",
+      "url": "https://assets.bigvu.tv/storyVideos/68dc560be723a967435530e0/takes/68e02b4fe723a9674387924f/caption_en-US.vtt",
+      "status": 2
+    }
+  ],
+  "segmentation": [
+    {
+      "groupId": "68e02b4fe723a9674387924f",
+      "locale": "en-US",
+      "sourceLocale": "en-US",
+      "url": "https://assets.bigvu.tv/storyVideos/68dc560be723a967435530e0/takes/68e02b4fe723a9674387924f/segmentation_en-US.json",
+      "status": 2
+    }
+  ],
+  "metadata": {
+    "lang": "en"
+  }
+}

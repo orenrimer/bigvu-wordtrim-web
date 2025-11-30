@@ -1,0 +1,92 @@
+{
+  "id": "68ea1dae67bc640b47b1381e",
+  "storyId": "68ea1dae67bc640b47b1381e",
+  "headline": "Kantara Chapter 1 REivew.mp4",
+  "videos": [
+    {
+      "id": "68ea1dae67bc640b47b13823",
+      "mediaId": "68ea1dae67bc640b47b13823",
+      "groupId": "68ea1dae67bc640b47b13823",
+      "type": "video#remote",
+      "duration": 337.2,
+      "hlsPlaylistUrl": "https://assets.bigvu.tv/storyVideos/68ea1dae67bc640b47b1381e/takes/68ea1dae67bc640b47b13823/41134852-8308-4221-801f-e38cdd40d1d6/b1850e90-09dd-4039-abab-db44a4649542-video.m3u8",
+      "features": [],
+      "streams": [
+        {
+          "url": "https://assets.bigvu.tv/storyVideos/68ea1dae67bc640b47b1381e/takes/68ea1dae67bc640b47b13823/accd5201-83dc-41db-b510-2b87bc43fa39/7acbace3-fab2-4bec-b20c-ab24ad016ba8-video_1080.mp4",
+          "width": 1920,
+          "height": 1080,
+          "fps": 30,
+          "videoBitrate": 5022156,
+          "audioBitrate": 319999,
+          "videoCodec": "h264",
+          "audioCodec": "aac",
+          "container": "mp4",
+          "mime": "video/mp4",
+          "size": 225464321
+        },
+        {
+          "url": "https://assets.bigvu.tv/storyVideos/68ea1dae67bc640b47b1381e/takes/68ea1dae67bc640b47b13823/accd5201-83dc-41db-b510-2b87bc43fa39/7acbace3-fab2-4bec-b20c-ab24ad016ba8-video_360.mp4",
+          "width": 640,
+          "height": 360,
+          "fps": 30,
+          "videoBitrate": 500638,
+          "audioBitrate": 319999,
+          "videoCodec": "h264",
+          "audioCodec": "aac",
+          "container": "mp4",
+          "mime": "video/mp4",
+          "size": 34882346
+        }
+      ],
+      "thumbnails": [
+        {
+          "width": 1920,
+          "height": 1080,
+          "url": "https://assets.bigvu.tv/storyVideos/68ea1dae67bc640b47b1381e/takes/68ea1dae67bc640b47b13823/accd5201-83dc-41db-b510-2b87bc43fa39/7acbace3-fab2-4bec-b20c-ab24ad016ba8-video_thumb_1080.0000001.jpeg",
+          "mime": "image/jpeg",
+          "size": 268353,
+          "format": "jpeg",
+          "type": "image#remote"
+        },
+        {
+          "width": 640,
+          "height": 360,
+          "url": "https://assets.bigvu.tv/storyVideos/68ea1dae67bc640b47b1381e/takes/68ea1dae67bc640b47b13823/accd5201-83dc-41db-b510-2b87bc43fa39/7acbace3-fab2-4bec-b20c-ab24ad016ba8-video_thumb_360.0000001.jpeg",
+          "mime": "image/jpeg",
+          "size": 55217,
+          "format": "jpeg",
+          "type": "image#remote"
+        }
+      ],
+      "audio": {
+        "url": "https://assets.bigvu.tv/storyVideos/68ea1dae67bc640b47b1381e/takes/68ea1dae67bc640b47b13823/audio_stream.m4a",
+        "audioBitrate": 320031,
+        "audioCodec": "aac",
+        "mime": "audio/x-m4a",
+        "size": 13551905
+      }
+    }
+  ],
+  "captions": [
+    {
+      "groupId": "68ea1dae67bc640b47b13823",
+      "lang": "hi-IN",
+      "sourceLocale": "hi-IN",
+      "url": "https://assets.bigvu.tv/storyVideos/68ea1dae67bc640b47b1381e/takes/68ea1dae67bc640b47b13823/caption_hi-IN.vtt",
+      "status": 2
+    }
+  ],
+  "segmentation": [
+    {
+      "groupId": "68ea1dae67bc640b47b13823",
+      "locale": "hi-IN",
+      "sourceLocale": "hi-IN",
+      "url": "https://assets.bigvu.tv/storyVideos/68ea1dae67bc640b47b1381e/takes/68ea1dae67bc640b47b13823/segmentation_hi-IN.json",
+      "status": 2
+    }
+  ],
+  "metadata": {
+    "lang": "hi"
+  }
+}

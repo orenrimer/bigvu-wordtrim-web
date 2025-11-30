@@ -1,0 +1,70 @@
+{
+  "id": "69004c7929c89bd4447266fe",
+  "storyId": "69004c7929c89bd4447266fe",
+  "headline": "Dr. Sachitra Rathod is a Pediatrician in Kapra, Hyderabad.mp4",
+  "videos": [
+    {
+      "id": "69004c7929c89bd444726703",
+      "mediaId": "69004c7929c89bd444726703",
+      "groupId": "69004c7929c89bd444726703",
+      "type": "video#remote",
+      "duration": 35.6,
+      "hlsPlaylistUrl": "https://assets.bigvu.tv/storyVideos/69004c7929c89bd4447266fe/takes/69004c7929c89bd444726703/879e0a01-351e-4105-842a-e178b3f429e4/2c11495e-01b7-4193-9a60-3461b498e124-video.m3u8",
+      "features": [],
+      "streams": [
+        {
+          "url": "https://assets.bigvu.tv/storyVideos/69004c7929c89bd4447266fe/takes/69004c7929c89bd444726703/645854e2-e507-4435-968c-acf2655b997c/7315ef6d-539c-4987-b70d-27a5ddf90fbe-video_360.mp4",
+          "width": 360,
+          "height": 640,
+          "fps": 30,
+          "videoBitrate": 521220,
+          "audioBitrate": 319999,
+          "videoCodec": "h264",
+          "audioCodec": "aac",
+          "container": "mp4",
+          "mime": "video/mp4",
+          "size": 3775756
+        }
+      ],
+      "thumbnails": [
+        {
+          "width": 360,
+          "height": 640,
+          "url": "https://assets.bigvu.tv/storyVideos/69004c7929c89bd4447266fe/takes/69004c7929c89bd444726703/645854e2-e507-4435-968c-acf2655b997c/7315ef6d-539c-4987-b70d-27a5ddf90fbe-video_thumb_360.0000001.jpeg",
+          "mime": "image/jpeg",
+          "size": 35351,
+          "format": "jpeg",
+          "type": "image#remote"
+        }
+      ],
+      "audio": {
+        "url": "https://assets.bigvu.tv/storyVideos/69004c7929c89bd4447266fe/takes/69004c7929c89bd444726703/audio_stream.m4a",
+        "audioBitrate": 320299,
+        "audioCodec": "aac",
+        "mime": "audio/x-m4a",
+        "size": 1431716
+      }
+    }
+  ],
+  "captions": [
+    {
+      "groupId": "69004c7929c89bd444726703",
+      "lang": "en-US",
+      "sourceLocale": "en-US",
+      "url": "https://assets.bigvu.tv/storyVideos/69004c7929c89bd4447266fe/takes/69004c7929c89bd444726703/caption_en-US.vtt",
+      "status": 2
+    }
+  ],
+  "segmentation": [
+    {
+      "groupId": "69004c7929c89bd444726703",
+      "locale": "en-US",
+      "sourceLocale": "en-US",
+      "url": "https://assets.bigvu.tv/storyVideos/69004c7929c89bd4447266fe/takes/69004c7929c89bd444726703/segmentation_en-US.json",
+      "status": 2
+    }
+  ],
+  "metadata": {
+    "lang": "en"
+  }
+}
