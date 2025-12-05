@@ -1,102 +1,76 @@
 // Skeleton Loader Styles
-// Matches the transcript-content-wrapper layout to prevent jumping when content loads
+// Matches the words-container position within transcript-content
+
+// Host element must match how transcript-content-wrapper behaves
+:host {
+    display: block;
+    width: 100%;
+}
 
 .skeleton-wrapper {
-    display: flex;
-    flex-direction: row;
-    gap: var(--spacing-4); // Matches transcript-content-wrapper gap
     width: 100%;
-    align-items: stretch;
 
-    // RTL support: In RTL mode, flex items reverse automatically
+    // LTR: padding-left for timestamps space
+    // timestamps-container: min-width 60px + gap 16px = 76px
+    &[dir="ltr"] {
+        padding-left: calc(60px + var(--spacing-4));
+    }
+
+    // RTL: padding-right for timestamps space + extra 6px for padding asymmetry
+    // (RTL timestamps has padding-right 16px but padding-left 10px, difference = 6px)
     &[dir="rtl"] {
         direction: rtl;
+        padding-right: calc(60px + var(--spacing-4) + 6px);
     }
 
-    // Responsive: Reduce gap on smaller screens (matches main-editor-container)
+    // Responsive: Adjust padding for smaller screens
     @media (max-width: 1024px) {
-        gap: 2px;
+
+        // min-width 50px + gap 2px
+        &[dir="ltr"] {
+            padding-left: calc(50px + 2px);
+        }
+
+        &[dir="rtl"] {
+            padding-right: calc(50px + 2px + 6px);
+        }
     }
 
     @media (max-width: 768px) {
-        gap: 1px;
+
+        // min-width 45px + gap 1px
+        &[dir="ltr"] {
+            padding-left: calc(45px + 1px);
+        }
+
+        &[dir="rtl"] {
+            padding-right: calc(45px + 1px + 4px);
+        }
     }
 }
 
-// Timestamps placeholder - matches .timestamps-container sizing
-.skeleton-timestamps-placeholder {
-    flex-shrink: 0;
-    min-width: 60px; // Matches timestamps-container min-width
-    padding: var(--timestamp-container-padding-y) var(--timestamp-container-padding-x);
-
-    // LTR: Match left padding
-    .skeleton-wrapper[dir="ltr"] & {
-        padding-left: var(--spacing-4);
-    }
-
-    // RTL: Match right padding
-    .skeleton-wrapper[dir="rtl"] & {
-        padding-right: var(--spacing-4);
-    }
-
-    // Responsive: Match timestamps-container responsive sizing
-    @media (max-width: 1024px) {
-        min-width: 50px;
-
-        .skeleton-wrapper[dir="ltr"] & {
-            padding-left: var(--spacing-2);
-            padding-right: 2px;
-        }
-
-        .skeleton-wrapper[dir="rtl"] & {
-            padding-right: var(--spacing-2);
-            padding-left: 2px;
-        }
-
-        padding-top: calc(var(--timestamp-container-padding-y) * 0.5);
-        padding-bottom: calc(var(--timestamp-container-padding-y) * 0.5);
-    }
-
-    @media (max-width: 768px) {
-        min-width: 45px;
-
-        .skeleton-wrapper[dir="ltr"] & {
-            padding-left: var(--spacing-1);
-            padding-right: 1px;
-        }
-
-        .skeleton-wrapper[dir="rtl"] & {
-            padding-right: var(--spacing-1);
-            padding-left: 1px;
-        }
-
-        padding-top: calc(var(--timestamp-container-padding-y) * 0.5);
-        padding-bottom: calc(var(--timestamp-container-padding-y) * 0.5);
-    }
-}
-
-// Skeleton words container - matches .words-container layout exactly
+// Skeleton words container - matches .words-container layout and position
 .skeleton-container {
     display: flex;
     flex-wrap: wrap;
     gap: var(--word-chip-gap); // Matches words-container gap
     line-height: 2.5rem; // Matches words-container
-    flex: 1;
-    min-width: 0; // Allow flex item to shrink
+    min-width: 0;
+    width: 100%;
 
-    // RTL support: skeleton words should flow right-to-left
+    // RTL: set direction for content flow
     .skeleton-wrapper[dir="rtl"] & {
         direction: rtl;
     }
 
-    // Responsive: Match words-container responsive sizing exactly
+    // Responsive: Match words-container responsive sizing
     @media (max-width: 1024px) {
         line-height: 2rem;
     }
 
     @media (max-width: 768px) {
         line-height: 1.75rem;
-        gap: calc(var(--word-chip-gap) * 0.8); // Matches words-container responsive gap
+        gap: calc(var(--word-chip-gap) * 0.8);
     }
 }
 
