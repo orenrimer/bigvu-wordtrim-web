@@ -17,11 +17,19 @@ export const environment = {
     tutorialVideoUrl: 'https://assets.bigvu.tv/storyVideos/67309c7576c4e181b919dbdf/takes/67309c7576c4e181b919dbe7/47160a9f-be58-4728-8936-c4fd97946892/video.m3u8',
 
     // Video data file index (1-21) for loading from assets/data/videos
-    videoDataIndex: 21, // Default to video 1, can be changed to 1-21
+    videoDataIndex: 19, // Default to video 1, can be changed to 1-21
 
     // API timeout settings 
     apiTimeout: 30000, // 30 seconds
 
     // Enable debug logging
-    enableDebugLogs: true
+    enableDebugLogs: true,
+
+    // Debug: Artificial delay (ms) for segmentation loading to test skeleton loader
+    // Set to 0 to disable delay
+    debugSegmentationDelayMs: 2000,
+
+    // Debug: Force RTL direction for skeleton loader testing
+    // Set to true to test RTL skeleton layout before words load
+    debugForceRTL: false
 };

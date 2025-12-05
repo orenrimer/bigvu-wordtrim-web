@@ -1,3 +1,9 @@
-<div class="skeleton-container">
-    <div class="skeleton-word" *ngFor="let item of skeletonArray"></div>
+<div class="skeleton-wrapper" [attr.dir]="direction">
+    <!-- Timestamps placeholder - matches timestamps-container width -->
+    <div class="skeleton-timestamps-placeholder"></div>
+    
+    <!-- Skeleton words container - matches words-container layout -->
+    <div class="skeleton-container">
+        <div class="skeleton-word" *ngFor="let item of skeletonArray"></div>
+    </div>
 </div>
