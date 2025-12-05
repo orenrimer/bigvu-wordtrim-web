@@ -25,6 +25,7 @@ import { TimelineComponent } from '../timeline/timeline.component';
 import { TutorialModalComponent } from '../tutorial-modal/tutorial-modal.component';
 import { Word, WordState, EditorStateSnapshot } from '../../models';
 import { Gap, GapState } from '../../models/gap.interface';
+import { isRTLFromSegmentationUrl } from '../../utils/language-direction.util';
 
 /**
  * Main Editor Container Component
@@ -133,8 +134,8 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
 
   /**
    * Early RTL detection for skeleton loader (before words load)
-   * Detects RTL from segmentation URL language code or uses debug setting
-   * RTL languages: Hebrew (he), Arabic (ar)
+   * Detects RTL from segmentation URL language code using Intl.Locale API
+   * Supports all RTL languages: Hebrew, Arabic, Persian, Urdu, etc.
    */
   public readonly preloadRTL = computed(() => {
     // Debug override for testing
@@ -142,16 +143,10 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       return true;
     }
 
-    // Try to detect from segmentation URL language code
+    // Detect RTL from segmentation URL language code
     const metadata = this.videoMetadata();
     if (metadata?.segmentationUrl) {
-      const url = metadata.segmentationUrl.toLowerCase();
-      // Check for RTL language codes in URL (he-IL, ar-SA, etc.)
-      if (url.includes('_he-') || url.includes('_ar-') ||
-        url.includes('/he-') || url.includes('/ar-') ||
-        url.includes('_he.') || url.includes('_ar.')) {
-        return true;
-      }
+      return isRTLFromSegmentationUrl(metadata.segmentationUrl);
     }
 
     return false;
