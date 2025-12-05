@@ -75,11 +75,11 @@
     }
 }
 
-// Skeleton words container - matches .words-container layout
+// Skeleton words container - matches .words-container layout exactly
 .skeleton-container {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--word-chip-gap, 0.5rem);
+    gap: var(--word-chip-gap); // Matches words-container gap
     line-height: 2.5rem; // Matches words-container
     flex: 1;
     min-width: 0; // Allow flex item to shrink
@@ -89,22 +89,25 @@
         direction: rtl;
     }
 
-    // Responsive: Match words-container responsive sizing
+    // Responsive: Match words-container responsive sizing exactly
     @media (max-width: 1024px) {
         line-height: 2rem;
     }
 
     @media (max-width: 768px) {
         line-height: 1.75rem;
-        gap: calc(var(--word-chip-gap, 0.5rem) * 0.8);
+        gap: calc(var(--word-chip-gap) * 0.8); // Matches words-container responsive gap
     }
 }
 
 .skeleton-word {
-    height: 2rem;
+    // Match word chip height: font-size * line-height + padding
+    height: calc(var(--font-size-24) * var(--word-chip-line-height) + var(--word-chip-padding-y) * 2);
+    border-radius: var(--radius-word-chip);
+
+    // Shimmer animation
     background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
     background-size: 200% 100%;
-    border-radius: 4px;
     animation: shimmer 1.5s ease-in-out infinite;
 
     // Variable widths to simulate different word lengths
@@ -127,6 +130,15 @@
 
     &:nth-child(11n) {
         width: 3rem;
+    }
+
+    // Responsive: Match word chip responsive sizing
+    @media (max-width: 768px) {
+        height: calc(var(--font-size-24) * var(--word-chip-line-height) + var(--word-chip-padding-y) * 2 * 0.9);
+    }
+
+    @media (max-width: 480px) {
+        height: calc(var(--font-size-24) * var(--word-chip-line-height) + var(--word-chip-padding-y) * 2 * 0.8);
     }
 }
 
