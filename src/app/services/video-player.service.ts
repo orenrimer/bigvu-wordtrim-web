@@ -1190,6 +1190,10 @@ export class VideoPlayerService {
                 return;
             }
 
+            // Update current time at ~60fps for accurate word highlighting
+            // This is more accurate than timeupdate which fires ~4 times/second
+            this._currentTime.set(this.videoElement.currentTime);
+
             // Check preview end (also checked in timeupdate for precision)
             this.checkPreviewEnd();
 
