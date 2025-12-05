@@ -1,8 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { catchError, retry, tap, throwError, Observable, map, switchMap, of, delay } from 'rxjs';
+import { catchError, retry, throwError, Observable, switchMap, of } from 'rxjs';
 import { Word, Segment, WordState } from '../models';
-import { environment } from '../../environments/environment.development';
 
 /**
  * Service responsible for loading and processing video segmentation data
@@ -41,9 +40,6 @@ export class SegmentationLoaderService {
         this._error.set(null);
 
         return this.http.get<Segment[]>(url).pipe(
-            // Debug: Add artificial delay to test skeleton loader (set to 0 in environment to disable)
-            delay(environment.debugSegmentationDelayMs || 0),
-
             // Retry failed requests with exponential backoff
             retry({
                 count: SegmentationLoaderService.RETRY_COUNT,
