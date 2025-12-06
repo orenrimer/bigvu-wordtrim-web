@@ -1,10 +1,14 @@
 /**
  * Language Direction Utility
- * Provides functions to detect RTL languages from language codes
+ * Provides functions to detect RTL languages from language codes and text content
  */
 
 // Fallback list of RTL language prefixes (used when Intl.Locale.getTextInfo is not available)
 const RTL_LANGUAGE_PREFIXES = ['ar', 'he', 'fa', 'ur', 'yi', 'ps', 'sd', 'ku', 'dv', 'ha', 'khw', 'ks', 'ku', 'ps', 'ur', 'yi'];
+
+// Comprehensive RTL character ranges
+// Covers: Hebrew, Arabic, Syriac, Thaana, N'Ko, Samaritan, and Arabic presentation forms
+const RTL_CHAR_REGEX = /[\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0750-\u077F\u0780-\u07BF\u07C0-\u07FF\u0800-\u083F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 
 /**
  * Get text direction for a given language code
@@ -65,5 +69,34 @@ export function extractLanguageFromSegmentationUrl(url: string): string | null {
 export function isRTLFromSegmentationUrl(url: string): boolean {
     const langCode = extractLanguageFromSegmentationUrl(url);
     return langCode ? isRTLLanguage(langCode) : false;
+}
+
+/**
+ * Check if a text string contains RTL characters
+ * @param text Text to check
+ * @returns true if text contains RTL characters, false otherwise
+ */
+export function containsRTLCharacters(text: string): boolean {
+    if (!text) return false;
+    return RTL_CHAR_REGEX.test(text);
+}
+
+/**
+ * Detect if an array of words contains RTL text
+ * Samples the first N words to determine the direction
+ * @param words Array of word strings to check
+ * @param sampleSize Number of words to sample (default: 5)
+ * @returns true if RTL text detected, false otherwise
+ */
+export function isRTLFromWords(words: string[], sampleSize: number = 5): boolean {
+    if (!words || words.length === 0) return false;
+
+    const samplesToCheck = Math.min(sampleSize, words.length);
+    for (let i = 0; i < samplesToCheck; i++) {
+        if (containsRTLCharacters(words[i])) {
+            return true;
+        }
+    }
+    return false;
 }
 

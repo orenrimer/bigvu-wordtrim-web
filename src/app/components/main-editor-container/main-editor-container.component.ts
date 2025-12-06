@@ -25,7 +25,7 @@ import { TimelineComponent } from '../timeline/timeline.component';
 import { TutorialModalComponent } from '../tutorial-modal/tutorial-modal.component';
 import { Word, WordState, EditorStateSnapshot } from '../../models';
 import { Gap, GapState } from '../../models/gap.interface';
-import { isRTLFromSegmentationUrl } from '../../utils/language-direction.util';
+import { isRTLFromSegmentationUrl, isRTLFromWords } from '../../utils/language-direction.util';
 
 /**
  * Main Editor Container Component
@@ -117,19 +117,9 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
       return false;
     }
 
-    // Check first few words for RTL characters
-    // Arabic: U+0600-U+06FF, Hebrew: U+0590-U+05FF
-    const rtlRegex = /[\u0590-\u05FF\u0600-\u06FF]/;
-
-    // Sample first RTL_DETECTION_SAMPLE_SIZE words to detect language
-    const sampleSize = Math.min(MainEditorContainerComponent.RTL_DETECTION_SAMPLE_SIZE, wordsList.length);
-    for (let i = 0; i < sampleSize; i++) {
-      if (rtlRegex.test(wordsList[i].word)) {
-        return true;
-      }
-    }
-
-    return false;
+    // Use centralized RTL detection utility
+    const wordStrings = wordsList.slice(0, MainEditorContainerComponent.RTL_DETECTION_SAMPLE_SIZE).map(w => w.word);
+    return isRTLFromWords(wordStrings, MainEditorContainerComponent.RTL_DETECTION_SAMPLE_SIZE);
   });
 
   /**
@@ -138,11 +128,6 @@ export class MainEditorContainerComponent implements OnInit, AfterViewInit, OnDe
    * Supports all RTL languages: Hebrew, Arabic, Persian, Urdu, etc.
    */
   public readonly preloadRTL = computed(() => {
-    // Debug override for testing
-    if (environment.debugForceRTL) {
-      return true;
-    }
-
     // Detect RTL from segmentation URL language code
     const metadata = this.videoMetadata();
     if (metadata?.segmentationUrl) {
