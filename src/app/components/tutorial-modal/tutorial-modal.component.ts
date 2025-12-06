@@ -1,4 +1,4 @@
-import { Component, inject, HostListener, ViewChild, ElementRef, AfterViewInit, OnDestroy, effect, signal } from '@angular/core';
+import { Component, inject, HostListener, ViewChild, ElementRef, AfterViewInit, OnDestroy, effect, signal, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TutorialService } from '../../services/tutorial.service';
 import { HlsLoaderService } from '../../services/hls-loader.service';
@@ -64,18 +64,10 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
     // Track if position is ready (CSS custom properties are set)
     protected readonly isPositionReady = signal<boolean>(false);
 
-    // Track RTL mode state
-    protected readonly isRTL = signal<boolean>(false);
+    // RTL mode - passed from parent
+    @Input() isRTL: boolean = false;
 
     constructor() {
-        // Watch for tip modal state and update RTL check
-        effect(() => {
-            const modalState = this.tutorialService.modalState();
-            if (modalState === 'tip') {
-                // Check RTL when tip modal is shown
-                this.isRTL.set(document.documentElement.classList.contains('is-rtl'));
-            }
-        }, { allowSignalWrites: true });
 
         // Watch for modal state changes and initialize video when switching to video mode
         effect(() => {
@@ -166,9 +158,6 @@ export class TutorialModalComponent implements AfterViewInit, OnDestroy {
 
                     // All conditions met - position is ready
                     this.isPositionReady.set(true);
-
-                    // Update RTL state when position is ready
-                    this.isRTL.set(document.documentElement.classList.contains('is-rtl'));
 
                     // After showing modal, verify position doesn't change due to layout shifts
                     // Check position again after a short delay to catch any layout shifts

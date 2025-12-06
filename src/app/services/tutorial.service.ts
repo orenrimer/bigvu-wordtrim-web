@@ -204,13 +204,6 @@ export class TutorialService {
 
                                 // Verify the chip has valid dimensions and is actually visible
                                 if (firstChipRect.width > 0 && firstChipRect.height > 0 && firstChipRect.left > 0) {
-                                    // Ensure RTL class is set before calculating positions
-                                    if (isRTL) {
-                                        document.documentElement.classList.add('is-rtl');
-                                    } else {
-                                        document.documentElement.classList.remove('is-rtl');
-                                    }
-
                                     // Use first chip's left position for horizontal alignment (LTR)
                                     // This aligns the modal with the first word, not the container edge
                                     const leftPosition = firstChipRect.left;

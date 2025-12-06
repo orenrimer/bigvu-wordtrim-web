@@ -3,7 +3,7 @@
 <div class="modal-container">
     <!-- TIP MODE -->
     @if (tutorialService.modalState() === 'tip' && isPositionReady()) {
-    <div #tipModal class="modal-content modal-tip" [class.is-rtl-modal]="isRTL()" dir="auto" role="dialog"
+    <div #tipModal class="modal-content modal-tip" [class.is-rtl-modal]="isRTL" dir="auto" role="dialog"
         aria-modal="false" aria-label="Editing tip">
         <!-- Close Button -->
         <button class="close-button" (click)="close()" aria-label="Close" type="button">

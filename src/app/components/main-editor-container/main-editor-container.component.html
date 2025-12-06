@@ -71,7 +71,8 @@
             <!-- Transcript Content with Timestamps -->
             <div #transcriptContent class="transcript-content">
                 <!-- Skeleton Loader - Show while segmentation is loading or video data is still loading-->
-                <app-skeleton-loader *ngIf="isLoading() || isLoadingVideoData()" [wordCount]="50" [direction]="preloadRTL() ? 'rtl' : 'ltr'"></app-skeleton-loader>
+                <app-skeleton-loader *ngIf="isLoading() || isLoadingVideoData()" [wordCount]="50"
+                    [direction]="preloadRTL() ? 'rtl' : 'ltr'"></app-skeleton-loader>
 
                 <!-- Error State - Show if segmentation failed (but not for empty data) -->
                 <div *ngIf="hasError() && !isLoading() && !isEmptySegmentationError()" class="transcript-error-section"
@@ -153,7 +154,7 @@
          - Preview tip mode: Always show if modal state is 'preview-tip' (Feature 13.11)
          - Tip mode: Only show if words exist and no error (or empty segmentation error)
          - Auto-show tip: Only show if words exist and user hasn't clicked word yet -->
-    <app-tutorial-modal
+    <app-tutorial-modal [isRTL]="isRTL()"
         *ngIf="!isLoading() && (tutorialService.modalState() === 'video' || tutorialService.modalState() === 'preview-tip' || ((!hasError() || isEmptySegmentationError()) && hasWords() && (tutorialService.modalState() !== 'hidden' || !tutorialService.hasClickedWord())))"></app-tutorial-modal>
 
     <!-- Gap Review Mode Warning Alert (Feature 14) -->
