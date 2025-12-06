@@ -10,42 +10,15 @@
 .skeleton-wrapper {
     width: 100%;
 
-    // LTR: padding-left for timestamps space
-    // timestamps-container: min-width 60px + gap 16px = 76px
+    // LTR: padding-left for timestamps space (width + gap)
     &[dir="ltr"] {
-        padding-left: calc(60px + var(--spacing-4));
+        padding-left: calc(var(--timestamp-container-width) + var(--editor-content-gap));
     }
 
-    // RTL: padding-right for timestamps space + extra 6px for padding asymmetry
-    // (RTL timestamps has padding-right 16px but padding-left 10px, difference = 6px)
+    // RTL: padding-right for timestamps space (width + gap)
     &[dir="rtl"] {
         direction: rtl;
-        padding-right: calc(60px + var(--spacing-4) + 6px);
-    }
-
-    // Responsive: Adjust padding for smaller screens
-    @media (max-width: 1024px) {
-
-        // min-width 50px + gap 2px
-        &[dir="ltr"] {
-            padding-left: calc(50px + 2px);
-        }
-
-        &[dir="rtl"] {
-            padding-right: calc(50px + 2px + 6px);
-        }
-    }
-
-    @media (max-width: 768px) {
-
-        // min-width 45px + gap 1px
-        &[dir="ltr"] {
-            padding-left: calc(45px + 1px);
-        }
-
-        &[dir="rtl"] {
-            padding-right: calc(45px + 1px + 4px);
-        }
+        padding-right: calc(var(--timestamp-container-width) + var(--editor-content-gap));
     }
 }
 
@@ -53,8 +26,8 @@
 .skeleton-container {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--word-chip-gap); // Matches words-container gap
-    line-height: 2.5rem; // Matches words-container
+    gap: var(--word-chip-gap);
+    line-height: var(--words-container-line-height);
     min-width: 0;
     width: 100%;
 
@@ -65,11 +38,11 @@
 
     // Responsive: Match words-container responsive sizing
     @media (max-width: 1024px) {
-        line-height: 2rem;
+        line-height: var(--words-container-line-height-md);
     }
 
     @media (max-width: 768px) {
-        line-height: 1.75rem;
+        line-height: var(--words-container-line-height-sm);
         gap: calc(var(--word-chip-gap) * 0.8);
     }
 }

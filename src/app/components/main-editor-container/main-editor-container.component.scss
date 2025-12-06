@@ -368,14 +368,14 @@
         }
     }
 
+    // Timestamps container - fixed width 56px, only top/bottom padding
     .timestamps-container {
         position: relative;
         flex-shrink: 0;
         align-self: stretch;
-        padding: var(--timestamp-container-padding-y) var(--timestamp-container-padding-x);
-        min-width: fit-content;
+        width: var(--timestamp-container-width); // Always 56px
+        padding: var(--timestamp-container-padding-y) 0; // Only top/bottom padding (10px)
         overflow: visible; // Ensure timestamps are not clipped
-        width: auto; // Allow container to grow as needed
 
         .timestamp {
             position: absolute;
@@ -399,100 +399,23 @@
         }
     }
 
-    // LTR: Position timestamps on the right side of container with margin from words
+    // LTR: Position timestamps on the right side of container
     .transcript-content-wrapper[dir="ltr"] .timestamps-container .timestamp {
-        right: var(--spacing-4); // 16px margin from right edge (towards words)
-        left: auto; // Ensure left is not set
+        right: 0;
+        left: auto;
     }
 
-    // RTL: Position timestamps on the left side of container with margin from words
+    // RTL: Position timestamps on the left side of container
     .transcript-content-wrapper[dir="rtl"] .timestamps-container .timestamp {
-        left: var(--spacing-4); // 16px margin from left edge (towards words)
-        right: auto; // Ensure right is not set
-    }
-
-    // LTR: Ensure timestamps container has enough left padding to prevent clipping
-    .transcript-content-wrapper[dir="ltr"] .timestamps-container {
-        padding-left: var(--spacing-4); // Ensure enough space for timestamps
-        min-width: 60px; // Minimum width to accommodate timestamps (e.g., "00:00s" ~35px + padding + margin)
-    }
-
-    // RTL: Ensure timestamps container has enough right padding to prevent clipping
-    .transcript-content-wrapper[dir="rtl"] .timestamps-container {
-        padding-right: var(--spacing-4); // Ensure enough space for timestamps
-        min-width: 60px; // Minimum width to accommodate timestamps
-    }
-
-    // Responsive: Reduce margin on smaller screens
-    @media (max-width: 1024px) {
-        .transcript-content-wrapper[dir="ltr"] .timestamps-container .timestamp {
-            right: 2px; // 2px margin on medium screens (1024px and below)
-        }
-
-        .transcript-content-wrapper[dir="rtl"] .timestamps-container .timestamp {
-            left: 2px; // 2px margin on medium screens (1024px and below)
-        }
-    }
-
-    @media (max-width: 768px) {
-        .transcript-content-wrapper[dir="ltr"] .timestamps-container .timestamp {
-            right: 1px; // 1px margin on small screens
-        }
-
-        .transcript-content-wrapper[dir="rtl"] .timestamps-container .timestamp {
-            left: 1px; // 1px margin on small screens
-        }
-    }
-
-    // Responsive: Adjust timestamps container for smaller screens
-    @media (max-width: 1024px) {
-        .transcript-content-wrapper[dir="ltr"] .timestamps-container {
-            padding-left: var(--spacing-2); // Ensure enough left padding for LTR (8px)
-            padding-right: 2px; // Minimal right padding
-            min-width: 50px; // Reduced minimum width but still enough for timestamps
-        }
-
-        .transcript-content-wrapper[dir="rtl"] .timestamps-container {
-            padding-right: var(--spacing-2); // Ensure enough right padding for RTL (8px)
-            padding-left: 2px; // Minimal left padding
-            min-width: 50px; // Reduced minimum width but still enough for timestamps
-        }
-
-        .timestamps-container {
-            padding-top: calc(var(--timestamp-container-padding-y) * 0.5);
-            padding-bottom: calc(var(--timestamp-container-padding-y) * 0.5);
-        }
-    }
-
-    @media (max-width: 768px) {
-        .transcript-content-wrapper[dir="ltr"] .timestamps-container {
-            padding-left: var(--spacing-1); // Minimal left padding for LTR (4px)
-            padding-right: 1px; // Minimal right padding
-            min-width: 45px; // Minimum width for small screens
-        }
-
-        .transcript-content-wrapper[dir="rtl"] .timestamps-container {
-            padding-right: var(--spacing-1); // Minimal right padding for RTL (4px)
-            padding-left: 1px; // Minimal left padding
-            min-width: 45px; // Minimum width for small screens
-        }
-
-        .timestamps-container {
-            padding-top: calc(var(--timestamp-container-padding-y) * 0.5);
-            padding-bottom: calc(var(--timestamp-container-padding-y) * 0.5);
-
-            .timestamp {
-                font-size: var(--font-size-10);
-                padding: calc(var(--timestamp-padding-y) * 0.5) calc(var(--timestamp-padding-x) * 0.5);
-            }
-        }
+        left: 0;
+        right: auto;
     }
 
     .words-container {
         display: flex;
         flex-wrap: wrap;
         gap: var(--word-chip-gap);
-        line-height: 2.5rem;
+        line-height: var(--words-container-line-height);
         flex: 1;
         min-width: 0; // Allow flex item to shrink below content size
         overflow-wrap: break-word; // Ensure long words wrap
@@ -549,13 +472,13 @@
     // Responsive: Adjust words container for smaller screens
     @media (max-width: 1024px) {
         .words-container {
-            line-height: 2rem;
+            line-height: var(--words-container-line-height-md);
         }
     }
 
     @media (max-width: 768px) {
         .words-container {
-            line-height: 1.75rem;
+            line-height: var(--words-container-line-height-sm);
             gap: calc(var(--word-chip-gap) * 0.8);
         }
 
