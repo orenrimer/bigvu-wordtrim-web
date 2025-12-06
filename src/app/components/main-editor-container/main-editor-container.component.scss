@@ -318,6 +318,7 @@
         flex: 1; // Take remaining space between selection-info and action-bar
         overflow-y: auto; // Enable scrolling
         overflow-x: hidden;
+        scrollbar-gutter: stable; // Reserve space for scrollbar to prevent layout shift
         -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
         scroll-behavior: smooth; // Smooth scrolling
 
@@ -325,7 +326,7 @@
         .transcript-content-wrapper {
             display: flex;
             flex-direction: row;
-            gap: var(--spacing-4); // Reduced gap since timestamps have their own margin
+            gap: var(--editor-content-gap);
             width: 100%;
             align-items: stretch;
 
@@ -337,11 +338,11 @@
 
             // Responsive: Reduce gap on smaller screens
             @media (max-width: 1024px) {
-                gap: 2px; // 2px gap on medium screens (1024px and below)
+                gap: var(--editor-content-gap-md);
             }
 
             @media (max-width: 768px) {
-                gap: 1px; // 1px gap on small screens
+                gap: var(--editor-content-gap-sm);
             }
         }
     }
@@ -362,6 +363,7 @@
             padding: var(--spacing-8);
             overflow-y: auto; // Enable scrolling on mobile
             overflow-x: hidden;
+            scrollbar-gutter: stable; // Reserve space for scrollbar to prevent layout shift
             -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
             scroll-behavior: smooth;
             flex: 1; // Take remaining space (above action bar)

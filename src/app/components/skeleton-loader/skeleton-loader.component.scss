@@ -20,6 +20,27 @@
         direction: rtl;
         padding-right: calc(var(--timestamp-container-width) + var(--editor-content-gap));
     }
+
+    // Responsive: Match transcript-content-wrapper gap changes
+    @media (max-width: 1024px) {
+        &[dir="ltr"] {
+            padding-left: calc(var(--timestamp-container-width) + var(--editor-content-gap-md));
+        }
+
+        &[dir="rtl"] {
+            padding-right: calc(var(--timestamp-container-width) + var(--editor-content-gap-md));
+        }
+    }
+
+    @media (max-width: 768px) {
+        &[dir="ltr"] {
+            padding-left: calc(var(--timestamp-container-width) + var(--editor-content-gap-sm));
+        }
+
+        &[dir="rtl"] {
+            padding-right: calc(var(--timestamp-container-width) + var(--editor-content-gap-sm));
+        }
+    }
 }
 
 // Skeleton words container - matches .words-container layout and position
